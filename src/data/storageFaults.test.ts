@@ -175,6 +175,14 @@ describe('quota exceeded during a write', () => {
   })
 })
 
+// File scope, not inside a describe: a beforeEach in one block does not apply to its
+// siblings, and every case here asserts on localStorage.key(i) enumeration, so leftovers
+// from an earlier block read as new evidence. This file had that bug the moment the
+// quarantine-count assertion was added.
+beforeEach(() => {
+  localStorage.clear()
+})
+
 // BEHAVIOR-m2-persistence-seam-010
 // Unreadable stored data is the user's, not noise to be overwritten. The store must keep a
 // retrievable copy before it reseeds, so a bad parse never destroys anything.
@@ -250,5 +258,42 @@ describe('corrupt stored payload', () => {
 
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.value[0]).not.toHaveProperty('salaryExpectation')
+  })
+})
+
+// BEHAVIOR-m2-persistence-seam-011
+// A payload written by a newer build is not corruption. Treating it as unreadable-and-then-
+// reseeded is how a downgrade silently deletes a user's real records, so this path must
+// refuse, preserve, and NOT quarantine.
+describe('payload from a newer schema version', () => {
+  const futureEnvelope = JSON.stringify({
+    schemaVersion: 99,
+    applications: [{ ...seedApplications[0], id: 'written-by-a-newer-build' }],
+  })
+
+  it('reports unsupported-version instead of reading fields it cannot trust', async () => {
+    localStorage.setItem(APPLICATIONS_STORAGE_KEY, futureEnvelope)
+
+    const result = await createLocalStorageRepository().list()
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toEqual({ code: 'unsupported-version', found: 99 })
+  })
+
+  it('writes nothing and leaves the stored bytes byte-identical', async () => {
+    localStorage.setItem(APPLICATIONS_STORAGE_KEY, futureEnvelope)
+
+    const created = await createLocalStorageRepository().create(validInput)
+
+    expect(created.ok).toBe(false)
+    if (!created.ok) expect(created.error).toEqual({ code: 'unsupported-version', found: 99 })
+    expect(localStorage.getItem(APPLICATIONS_STORAGE_KEY)).toBe(futureEnvelope)
+  })
+
+  it('does not quarantine a value that is not actually broken', async () => {
+    localStorage.setItem(APPLICATIONS_STORAGE_KEY, futureEnvelope)
+    await createLocalStorageRepository().list()
+
+    expect(storedKeys().filter((key) => key.startsWith(CORRUPT_PREFIX))).toHaveLength(0)
   })
 })
