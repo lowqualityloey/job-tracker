@@ -1,11 +1,16 @@
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
 import { useApplications } from '../state/applicationsProvider'
 
 export default function ApplicationDetailsPage() {
   const { id } = useParams()
-  const { status, getApplication, error } = useApplications()
+  const { status, getApplication, error, deleteApplication } = useApplications()
+  const navigate = useNavigate()
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   if (status === 'loading') {
     return <EmptyState title="Loading this application" description="Reading your saved record." />
@@ -40,6 +45,24 @@ export default function ApplicationDetailsPage() {
     )
   }
 
+  async function handleDelete(applicationId: string) {
+    setDeleting(true)
+    setDeleteError(null)
+    const result = await deleteApplication(applicationId)
+    setDeleting(false)
+
+    if (result.ok) {
+      navigate('/applications')
+      return
+    }
+
+    setDeleteError(
+      result.error.code === 'not-found'
+        ? 'That application was already deleted, probably in another tab.'
+        : 'The application could not be deleted. It is still here.',
+    )
+  }
+
   return (
     <section className="page-stack">
       <div className="page-actions">
@@ -71,6 +94,40 @@ export default function ApplicationDetailsPage() {
           <strong>Notes:</strong> {application.notes ?? 'No notes yet.'}
         </p>
       </article>
+
+      {/* Destructive, no undo, and storage holds the only copy — so the button that destroys
+          is not the same control that asks for permission. The snapshot drops the record only
+          after the store agrees, which is why a refused delete leaves it on screen. */}
+      <div className="delete-zone">
+        {confirming ? (
+          <div className="delete-confirm" role="group" aria-label="Confirm deletion">
+            <p>Delete this application? This cannot be undone.</p>
+            <div className="form-actions">
+              <button
+                className="button button-danger"
+                type="button"
+                disabled={deleting}
+                onClick={() => void handleDelete(application.id)}
+              >
+                {deleting ? 'Deleting…' : 'Delete application'}
+              </button>
+              <button className="button button-quiet" type="button" onClick={() => setConfirming(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="button button-danger" type="button" onClick={() => setConfirming(true)}>
+            Delete
+          </button>
+        )}
+
+        {deleteError && (
+          <p className="form-error" role="alert">
+            {deleteError}
+          </p>
+        )}
+      </div>
     </section>
   )
 }

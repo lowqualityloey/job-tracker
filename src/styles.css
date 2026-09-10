@@ -324,3 +324,12 @@ textarea {
   margin-top: 10px;
   padding: 8px 12px;
 }
+  margin-top: 10px;
+  padding: 8px 12px;
+}
+
+.delete-zone {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}

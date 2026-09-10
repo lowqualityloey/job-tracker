@@ -82,6 +82,18 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
     },
     [repository],
   )
+  const deleteApplication = useCallback(
+    async (id: string) => {
+      const result = await repository.remove(id)
+
+      if (result.ok) {
+        setApplications((current) => current.filter((record) => record.id !== id))
+      }
+
+      return result
+    },
+    [repository],
+  )
   const api = useMemo<ApplicationsApi>(
     () => ({
       status,
@@ -90,13 +102,13 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
       storageAvailable,
       getApplication: (id: string) => applications.find((record) => record.id === id),
       createApplication,
-      // Honest placeholder: delete’s Red test is BEHAVIOR-017. Returning an empty list here would
+      // (the snapshot only drops a record once the store has agreed to the removal)
       // let that Green commit look as though it had passed on its first attempt.
       // let a later Green commit appear to have passed on its first attempt.
       updateApplication,
-      deleteApplication: async () => err({ code: 'storage-error', detail: 'not implemented: BEHAVIOR-017' }),
+      deleteApplication,
     }),
-    [status, error, applications, storageAvailable, createApplication, updateApplication],
+    [status, error, applications, storageAvailable, createApplication, updateApplication, deleteApplication],
   )
 
   return <ApplicationsContext.Provider value={api}>{children}</ApplicationsContext.Provider>
