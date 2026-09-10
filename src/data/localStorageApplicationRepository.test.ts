@@ -12,12 +12,16 @@ const validInput = {
   appliedAt: '2026-09-03',
 }
 
+// Every test here asserts on record counts and ids, so the store must start empty in each
+// one. This reset sits at FILE scope, not inside a describe: a beforeEach written inside one
+// block does not apply to its siblings, and the leak turns the suite order-dependent — which
+// is exactly what happened on the first Green attempt.
+beforeEach(() => {
+  localStorage.clear()
+})
+
 // BEHAVIOR-m2-persistence-seam-004
 describe('localStorage application repository', () => {
-  beforeEach(() => {
-    localStorage.clear()
-  })
-
   it('create() assigns a v4 string id and a createdAt stamp', async () => {
     const repository = createLocalStorageRepository()
 
@@ -29,5 +33,55 @@ describe('localStorage application repository', () => {
     expect(typeof result.value.id).toBe('string')
     expect(result.value.id).toMatch(UUID_V4)
     expect(Number.isNaN(Date.parse(result.value.createdAt))).toBe(false)
+  })
+})
+
+// BEHAVIOR-m2-persistence-seam-005
+// "It is still there after I press F5" is the whole point of this milestone. A page reload
+// gives the app a brand-new repository object over the same origin storage, so that is the
+// exact condition the test reproduces — not a mocked internals call.
+describe('localStorage application repository — persistence', () => {
+  it('seeds the demo records on first run', async () => {
+    const result = await createLocalStorageRepository().list()
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value).toHaveLength(5)
+  })
+
+  it('shows a created record to a fresh repository instance', async () => {
+    const created = await createLocalStorageRepository().create(validInput)
+    expect(created.ok).toBe(true)
+    if (!created.ok) return
+
+    const listed = await createLocalStorageRepository().list()
+
+    expect(listed.ok).toBe(true)
+    if (listed.ok) {
+      expect(listed.value).toHaveLength(6)
+      expect(listed.value.map((record) => record.id)).toContain(created.value.id)
+    }
+
+    const fetched = await createLocalStorageRepository().get(created.value.id)
+    expect(fetched.ok).toBe(true)
+    if (fetched.ok) expect(fetched.value).toEqual(created.value)
+  })
+
+  it('returns not-found for an id that was never stored', async () => {
+    const result = await createLocalStorageRepository().get('missing-id')
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toEqual({ code: 'not-found', id: 'missing-id' })
+  })
+
+  it('stores records inside a versioned envelope under the namespaced key', async () => {
+    await createLocalStorageRepository().create(validInput)
+
+    const raw = localStorage.getItem('job-tracker:applications')
+    expect(raw).not.toBeNull()
+    if (raw === null) return
+
+    const envelope = JSON.parse(raw)
+    expect(envelope.schemaVersion).toBe(1)
+    expect(Array.isArray(envelope.applications)).toBe(true)
   })
 })
