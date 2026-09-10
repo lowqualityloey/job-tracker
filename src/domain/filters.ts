@@ -1,3 +1,4 @@
+import { APPLICATION_STATUSES } from './applicationRepository'
 import type { ApplicationStatus, JobApplication } from '../types/application'
 
 /**
@@ -15,7 +16,12 @@ export interface FilterCriteria {
   query: string
 }
 
-export const ALL_STATUSES: readonly StatusFilter[] = ['All', 'Saved', 'Applied', 'Interview', 'Rejected', 'Offer']
+/**
+ * `All` first, then every real status — derived from `APPLICATION_STATUSES` rather than repeated.
+ * A hand-written list is the kind of duplication that survives review: adding a sixth status to the
+ * union would leave this array quietly short one chip, and nothing would fail to say so.
+ */
+export const ALL_STATUSES: readonly StatusFilter[] = ['All', ...APPLICATION_STATUSES]
 
 export const defaultCriteria: FilterCriteria = { status: 'All', query: '' }
 
