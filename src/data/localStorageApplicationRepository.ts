@@ -13,7 +13,9 @@ export interface ApplicationsEnvelopeV1 {
 function readStored(): JobApplication[] {
   const raw = localStorage.getItem(APPLICATIONS_STORAGE_KEY)
   if (raw === null) {
-    return seedApplications
+    // Copies, not the module array: a caller that sorts or splices the result must not be
+    // able to rewrite the shipped seed for everyone downstream.
+    return seedApplications.map((record) => ({ ...record }))
   }
   const parsed = JSON.parse(raw) as ApplicationsEnvelopeV1
   return parsed.applications
