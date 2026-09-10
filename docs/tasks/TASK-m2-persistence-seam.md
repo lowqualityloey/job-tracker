@@ -128,7 +128,7 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
   **Then** a confirmation is required and the row disappears; the control keeps a ≥44 px target, a visible
   `:focus-visible` ring, and AA contrast (`DESIGN.md` §5/§6)
   - **Result**: Pending · **Evidence**: delete flow test + review note
-- [ ] **AC-11** — **Given** the whole branch **When** verification runs **Then** typecheck exit 0, all tests
+- [x] **AC-11** — **Given** the whole branch **When** verification runs **Then** typecheck exit 0, all tests
   green, build exit 0, `vite.config.js` absent afterwards, and `git diff --name-only main...HEAD` shows no
   change to `package.json` dependencies
   - **Result**: Pending · **Evidence**: commands pasted in §8
@@ -222,6 +222,24 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
   session tokens here**; the storage key is a new public contract once a user has data
 - **Milestone completion decision**: **Pending human approval.** Not complete until AC-1…AC-11 are met and PR
   #2 is merged
+
+### M2a.5 evidence — error-code contract matrix (`7589bab`)
+
+| `RepositoryError` code | Produced by a test | Rendered in UI | Outcome |
+| :--- | :--- | :--- | :--- |
+| `validation` | yes (was 0) | **was: fell through to banner, `fieldErrors` discarded** | **gap closed** — routed to the field with `aria-invalid` + `aria-describedby` |
+| `not-found` | yes | own sentence | ok |
+| `unavailable` | yes | own sentence + `StorageNotice` | ok |
+| `quota-exceeded` | yes | own sentence | ok |
+| `corrupt-data` | yes | own sentence on 3 pages, mentions the kept-aside copy | ok |
+| `unsupported-version` | yes | own sentence, interpolates `found` | ok (asserted by number, not prose shape) |
+| `storage-error` | yes (was 1) | **was: default branch** | **gap closed** — own sentence; `detail` pinned as not user-visible |
+
+Two deviations: **D-9** — AC-11's browser-reload half is proven only through jsdom with a fresh repository
+instance per mount (`reload.test.tsx`); no human has clicked through `npm run dev` and reloaded, so that
+residual is stated rather than assumed away. **D-10** — `reload.test.tsx` clears `document.body` instead of
+unmounting React roots, and casts the parsed envelope to a local two-field type; both are simplifications
+inside a test, recorded so nobody mistakes them for production patterns.
 
 ### M2a.4 evidence (commits `01f9c7d` ... `f1ae7af`)
 
