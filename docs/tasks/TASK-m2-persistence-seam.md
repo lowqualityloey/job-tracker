@@ -92,14 +92,27 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
   - **Evidence**: Red `31509bf` (`3 failed | 5 passed`) → Green `6dbe8eb`; Red `425fe28`
     (`2 failed | 8 passed`) → Green `9bacc0d` (`10 passed`). `id`/`createdAt` re-pinned after the patch
     spread so no caller can relocate a record or reset its age.
-- [ ] **AC-5** `BEHAVIOR-m2-persistence-seam-008` **and** `-009` — **Given** storage is unavailable or a write
+- [x] **AC-5** `BEHAVIOR-m2-persistence-seam-008` **and** `-009` — **Given** storage is unavailable or a write
   exceeds quota **When** the app starts or saves **Then** a typed `unavailable` / `quota-exceeded` result is
   returned, a visible notice is rendered, and the in-memory list is **not** mutated or falsely reported as saved
-  - **Result**: Pending · **Evidence**: injected-throwing-storage tests
-- [ ] **AC-6** `BEHAVIOR-m2-persistence-seam-010` **and** `-011` — **Given** an unparseable payload, or a
+  - **Result**: **Met at the repository seam** — a store whose global exists but whose `setItem`
+    throws is detected by write-probe and answered with `{ code: 'unavailable' }`; a quota refusal
+    mid-write returns `{ code: 'quota-exceeded' }` with the stored envelope verified byte-identical.
+    **The visible-notice half of this AC is still open** and lands with the provider in M2a.4 (AC-7's
+    UI surface), so this box is ticked only for the result contract the behaviours name.
+  - **Evidence**: Red `656bece` (`7 failed`, incl. `create()` returning **ok: true** on a store that
+    discards every write) → Green `4d72564`. Red `128709c` (`2 failed`, raw `DOMException` escaping
+    the seam) → Green `6b86025`. `npx vitest run src/data/storageFaults.test.ts` → 9 passed.
+- [x] **AC-6** `BEHAVIOR-m2-persistence-seam-010` **and** `-011` — **Given** an unparseable payload, or a
   `schemaVersion` newer than this build **When** the repository reads or writes **Then** the raw value is
   preserved (quarantine key) or left byte-identical, and no user data is silently discarded or downgraded
-  - **Result**: Pending · **Evidence**: quarantine + fail-closed tests
+  - **Result**: **Met** — an unreadable payload is copied to `job-tracker:applications:corrupt-<iso>`
+    before the live key is cleared, and a newer `schemaVersion` refuses both reads **and** writes while
+    leaving the bytes byte-identical and creating **no** quarantine key (a newer file is not corruption).
+  - **Evidence**: Red `bb55cd1` (`5 failed` — two of them failing by returning `ok: true` over garbage,
+    because `as ApplicationsEnvelopeV1` is erased at runtime and validated nothing) → Green `a721971`.
+    Red `0334ffc` (`2 failed | 15 passed`) → Green `892d56e`. Suite at 41 passed (41); `quarantinedAs`
+    widened to `string | null` in code, spec §4.1 and the domain type updated together.
 - [ ] **AC-7** `BEHAVIOR-m2-persistence-seam-013` **and** `-014` — **Given** the new-application form
   **When** the user submits valid input **Then** the record appears in the list; **And when** submission is
   invalid, field errors are announced and the repository is unchanged
@@ -145,8 +158,8 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
 - **Active Task Pointer**: `TASK-m2-persistence-seam`
 - **Start Time**: 2026-09-10 21:14 UTC
 - **Current Actor**: Assistant (executing)
-- **Next Action**: Land Red for `BEHAVIOR-m2-persistence-seam-008` (storage unavailable → in-memory fallback
-  and a typed `unavailable` result) — milestone M2a.3, the failure-mode slice
+- **Next Action**: Land Red for `BEHAVIOR-m2-persistence-seam-012` (the provider exposes list + create to the
+  UI) — milestone M2a.4, the CRUD surface slice
 
 ### Transition History
 
@@ -163,9 +176,9 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
   `src/data/seedApplications.ts` (replaces `src/data/mockApplications.ts`, fixed literal v4 UUIDs),
   `src/types/application.ts` (**`id: number → string`**, `createdAt` added, `ApplicationInput`/`ApplicationPatch`),
   and three page imports renamed with the details-page `=== Number(id)` comparison corrected.
-- **Acceptance results**: **4 of 11 ACs met** (AC-1, AC-2, AC-3, AC-4) · 7 of 17 `BEHAVIOR-` ids
-  implemented · 24 tests passing (from 2 at branch start). AC-5/AC-6 need M2a.3, AC-7…AC-10 need M2a.4,
-  AC-11 is the final whole-branch gate.
+- **Acceptance results**: **6 of 11 ACs met** (AC-1…AC-6; AC-5 met at the seam, its UI notice half
+  carries into M2a.4) · 11 of 17 `BEHAVIOR-` ids implemented · **41 tests passing** (from 2 at branch
+  start). Remaining: M2a.4 CRUD UI (AC-7…AC-10), M2a.5 contract sweep + whole-branch gate (AC-11).
 - **Verification commands / results** at `1f6aba2`, 2026-09-10 21:22 UTC:
   - `npm run test:run` → **13 passed (13)**, 2 files, exit 0
   - `npx tsc -p tsconfig.app.json --noEmit` → exit 0
@@ -180,7 +193,19 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
   was rebuilt rather than excused — five commits `f84a970 → 1f6aba2`, each intermediate tree re-run to confirm
   it reproduces the original counts (4f|2p, 6p, 3f|8p, 11p), and `git diff` against the pre-split tip is
   **empty**, so the rewrite changed sequencing only and lost no content.
-- **Second deviation, same class, same fix (M2a.2)**: `git add <specific paths>` swept an *uncommitted*
+- **Third deviation, more serious (M2a.3)**: a scripted edit wrote a template literal with escaped
+  backticks, producing **17 tsc errors and `Tests no tests`**, and the commit landed anyway because it was
+  chained onto the verification commands in one shell line **without `set -e`** — so a failing typecheck did
+  not stop the commit that followed it. The commit message then claimed counts the committed tree could not
+  produce. Repaired (plain string concatenation, so the escaping hazard cannot recur in that file), then
+  **amended on the unpushed branch** rather than leaving a false claim in history, with the correction
+  written into the message itself. Five generalisable rules from all three deviations were added to
+  `AGENTS.md` §Commit discipline and re-synced to the Kilo mirror in the same commit (`813e04b`).
+- **Whole-branch consequence of that failure**: every commit in `main..HEAD` was then audited in a **separate
+  clone** (checking out commits inside the live workspace while editing it would be a race — an earlier
+  attempt was also killed by a command timeout and left HEAD detached, which is why the clone exists).
+  Result at 2026-09-10 21:53 UTC: **29 commits audited, 26 typecheck clean, 3 failing are exactly the three Red commits,
+  0 unexpected failures.** Verdict: no commit in this branch claims evidence its own tree cannot produce.: `git add <specific paths>` swept an *uncommitted*
   `remove()` implementation into the next Green commit, so BEHAVIOR-007's Green was mislabelled as the
   aliasing fix and a follow-up message claimed "add remove" for a comment-only change. Two commit messages
   were therefore false about their own contents. Rebuilt again on the unpushed branch (`9bacc0d → c67b04f`),
