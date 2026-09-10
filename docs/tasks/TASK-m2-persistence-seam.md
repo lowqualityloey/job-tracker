@@ -113,18 +113,18 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
     because `as ApplicationsEnvelopeV1` is erased at runtime and validated nothing) → Green `a721971`.
     Red `0334ffc` (`2 failed | 15 passed`) → Green `892d56e`. Suite at 41 passed (41); `quarantinedAs`
     widened to `string | null` in code, spec §4.1 and the domain type updated together.
-- [ ] **AC-7** `BEHAVIOR-m2-persistence-seam-013` **and** `-014` — **Given** the new-application form
+- [x] **AC-7** `BEHAVIOR-m2-persistence-seam-013` **and** `-014` — **Given** the new-application form
   **When** the user submits valid input **Then** the record appears in the list; **And when** submission is
   invalid, field errors are announced and the repository is unchanged
   - **Result**: Pending · **Evidence**: form + page rendering tests
-- [ ] **AC-8** `BEHAVIOR-m2-persistence-seam-012` **and** `-015` — **Given** the dashboard
+- [x] **AC-8** `BEHAVIOR-m2-persistence-seam-012` **and** `-015` — **Given** the dashboard
   **When** an application is created in the same session **Then** the counts change, with no `filter()` in a
   component module scope (DEBT-05 closed)
   - **Result**: Pending · **Evidence**: provider test + grep assertion in review
-- [ ] **AC-9** `BEHAVIOR-m2-persistence-seam-016` — **Given** `/applications/<unknown-id>` **When** rendered
+- [x] **AC-9** `BEHAVIOR-m2-persistence-seam-016` — **Given** `/applications/<unknown-id>` **When** rendered
   **Then** the not-found branch appears, with no `Number(id)` coercion (DEBT-07 closed)
   - **Result**: Pending · **Evidence**: details-page test
-- [ ] **AC-10** `BEHAVIOR-m2-persistence-seam-017` — **Given** an application row **When** the user deletes it
+- [x] **AC-10** `BEHAVIOR-m2-persistence-seam-017` — **Given** an application row **When** the user deletes it
   **Then** a confirmation is required and the row disappears; the control keeps a ≥44 px target, a visible
   `:focus-visible` ring, and AA contrast (`DESIGN.md` §5/§6)
   - **Result**: Pending · **Evidence**: delete flow test + review note
@@ -222,6 +222,42 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
   session tokens here**; the storage key is a new public contract once a user has data
 - **Milestone completion decision**: **Pending human approval.** Not complete until AC-1…AC-11 are met and PR
   #2 is merged
+
+### M2a.4 evidence (commits `01f9c7d` ... `f1ae7af`)
+
+| Behaviour | Red | Green | Suite at Green |
+| :--- | :--- | :--- | :--- |
+| 012 provider exposes list + create | measured in `55030d6` parent | `55030d6` | 47 |
+| 013 form create + edit | `6228370` (module-absent) | `01f9c7d` | 51 |
+| 014 rejections name the field | `b1c9c1f` — **no Green commit**, see D-4 | (none) | 56 |
+| 015 dashboard derives from data | `4b464b5` (2 failed / 1 passed) | `bd15e4a` | 59 |
+| 016 details, loading, not-found | `d33c4ae` parent (3 failed / 1 passed) | `d33c4ae` | 63 |
+| 017 delete behind confirm | `a9a48f4` (5 failed / 4 passed) | `f1ae7af` | **68** |
+
+Whole-slice verification at `f1ae7af`: `npm run test:run` -> **68 passed (68)** across 9 files;
+`npx tsc -p tsconfig.app.json --noEmit` -> exit 0; `npm run build` -> exit 0 in 1.27 s, and **no
+`vite.config.js` emitted** (M1's shadowing hazard re-checked at every Green from here on).
+
+### Process deviations disclosed (M2a.4)
+
+- **D-4 — 014 produced no Red.** Four of its five assertions passed the first time they ran, because
+  013 already wired validateApplication -> setFieldErrors -> role=alert. Committed as coverage with
+  that stated instead of staging a fake Red. spec section 6 predicted a Red here and was wrong.
+- **D-5 — the date case was an invalid test, not a failing one.** It typed 2026-02-30 into a native
+  date input; the control sanitises impossible values to the empty string, so that value could never
+  reach validation. Rewritten to assert the reachable outcome, with the impossible-date rule left
+  protected in validation.test.ts where M3 still needs it.
+- **D-6 — `@testing-library/user-event` is not installed here.** This record promises zero new
+  packages, so clicks use fireEvent: lower interaction fidelity (no pointer/focus sequencing) as an
+  accepted cost, flagged for `pk:test` rather than resolved by adding a dependency mid-slice.
+- **D-7 — 015's third assertion had no valid Red.** It failed on an ambiguous text matcher (heading
+  and description both matched), not on the missing error branch. Fixed inside the Green commit with
+  that stated, then re-measured against the implementation.
+- **D-8 — two scripted patches misapplied and the gate caught both.** A provider edit used an anchor
+  whose own comment had drifted by one word, so nothing applied; a delete-affordance patch escaped its
+  own quotes and wrote literal backslashes through the JSX, breaking the file load
+  (1 failed / 59 passed). Neither reached a commit — the commit-discipline rule added after the M1
+  incident did the work it was added for.
 
 ## 7. Deviation and Readiness Pointers
 
