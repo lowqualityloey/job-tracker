@@ -174,3 +174,81 @@ describe('quota exceeded during a write', () => {
     expect(envelope.applications[5].status).not.toBe('Offer')
   })
 })
+
+// BEHAVIOR-m2-persistence-seam-010
+// Unreadable stored data is the user's, not noise to be overwritten. The store must keep a
+// retrievable copy before it reseeds, so a bad parse never destroys anything.
+const CORRUPT_PREFIX = `${APPLICATIONS_STORAGE_KEY}:corrupt-`
+
+function storedKeys(): string[] {
+  return Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i) ?? '')
+}
+
+describe('corrupt stored payload', () => {
+  it('quarantines an unparseable value and reports where it went', async () => {
+    const garbage = '{"schemaVersion": 1, "applications": [oops'
+    localStorage.setItem(APPLICATIONS_STORAGE_KEY, garbage)
+
+    const listed = await createLocalStorageRepository().list()
+
+    expect(listed.ok).toBe(false)
+    if (listed.ok) return
+    expect(listed.error.code).toBe('corrupt-data')
+    if (listed.error.code !== 'corrupt-data') return
+
+    const quarantined = storedKeys().filter((key) => key.startsWith(CORRUPT_PREFIX))
+    expect(quarantined).toHaveLength(1)
+    expect(localStorage.getItem(quarantined[0])).toBe(garbage)
+    expect(listed.error.quarantinedAs).toBe(quarantined[0])
+  })
+
+  it('recovers on the next read: a fresh store seeds and new writes succeed', async () => {
+    localStorage.setItem(APPLICATIONS_STORAGE_KEY, 'not json at all')
+    const repository = createLocalStorageRepository()
+    expect((await repository.list()).ok).toBe(false)
+
+    const created = await repository.create(validInput)
+    expect(created.ok).toBe(true)
+
+    const listed = await repository.list()
+    if (listed.ok) expect(listed.value).toHaveLength(6)
+  })
+
+  it('rejects an envelope whose applications field is not an array', async () => {
+    localStorage.setItem(APPLICATIONS_STORAGE_KEY, '{"schemaVersion":1,"applications":"everything"}')
+
+    const result = await createLocalStorageRepository().list()
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('corrupt-data')
+  })
+
+  it('rejects a record that is missing required fields instead of trusting the cast', async () => {
+    // Shape validation, not a bare `as JobApplication[]`: a stored payload crosses the same
+    // trust boundary as form input, and a partial record renders as undefined text everywhere.
+    localStorage.setItem(
+      APPLICATIONS_STORAGE_KEY,
+      JSON.stringify({ schemaVersion: 1, applications: [{ id: 'only-an-id' }] }),
+    )
+
+    const result = await createLocalStorageRepository().list()
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('corrupt-data')
+  })
+
+  it('drops an unknown optional field rather than passing it through', async () => {
+    localStorage.setItem(
+      APPLICATIONS_STORAGE_KEY,
+      JSON.stringify({
+        schemaVersion: 1,
+        applications: [{ ...seedApplications[0], salaryExpectation: 'unlimited' }],
+      }),
+    )
+
+    const result = await createLocalStorageRepository().list()
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value[0]).not.toHaveProperty('salaryExpectation')
+  })
+})
