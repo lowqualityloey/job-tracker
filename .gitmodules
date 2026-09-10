@@ -1,0 +1,3 @@
+[submodule ".promptkit"]
+	path = .promptkit
+	url = https://github.com/lowqualityloey/better-promptkit

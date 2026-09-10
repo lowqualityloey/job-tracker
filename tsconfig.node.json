@@ -4,7 +4,11 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "Node",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    // Do not remove: emitting here writes `vite.config.js` next to `vite.config.ts`, and Vite resolves
+    // `.js` BEFORE `.ts` (DEFAULT_CONFIG_FILES), so the stale compiled copy silently takes over
+    // `vite dev`/`vite build` while Vitest keeps reading the `.ts`. Tests stay green, the app does not.
+    "noEmit": true
   },
   "include": ["vite.config.ts"]
 }
