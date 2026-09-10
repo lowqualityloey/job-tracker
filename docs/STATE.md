@@ -24,7 +24,7 @@
 
 - [x] **M0 — Frontend Foundation**: routing, layout shell, typed domain model, mock data, status badges, empty states, dark UI, Vitest + Testing Library wiring, WCAG AA contrast baseline
 - [x] **M1 — Engineering OS Integration**: **MERGED as PR #1 (`63d769d`, 2026-09-10)**. Submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed, lockfile tracked
-- [/] **M2 — Pipeline Interactivity**: persistence seam + create/edit/delete (+ filters as M2b). **Level 2 (Controlled)**: `pk:plan` spec and `docs/tasks/` Task Record must exist before implementation starts
+- [/] **M2 — Pipeline Interactivity**: **M2a in progress** — spec + task record landed, domain validation and the localStorage repository done (4/11 ACs, 7/17 behaviours, 24 tests). Remaining: M2a.3 failure modes, M2a.4 CRUD UI, M2a.5 contract sweep, then PR #2. Filters = M2b
 - [ ] **M3 — Backend**: ASP.NET Core Web API, database, replace mock with HTTP (**Level 2**: `pk:api` + `pk:data`)
 - [ ] **M4 — Authentication** (**Level 2**: `pk:auth`)
 - [ ] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval)
@@ -75,13 +75,16 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   the agent**; enforceable triggers are event-driven (behaviour complete, scope change, handoff, human request)
 - **Blockers and Resume Condition**: None. Resume condition if interrupted: read §5 of the Task Record and
   continue at the next unfinished `BEHAVIOR-` id
-- **Verification Status**: at `1f6aba2` — typecheck exit 0; `npm run test:run` **13/13** (was 2/2 at start);
-  `npm run build` exit 0 with no `vite.config.js` emitted. Task-owned evidence lives in Task Record §6
+- **Verification Status**: at `c67b04f` — typecheck exit 0 across the `id: string` swap;
+  `npm run test:run` **24/24** in 3 files (was 2/2 at branch start); `npm run build` exit 0 at M2a.1 with no
+  `vite.config.js` emitted. Task-owned evidence lives in Task Record §6
 - **CI Evidence**: `N/A` — no CI exists in this repository (DEBT-03)
-- **Changed-File Summary**: M2a.1 landed `src/domain/validation.ts` + its 11 tests and an additive
-  `ApplicationInput` type. No page/component/data module changed yet
+- **Changed-File Summary**: M2a.1 domain validation. M2a.2 the repository seam (`domain/applicationRepository`,
+  `data/localStorageApplicationRepository`), the seed module replacing `data/mockApplications`, and the
+  **`id: number → string`** contract swap through three pages. No new UI surface yet — nothing is creatable
+  from the app itself; only tests drive the repository
 - **Latest Checkpoint**: 2026-09-10 21:22 UTC — M2a.1 validation complete (AC-2 met, AC-1 partial) · **Latest Handoff**: None
-- **Next Action**: Red for `BEHAVIOR-m2-persistence-seam-004` — the localStorage repository (M2a.2)
+- **Next Action**: Red for `BEHAVIOR-m2-persistence-seam-008` — storage unavailable → in-memory fallback (M2a.3)
 
 ### 3B. Release-Evaluation Handoff
 
@@ -190,3 +193,4 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | 2026-09-10 | Assistant (`pk:pr`) | M1 submission | Branch `chore/promptkit-engineering-os` off `main`; 8 pending paths split into atomic commits; `docs/` empty dirs preserved with 13 `.gitkeep` files (git does not track empty directories, so post-merge the `pk:*` artifact paths would otherwise vanish). Fresh-clone + `submodule update --init` rehearsed. **Awaiting human merge — M2 is gated on it.** |
 | 2026-09-10 | Lead Engineer (human) | M1 merge | Merged PR #1 into `main` as `63d769d` (merge commit, not squash — so local `main` fast-forwarded). Verified: 0 divergence from `origin/main`, 43 tracked files, `.promptkit/workflows/plan.md` resolves. M1 closed; **M2 planning opened**. |
 | 2026-09-10 21:22 UTC | Assistant (`pk:plan` → TDD) | M2 planning + M2a.1 | Routed M2 as **Level 2**, wrote `PLAN-m2-persistence-seam` (388-line RFC) + `TASK-m2-persistence-seam` before any code. Four architectural forks put to the human and all four answered: **localStorage behind an async repository interface**, **vertical CRUD slice** (filters → M2b), **`id: number → string` UUIDs now**, **TDD Enforcement Mode enabled**. Spec is source-grounded — MDN cited for localStorage's protocol-scoped areas, inadequate feature detection, `SecurityError` vs `QuotaExceededError`, and the mandate to use `setItem` over property access; the "~5MB quota" is recorded as UNCERTAINTY rather than asserted, because no primary source states it. jsdom capabilities were **measured** by a throwaway probe (randomUUID works, localStorage round-trips) so the real adapter is testable without mocks. Then M2a.1 in Red→Green→Refactor: `src/domain/validation.ts`, 13 tests passing (from 2). **Self-caught process violation**: first ladder committed Red with its implementation for two behaviours; branch was unpushed, so history was rebuilt with `git diff` proving the tree unchanged, and each state re-run to reproduce its original failure counts. DEBT-01 in progress (was open). |
+| 2026-09-10 21:41 UTC | Assistant (TDD, M2a.1–M2a.2) | Validation + repository seam | **7 of 17 behaviours, 4 of 11 ACs.** `src/domain/validation.ts` (11 tests) and the `ApplicationRepository` seam with a localStorage adapter (11 tests); suite 2 → 24, typecheck clean. Contract swap `id: number → string` landed **with** its ripple: seed module replaces `mockApplications` using fixed literal UUIDs, 3 imports renamed, and the details page's `=== Number(id)` comparison corrected — a string-vs-number comparison that no test would have caught, found by reading the consumers first. Two test-design lessons came out of failures in my own tests, not the code: a `beforeEach` scoped to one `describe` did not apply to its sibling (order-dependent suite), and `list()` handing back the seed module array let a caller `pop()` the shipped demo data (found by writing the Red first, which is the entire argument for TDD). **Commit hygiene rebuilt twice** on the unpushed branch — once for Red/Green commits merged together, once when `git add <paths>` swept a stray uncommitted `remove()` into an unrelated Green commit and left two messages false about their contents; both verified with `git diff` empty against the pre-split tip. Root cause named in Task Record §6: check `git status --porcelain`, not just the paths you add. DEBT-01 still open — nothing is creatable from the UI yet. |

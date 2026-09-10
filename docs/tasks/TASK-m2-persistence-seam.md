@@ -60,7 +60,7 @@
 
 Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits in spec §6.
 
-- [ ] **AC-1** `BEHAVIOR-m2-persistence-seam-001` — **Given** a valid new application **When** it is validated
+- [x] **AC-1** `BEHAVIOR-m2-persistence-seam-001` — **Given** a valid new application **When** it is validated
   **Then** validation succeeds and **And** the created record carries a v4 string `id` and a `createdAt` stamp
   - **Result**: **Partially met** — box left UNCHECKED deliberately: — the validation half is Met; the `id`/`createdAt` half belongs to
     `BEHAVIOR-004` (M2a.2) and is untested. An AC box is ticked only when the whole criterion is met, so a
@@ -75,14 +75,23 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
   - **Evidence**: Red `da9d7a6` (`4 failed | 2 passed`) → Green `714c108` (`6 passed`); Red `82ee71a`
     (`3 failed | 8 passed`) → Green `d35fe10` (`11 passed`); Refactor `1f6aba2` (`13 passed`, tsc exit 0).
     Boundary case `'x'.repeat(120)` accepted, `repeat(121)` rejected.
-- [ ] **AC-3** `BEHAVIOR-m2-persistence-seam-004` **and** `-005` — **Given** a created application
+- [x] **AC-3** `BEHAVIOR-m2-persistence-seam-004` **and** `-005` — **Given** a created application
   **When** a *fresh* repository instance over the same storage lists records **Then** the new record is present
   (this is the reload guarantee, expressed as a test)
-  - **Result**: Pending · **Evidence**: round-trip test against real jsdom `localStorage`
-- [ ] **AC-4** `BEHAVIOR-m2-persistence-seam-006` **and** `-007` — **Given** an existing record **When** it is
+  - **Result**: **Met** — reproduced the real condition (new repository object over the same origin
+    storage) instead of asserting on internals, so the test survives the M3 swap to HTTP unchanged.
+  - **Evidence**: Red `3cb9edb` (`3 failed | 2 passed`, re-measured against the throwing stubs) →
+    Green `43df0c4` (`5 passed`). Envelope contract pinned: `schemaVersion: 1` under
+    `job-tracker:applications` (`0724ad2` also closes the seed-aliasing leak found while hardening this AC).
+- [x] **AC-4** `BEHAVIOR-m2-persistence-seam-006` **and** `-007` — **Given** an existing record **When** it is
   updated **Then** `id` and `createdAt` are preserved; **And when** it is removed, reading it yields
   `not-found`
-  - **Result**: Pending · **Evidence**: update/remove tests
+  - **Result**: **Met** — including the two failure paths that a naive merge-then-save gets wrong:
+    updating an unknown id must not append a ghost record, and a delete must not report success while
+    leaving the row. Both re-read the store afterwards rather than trusting the return value.
+  - **Evidence**: Red `31509bf` (`3 failed | 5 passed`) → Green `6dbe8eb`; Red `425fe28`
+    (`2 failed | 8 passed`) → Green `9bacc0d` (`10 passed`). `id`/`createdAt` re-pinned after the patch
+    spread so no caller can relocate a record or reset its age.
 - [ ] **AC-5** `BEHAVIOR-m2-persistence-seam-008` **and** `-009` — **Given** storage is unavailable or a write
   exceeds quota **When** the app starts or saves **Then** a typed `unavailable` / `quota-exceeded` result is
   returned, a visible notice is rendered, and the in-memory list is **not** mutated or falsely reported as saved
@@ -136,8 +145,8 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
 - **Active Task Pointer**: `TASK-m2-persistence-seam`
 - **Start Time**: 2026-09-10 21:14 UTC
 - **Current Actor**: Assistant (executing)
-- **Next Action**: Land Red for `BEHAVIOR-m2-persistence-seam-004` (`create()` assigns a v4 string `id` and
-  `createdAt`) — milestone M2a.2, the localStorage repository
+- **Next Action**: Land Red for `BEHAVIOR-m2-persistence-seam-008` (storage unavailable → in-memory fallback
+  and a typed `unavailable` result) — milestone M2a.3, the failure-mode slice
 
 ### Transition History
 
@@ -149,11 +158,14 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
 
 ## 6. Completion Evidence (fill as it happens)
 
-- **Changed-file summary**: M2a.1 — `src/domain/validation.ts` (new), `src/domain/validation.test.ts` (new),
-  `src/types/application.ts` (`ApplicationInput` added additively; `JobApplication.id` still `number` until
-  M2a.2), plus the spec/record/STATE docs. No page, component, or data module touched yet.
-- **Acceptance results**: **1 of 11 ACs met** (AC-2). AC-1 Partial (validation half only, box left open).
-  AC-3…AC-11 Pending. 3 of 17 `BEHAVIOR-` ids implemented.
+- **Changed-file summary**: M2a.1 `src/domain/validation.ts` + 11 tests. M2a.2 — `src/domain/applicationRepository.ts`
+  (new: `Result`, `RepositoryError`, the interface), `src/data/localStorageApplicationRepository.ts` (new, 11 tests),
+  `src/data/seedApplications.ts` (replaces `src/data/mockApplications.ts`, fixed literal v4 UUIDs),
+  `src/types/application.ts` (**`id: number → string`**, `createdAt` added, `ApplicationInput`/`ApplicationPatch`),
+  and three page imports renamed with the details-page `=== Number(id)` comparison corrected.
+- **Acceptance results**: **4 of 11 ACs met** (AC-1, AC-2, AC-3, AC-4) · 7 of 17 `BEHAVIOR-` ids
+  implemented · 24 tests passing (from 2 at branch start). AC-5/AC-6 need M2a.3, AC-7…AC-10 need M2a.4,
+  AC-11 is the final whole-branch gate.
 - **Verification commands / results** at `1f6aba2`, 2026-09-10 21:22 UTC:
   - `npm run test:run` → **13 passed (13)**, 2 files, exit 0
   - `npx tsc -p tsconfig.app.json --noEmit` → exit 0
@@ -168,6 +180,14 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
   was rebuilt rather than excused — five commits `f84a970 → 1f6aba2`, each intermediate tree re-run to confirm
   it reproduces the original counts (4f|2p, 6p, 3f|8p, 11p), and `git diff` against the pre-split tip is
   **empty**, so the rewrite changed sequencing only and lost no content.
+- **Second deviation, same class, same fix (M2a.2)**: `git add <specific paths>` swept an *uncommitted*
+  `remove()` implementation into the next Green commit, so BEHAVIOR-007's Green was mislabelled as the
+  aliasing fix and a follow-up message claimed "add remove" for a comment-only change. Two commit messages
+  were therefore false about their own contents. Rebuilt again on the unpushed branch (`9bacc0d → c67b04f`),
+  with every step re-run to reproduce 10 passed / 1 failed|10 passed / 11 passed / 11 passed and
+  `git diff backup → HEAD` empty. **Durable lesson recorded here**: leaving an implementation uncommitted at
+  the end of a step is what lets it ride into an unrelated commit; `git status --porcelain` must be checked
+  before each commit, not just the paths being added.
 - **CI evidence**: `N/A` — this repository has **no CI** (DEBT-03). All evidence is local; a reviewer cannot
   independently re-run a pipeline, so command output must be pasted into the PR
 - **Deferred scope / exceptions**: F-5 cross-tab reconciliation deferred to M2b by decision;
