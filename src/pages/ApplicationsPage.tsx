@@ -1,10 +1,21 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ApplicationFilters from '../components/ApplicationFilters'
 import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
+import { defaultCriteria, selectApplications } from '../domain/filters'
+import type { FilterCriteria } from '../domain/filters'
 import { useApplications } from '../state/applicationsProvider'
 
 export default function ApplicationsPage() {
   const { status, applications, error } = useApplications()
+  // View state, deliberately not provider state: criteria describe what this user is looking at,
+  // not what the store holds. Putting them beside the snapshot would make a filter change look
+  // like a data change, and would leak a transient choice into every other consumer (spec §3).
+  const [criteria, setCriteria] = useState<FilterCriteria>(defaultCriteria)
+  // Above the early returns, unconditionally: a hook below a `return` changes the hook order
+  // between the loading render and the ready render, which React rejects at runtime.
+  const visible = useMemo(() => selectApplications(applications, criteria), [applications, criteria])
 
   if (status === 'loading') {
     return <EmptyState title="Loading applications" description="Reading your saved pipeline." />
@@ -49,8 +60,16 @@ export default function ApplicationsPage() {
         </Link>
       </div>
 
+      <ApplicationFilters criteria={criteria} onChange={setCriteria} />
+
+      {/* One live region for every view, including the unfiltered one, so the count is announced
+          by a single code path instead of appearing only after the user does something. */}
+      <p className="filter-count" role="status">
+        Showing {visible.length} of {applications.length} applications
+      </p>
+
       <div className="card-list">
-        {applications.map((application) => (
+        {visible.map((application) => (
           <article key={application.id} className="application-card">
             <div className="card-header">
               <div>

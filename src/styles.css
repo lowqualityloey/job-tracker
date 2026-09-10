@@ -330,3 +330,45 @@ textarea {
   gap: 10px;
   justify-items: start;
 }
+
+/* Filter controls (M2b). The pairs are the measured ones from DESIGN.md §2, not new colours:
+   an idle chip is `.button-quiet`'s surface with its text, a pressed chip is the active-nav pair
+   `#eff6ff` on `#2563eb` (4.75:1 — thin but already shipped and already measured). The pressed
+   state is carried by `aria-pressed` as well as by fill, so §7's "never colour alone" holds. */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  background: #19212f;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  color: #e5eef5;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 16px;
+}
+
+.chip:hover {
+  border-color: #93c5fd;
+}
+
+.chip[aria-pressed='true'] {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #eff6ff;
+}
+
+.chip:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+.filter-count {
+  color: #94a3b8;
+  margin: 0;
+}
