@@ -17,6 +17,10 @@ function describeError(error: RepositoryError): string {
       return 'This device is out of storage for saved data. Delete an application you no longer need, then save again.'
     case 'unavailable':
       return 'This device is blocking saved data, so this change could not be kept. It is still on screen for this tab only.'
+    case 'storage-error':
+      // Its detail field is a developer string (a DOMException name from the adapter) and
+      // stays out of the sentence: the user needs the consequence, not the exception.
+      return 'This browser refused to save the change, so nothing was changed. Reloading may help.'
     case 'not-found':
       return 'That application no longer exists. It may have been deleted in another tab.'
     case 'corrupt-data':
@@ -84,6 +88,13 @@ export default function ApplicationFormPage() {
     setPending(false)
 
     if (!result.ok) {
+      if (result.error.code === 'validation') {
+        // The repository already knows which field is wrong; a banner would be a worse
+        // version of the information it just handed us.
+        setFieldErrors(result.error.fieldErrors)
+        return
+      }
+
       setFormError(describeError(result.error))
       return
     }
