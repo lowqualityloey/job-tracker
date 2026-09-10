@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
 import StatusBadge from '../components/StatusBadge'
-import { mockApplications } from '../data/mockApplications'
+import { seedApplications } from '../data/seedApplications'
 
 export default function ApplicationsPage() {
-  if (mockApplications.length === 0) {
+  if (seedApplications.length === 0) {
     return (
       <EmptyState
         title="No job applications yet"
@@ -21,7 +21,7 @@ export default function ApplicationsPage() {
       </div>
 
       <div className="card-list">
-        {mockApplications.map((application) => (
+        {seedApplications.map((application) => (
           <article key={application.id} className="application-card">
             <div className="card-header">
               <div>

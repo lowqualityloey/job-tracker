@@ -1,10 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
 import StatusBadge from '../components/StatusBadge'
-import { mockApplications } from '../data/mockApplications'
+import { seedApplications } from '../data/seedApplications'
 
 export default function ApplicationDetailsPage() {
   const { id } = useParams()
-  const application = mockApplications.find((item) => item.id === Number(id))
+  // id is now a string UUID: comparing against Number(id) would be false for every
+  // record, silently landing the user on 'not found'. Full provider lookup arrives in M2a.4.
+  const application = seedApplications.find((item) => item.id === id)
 
   if (!application) {
     return (

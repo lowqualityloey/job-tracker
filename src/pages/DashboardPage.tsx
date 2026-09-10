@@ -1,8 +1,8 @@
-import { mockApplications } from '../data/mockApplications'
+import { seedApplications } from '../data/seedApplications'
 
-const total = mockApplications.length
-const interviews = mockApplications.filter((item) => item.status === 'Interview').length
-const offers = mockApplications.filter((item) => item.status === 'Offer').length
+const total = seedApplications.length
+const interviews = seedApplications.filter((item) => item.status === 'Interview').length
+const offers = seedApplications.filter((item) => item.status === 'Offer').length
 
 export default function DashboardPage() {
   return (
