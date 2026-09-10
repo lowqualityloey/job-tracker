@@ -7,3 +7,16 @@ dist
 coverage
 *Zone.Identifier*
 *:Zone.Identifier
+promptkit
+
+# TypeScript incremental-build stamps — written by `tsc -b` even with noEmit: true
+*.tsbuildinfo
+
+# Local agent/IDE tool state. These hide behind their own nested .gitignore files today, so the
+# protection lives inside the tool and disappears in a fresh clone. Name them here instead.
+.kilo/
+.fallow/
+
+# NOTE: `vite.config.js` / `vite.config.d.ts` are deliberately NOT ignored. `tsconfig.node.json`
+# now sets noEmit so they are never generated; if one ever appears it means something is emitting
+# a config that shadows vite.config.ts, and it should be LOUD in `git status`, then deleted.
