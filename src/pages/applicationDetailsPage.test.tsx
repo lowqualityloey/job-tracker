@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ApplicationDetailsPage from './ApplicationDetailsPage'
+import ApplicationsPage from './ApplicationsPage'
 import { createInMemoryRepository } from '../data/localStorageApplicationRepository'
 import { seedApplications } from '../data/seedApplications'
 import type { ApplicationRepository } from '../domain/applicationRepository'
@@ -11,6 +12,7 @@ function setup(repo: ApplicationRepository, route: string) {
     <MemoryRouter initialEntries={[route]}>
       <ApplicationsProvider repository={repo}>
         <Routes>
+          <Route path="/applications" element={<ApplicationsPage />} />
           <Route path="/applications/:id" element={<ApplicationDetailsPage />} />
         </Routes>
       </ApplicationsProvider>
@@ -70,5 +72,85 @@ describe('application details', () => {
       'href',
       `/applications/${target.id}/edit`,
     )
+  })
+})
+
+// BEHAVIOR-m2-persistence-seam-017 — deletion is destructive and unrecoverable in this app:
+// there is no trash, no undo, and the only copy is the one in storage.
+describe('deleting an application', () => {
+  const open = async (repo: ApplicationRepository, index = 0) => {
+    setup(repo, `/applications/${seedApplications[index].id}`)
+    await screen.findByRole('heading', { level: 2 })
+  }
+
+  it('asks before removing anything, and removing needs the second click', async () => {
+    const repo = createInMemoryRepository(seedApplications)
+    await open(repo)
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
+
+    expect(
+      await screen.findByText(/delete this application\? this cannot be undone\./i),
+    ).toBeInTheDocument()
+    const listed = await repo.list()
+    if (listed.ok) expect(listed.value).toHaveLength(5)
+    expect(screen.queryByRole('heading', { name: 'Application not found' })).toBeNull()
+  })
+
+  it('keeps the record when the confirmation is cancelled', async () => {
+    const repo = createInMemoryRepository(seedApplications)
+    await open(repo)
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /cancel/i }))
+
+    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument()
+    const listed = await repo.list()
+    if (listed.ok) expect(listed.value).toHaveLength(5)
+  })
+
+  it('removes the record from storage and returns to the list', async () => {
+    const repo = createInMemoryRepository(seedApplications)
+    const target = seedApplications[1]
+    setup(repo, `/applications/${target.id}`)
+    await screen.findByRole('heading', { level: 2 })
+    const title = (screen.getByRole('heading', { level: 2 }) as HTMLElement).textContent
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /delete application/i }))
+
+    await waitFor(async () => {
+      const listed = await repo.list()
+      if (listed.ok) expect(listed.value.find((r) => r.id === target.id)).toBeUndefined()
+    })
+    expect(await screen.findByRole('heading', { name: 'Your current pipeline' })).toBeInTheDocument()
+    expect(screen.queryByText(title)).toBeNull()
+  })
+
+  it('says so when the store refuses the deletion, instead of dropping the row anyway', async () => {
+    const refusing: ApplicationRepository = {
+      ...createInMemoryRepository(seedApplications),
+      async remove() {
+        return { ok: false, error: { code: 'storage-error', detail: 'write rejected' } }
+      },
+    }
+    setup(refusing, `/applications/${seedApplications[0].id}`)
+    await screen.findByRole('heading', { level: 2 })
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /delete application/i }))
+
+    const refusal = await screen.findByText(/could not be deleted/i)
+    expect(refusal.closest('[role="alert"]')).not.toBeNull()
+    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument()
+  })
+
+  it('puts the confirmation in a group a screen reader can find', async () => {
+    setup(createInMemoryRepository(seedApplications), `/applications/${seedApplications[0].id}`)
+    await screen.findByRole('heading', { level: 2 })
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
+
+    expect(await screen.findByRole('group', { name: /confirm deletion/i })).toBeInTheDocument()
   })
 })
