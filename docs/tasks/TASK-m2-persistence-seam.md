@@ -60,13 +60,20 @@
 
 Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits in spec §6.
 
-- [ ] **AC-1** `BEHAVIOR-m2-persistence-seam-001` — **Given** a valid new application **When** it is validated
+- [x] **AC-1** `BEHAVIOR-m2-persistence-seam-001` — **Given** a valid new application **When** it is validated
   **Then** validation succeeds and **And** the created record carries a v4 string `id` and a `createdAt` stamp
-  - **Result**: Pending · **Evidence**: `src/domain/validation.test.ts`, repository create test
-- [ ] **AC-2** `BEHAVIOR-m2-persistence-seam-002` **and** `-003` — **Given** a blank/over-length company name,
+  - **Result**: **Partially met** — the validation half is Met; the `id`/`createdAt` half belongs to
+    `BEHAVIOR-004` (M2a.2) and is untested. Not closed.
+  - **Evidence**: Red `f84a970` (`Tests no tests`, module absent) → Green `fdffc2c`
+    (`Tests 1 passed (1)`, exit 0). Final M2a.1 state `1f6aba2` @ `npx vitest run`: 13 passed.
+- [x] **AC-2** `BEHAVIOR-m2-persistence-seam-002` **and** `-003` — **Given** a blank/over-length company name,
   or `appliedAt: '2026-02-30'` **When** validated **Then** a field-scoped error is returned for that field
   and nothing is written
-  - **Result**: Pending · **Evidence**: validation tests
+  - **Result**: **Met** — every rejected case names exactly one field, and validation runs before any
+    repository exists, so nothing can be written on failure.
+  - **Evidence**: Red `da9d7a6` (`4 failed | 2 passed`) → Green `714c108` (`6 passed`); Red `82ee71a`
+    (`3 failed | 8 passed`) → Green `d35fe10` (`11 passed`); Refactor `1f6aba2` (`13 passed`, tsc exit 0).
+    Boundary case `'x'.repeat(120)` accepted, `repeat(121)` rejected.
 - [ ] **AC-3** `BEHAVIOR-m2-persistence-seam-004` **and** `-005` — **Given** a created application
   **When** a *fresh* repository instance over the same storage lists records **Then** the new record is present
   (this is the reload guarantee, expressed as a test)
@@ -128,24 +135,37 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
 - **Active Task Pointer**: `TASK-m2-persistence-seam`
 - **Start Time**: 2026-09-10 21:14 UTC
 - **Current Actor**: Assistant (executing)
-- **Next Action**: Land Red for `BEHAVIOR-m2-persistence-seam-001` (validation accepts a valid application), then Green
+- **Next Action**: Land Red for `BEHAVIOR-m2-persistence-seam-004` (`create()` assigns a v4 string `id` and
+  `createdAt`) — milestone M2a.2, the localStorage repository
 
 ### Transition History
 
 | Previous State | New State | Timestamp | Actor | Reason | Supporting Evidence |
 |---|---|---|---|---|---|
 | — | `planned` | 2026-09-10 21:05 UTC | Assistant | Record created from `PLAN-m2-persistence-seam` after `pk:plan` | `docs/specs/2026-09-10-spec-m2-persistence-seam.md` |
+| `in_progress` | `in_progress` (checkpoint) | 2026-09-10 21:22 UTC | Assistant | M2a.1 (validation) complete: AC-2 met, AC-1 partial; suite 13 passing | `1f6aba2`, `npm run test:run` 13 passed |
 | `planned` | `in_progress` | 2026-09-10 21:14 UTC | Assistant (with Lead Engineer's standing "proceed next implementation" + all four architectural forks explicitly ruled) | Readiness fields complete: objective, scope, non-goals, 11 ACs, dependencies, verification condition, ownership, approval boundary, execution policy, TDD mode | Start Time 21:14 UTC; Active Task Pointer set; this branch `feat/m2-persistence-seam` off `main@63d769d` |
 
 ## 6. Completion Evidence (fill as it happens)
 
-- **Changed-file summary**: Pending
-- **Acceptance results**: Pending — no AC may be marked met without the exact focused test run, environment
-  note, revision, and timestamp recorded here or in the PR
-- **Verification commands / results**: Pending
+- **Changed-file summary**: M2a.1 — `src/domain/validation.ts` (new), `src/domain/validation.test.ts` (new),
+  `src/types/application.ts` (`ApplicationInput` added additively; `JobApplication.id` still `number` until
+  M2a.2), plus the spec/record/STATE docs. No page, component, or data module touched yet.
+- **Acceptance results**: AC-2 Met. AC-1 Partial (validation half). AC-3…AC-11 Pending.
+- **Verification commands / results** at `1f6aba2`, 2026-09-10 21:22 UTC:
+  - `npm run test:run` → **13 passed (13)**, 2 files, exit 0
+  - `npx tsc -p tsconfig.app.json --noEmit` → exit 0
+  - `npm run build` → exit 0; `vite.config.js` / `vite.config.d.ts` **absent** (M1's `noEmit` guard holds)
 - **Review findings / disposition**: Pending (`pk:review` before handoff)
 - **Simplification findings**: Pending
-- **Checkpoints / Handoffs**: Pending
+- **Checkpoints / Handoffs**: 1 soft checkpoint taken at 2026-09-10 21:22 UTC (M2a.1 close). No handoff.
+- **Process deviation and correction**: the first M2a.1 ladder committed Red tests together with their
+  implementation for BEHAVIOR-002 and -003 (`f31b0cc`, `b016c1e`), which breaks the record's own rule that
+  each behaviour shows an isolated failing state. Cause: the next behaviour's tests were appended in the same
+  shell call as the previous commit. Because the branch was **unpushed** (verified: no remote head), history
+  was rebuilt rather than excused — five commits `f84a970 → 1f6aba2`, each intermediate tree re-run to confirm
+  it reproduces the original counts (4f|2p, 6p, 3f|8p, 11p), and `git diff` against the pre-split tip is
+  **empty**, so the rewrite changed sequencing only and lost no content.
 - **CI evidence**: `N/A` — this repository has **no CI** (DEBT-03). All evidence is local; a reviewer cannot
   independently re-run a pipeline, so command output must be pasted into the PR
 - **Deferred scope / exceptions**: F-5 cross-tab reconciliation deferred to M2b by decision;

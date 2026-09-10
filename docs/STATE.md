@@ -75,13 +75,13 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   the agent**; enforceable triggers are event-driven (behaviour complete, scope change, handoff, human request)
 - **Blockers and Resume Condition**: None. Resume condition if interrupted: read §5 of the Task Record and
   continue at the next unfinished `BEHAVIOR-` id
-- **Verification Status**: baseline at start — typecheck exit 0; `npm run test:run` 2/2. Task-owned evidence
-  is recorded in Task Record §6, not here
+- **Verification Status**: at `1f6aba2` — typecheck exit 0; `npm run test:run` **13/13** (was 2/2 at start);
+  `npm run build` exit 0 with no `vite.config.js` emitted. Task-owned evidence lives in Task Record §6
 - **CI Evidence**: `N/A` — no CI exists in this repository (DEBT-03)
-- **Changed-File Summary**: `docs/specs/2026-09-10-spec-m2-persistence-seam.md`,
-  `docs/tasks/TASK-m2-persistence-seam.md`, `docs/STATE.md` (this projection). No `src/` change yet
-- **Latest Checkpoint**: None · **Latest Handoff**: None
-- **Next Action**: Red for `BEHAVIOR-m2-persistence-seam-001`
+- **Changed-File Summary**: M2a.1 landed `src/domain/validation.ts` + its 11 tests and an additive
+  `ApplicationInput` type. No page/component/data module changed yet
+- **Latest Checkpoint**: 2026-09-10 21:22 UTC — M2a.1 validation complete (AC-2 met, AC-1 partial) · **Latest Handoff**: None
+- **Next Action**: Red for `BEHAVIOR-m2-persistence-seam-004` — the localStorage repository (M2a.2)
 
 ### 3B. Release-Evaluation Handoff
 
@@ -189,3 +189,4 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | 2026-09-10 | Assistant (`pk:fix`) | Remediation: DEBT-11 · 12 · 13 | **`bd8a8b6` `chore(repo)`** — `tsconfig.node.json: noEmit true` (+ explanatory comment), `.gitignore` += `*.tsbuildinfo`, `.kilo/`, `.fallow/`; `vite.config.js` intentionally *not* ignored so a recurrence stays loud. **`f128376` `docs(rules)`** — Kilo mirror kept as corrected second copy: `npm run test`→`test:run`, `npm run build`→`tsc -p … --noEmit`, canonical-source header. Both commits made with **pathspec staging** so the pending bootstrap index survived untouched. Evidence: `tsc -b` exit 0 / 0 source files emitted; `npm run build` ✓ 41 modules, no `vite.config.js`; `npm run test:run` 2/2; secret scan 0 findings; `dist/` removed after the build test. Still open: DEBT-01…10, DEBT-14 (8 paths uncommitted, 2 commits unpushed). |
 | 2026-09-10 | Assistant (`pk:pr`) | M1 submission | Branch `chore/promptkit-engineering-os` off `main`; 8 pending paths split into atomic commits; `docs/` empty dirs preserved with 13 `.gitkeep` files (git does not track empty directories, so post-merge the `pk:*` artifact paths would otherwise vanish). Fresh-clone + `submodule update --init` rehearsed. **Awaiting human merge — M2 is gated on it.** |
 | 2026-09-10 | Lead Engineer (human) | M1 merge | Merged PR #1 into `main` as `63d769d` (merge commit, not squash — so local `main` fast-forwarded). Verified: 0 divergence from `origin/main`, 43 tracked files, `.promptkit/workflows/plan.md` resolves. M1 closed; **M2 planning opened**. |
+| 2026-09-10 21:22 UTC | Assistant (`pk:plan` → TDD) | M2 planning + M2a.1 | Routed M2 as **Level 2**, wrote `PLAN-m2-persistence-seam` (388-line RFC) + `TASK-m2-persistence-seam` before any code. Four architectural forks put to the human and all four answered: **localStorage behind an async repository interface**, **vertical CRUD slice** (filters → M2b), **`id: number → string` UUIDs now**, **TDD Enforcement Mode enabled**. Spec is source-grounded — MDN cited for localStorage's protocol-scoped areas, inadequate feature detection, `SecurityError` vs `QuotaExceededError`, and the mandate to use `setItem` over property access; the "~5MB quota" is recorded as UNCERTAINTY rather than asserted, because no primary source states it. jsdom capabilities were **measured** by a throwaway probe (randomUUID works, localStorage round-trips) so the real adapter is testable without mocks. Then M2a.1 in Red→Green→Refactor: `src/domain/validation.ts`, 13 tests passing (from 2). **Self-caught process violation**: first ladder committed Red with its implementation for two behaviours; branch was unpushed, so history was rebuilt with `git diff` proving the tree unchanged, and each state re-run to reproduce its original failure counts. DEBT-01 in progress (was open). |
