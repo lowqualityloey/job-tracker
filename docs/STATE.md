@@ -11,7 +11,7 @@
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
 - **Current Working Branch**: `main` @ `63d769d` (== `origin/main`, clean `--ff-only` pull after merge). M2 will branch `feat/m2-*` from here. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
-- **Last Updated**: 2026-09-10 15:55 UTC — `pk:pr` opened M1 for review; `pk:onboard` pass 2 (re-entrant scan, +3 debt items, 9 lost rules recovered) then `pk:fix` shipped **DEBT-11 · 12 · 13** as commits `bd8a8b6` + `f128376`
+- **Last Updated**: 2026-09-10 22:01 UTC — `pk:checkpoint`: M2a.1–M2a.3 landed (41 tests), checkpoint-001 + handoff-001 written, STATE §§4/5/7/8 re-synced
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -115,6 +115,21 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 ---
 
+**Locked by M2a (2026-09-10, checkpoint 001) — verified in code, not merely decided:**
+
+10. `JobApplication.id` is a **string v4 UUID** assigned by the repository; seed ids are fixed literals.
+    `Number(id)` must not return.
+11. The repository returns `Promise<Result<T, RepositoryError>>` and **never throws** across the seam.
+12. Availability is decided by a **write probe**; `QuotaExceededError` over a non-empty store means *full*,
+    everything else *off*. `typeof localStorage !== 'undefined'` is a banned check (documented false positive).
+13. A `schemaVersion` newer than `CURRENT_SCHEMA_VERSION` **fails closed**: refuse reads and writes, leave the
+    bytes untouched, do **not** quarantine — a newer file is not corruption.
+14. Corrupt payloads are copied to `job-tracker:applications:corrupt-<iso>` **before** the live key is cleared;
+    `quarantinedAs: string | null`, where `null` is reported rather than swallowed.
+15. Parsed storage is rebuilt **field by field**; no `JSON.parse(...) as` assertion survives (two tests failed
+    by returning `ok: true` over garbage before that was fixed).
+16. Only `src/data/` may touch `window.localStorage`; `src/domain/` stays side-effect free; pages import the
+    interface, never an adapter.
 ## 5. Known Blockers, Risks & Open Questions
 
 - **Blockers**: **None.**
@@ -158,28 +173,19 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 ---
 
-## 7. Next Immediate Actions (Queued, exactly one is "next")
+. Next Immediate Actions
 
-1. ✅ **Shipped this session** — `pk:fix` DEBT-11 + DEBT-13 → **`bd8a8b6`** (`noEmit: true`; `*.tsbuildinfo`,
-   `.kilo/`, `.fallow/` now in shared `.gitignore`; `vite.config.js` deliberately left *visible* if it ever
-   returns). Then DEBT-12 → **`f128376`** (Kilo mirror kept, both broken commands corrected).
-   Post-commit re-verification: `tsc -b` exits 0 and emits **0** source files; `npm run build` 41 modules,
-   no `vite.config.js`; `npm run test:run` 2/2. **`git add .` is now safe from build artifacts.**
-2. ✅ **`pk:commit` + `pk:pr`** — all 8 paths were split into atomic commits on
-   `chore/promptkit-engineering-os` (submodule / rule-set consolidation / intake docs / npm lockfile) and
-   opened as a PR with verification evidence. DEBT-14 satisfied: `.gitmodules` + gitlink in one commit.
-3. **HUMAN: review + merge the M1 PR** (← next action, and it is not mine). Then tell me it is merged and I
-   will `git pull --ff-only` on `main` and open M2. Merging, pushing to `main`, tagging, deploying stay
-   human-only.
-4. **`pk:test`** — before any feature, decide seams: `src/domain` pure unit tests, `StatusBadge` ↔
-   status-contract table test (this one directly guards DEBT-08's CSS coupling), page-level rendering tests
-   with an injected repository, and a route test. Cheap insurance while the surface is 12 TS files.
-5. **`pk:plan` (M2)** — spec search/filter + create/edit + persistence as Level 2 with a Task Record; answer
-   open questions 1–4 in §5 first (a `pk:spike` on `localStorage` vs IndexedDB is 2 hours, not a day).
-6. **`pk:fix` DEBT-05/07** — small, safe, Level 1 cleanups that make M2 easier. Do not bundle them with the M2 feature commit.
-7. `pk:design` — token extraction (`DESIGN.md` §8 steps 1–4) as its own zero-visual-change PR.
-
----
+1. **Agent**: land Red for `BEHAVIOR-m2-persistence-seam-012` (`src/state/applicationsProvider.test.tsx`) →
+   M2a.4 CRUD UI (AC-7…AC-10), then M2a.5 contract sweep + the AC-11 whole-branch gate.
+   Exactly one next action, plus the receiver validation pass (V1–V7):
+   `docs/tasks/TASK-m2-persistence-seam.handoff-001.md` §2 and §4.
+2. **Agent**: at M2a close, `pk:review` then `pk:pr` → push `feat/m2-persistence-seam`, open **PR #2**, report
+   the URL and **stop**.
+3. **HUMAN (recommended now, without waiting for the PR)**: `git push -u origin feat/m2-persistence-seam`.
+   The branch is **31 commits on this machine only**, with no remote head and no CI — the largest loss risk open.
+4. **HUMAN**: review and merge PR #2 when it opens. M2b (filters/search) and M3 (ASP.NET Core API) begin after.
+5. **Later, gated on merge**: `pk:test` seam plan (41 tests across 3 seam files, still no integration coverage
+   above the component leaf); `pk:design` token extraction (`DESIGN.md` §8); DEBT-01/02/04…10 remain open.
 
 ## 8. Session Continuity Log
 
@@ -195,3 +201,4 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | 2026-09-10 21:22 UTC | Assistant (`pk:plan` → TDD) | M2 planning + M2a.1 | Routed M2 as **Level 2**, wrote `PLAN-m2-persistence-seam` (388-line RFC) + `TASK-m2-persistence-seam` before any code. Four architectural forks put to the human and all four answered: **localStorage behind an async repository interface**, **vertical CRUD slice** (filters → M2b), **`id: number → string` UUIDs now**, **TDD Enforcement Mode enabled**. Spec is source-grounded — MDN cited for localStorage's protocol-scoped areas, inadequate feature detection, `SecurityError` vs `QuotaExceededError`, and the mandate to use `setItem` over property access; the "~5MB quota" is recorded as UNCERTAINTY rather than asserted, because no primary source states it. jsdom capabilities were **measured** by a throwaway probe (randomUUID works, localStorage round-trips) so the real adapter is testable without mocks. Then M2a.1 in Red→Green→Refactor: `src/domain/validation.ts`, 13 tests passing (from 2). **Self-caught process violation**: first ladder committed Red with its implementation for two behaviours; branch was unpushed, so history was rebuilt with `git diff` proving the tree unchanged, and each state re-run to reproduce its original failure counts. DEBT-01 in progress (was open). |
 | 2026-09-10 21:41 UTC | Assistant (TDD, M2a.1–M2a.2) | Validation + repository seam | **7 of 17 behaviours, 4 of 11 ACs.** `src/domain/validation.ts` (11 tests) and the `ApplicationRepository` seam with a localStorage adapter (11 tests); suite 2 → 24, typecheck clean. Contract swap `id: number → string` landed **with** its ripple: seed module replaces `mockApplications` using fixed literal UUIDs, 3 imports renamed, and the details page's `=== Number(id)` comparison corrected — a string-vs-number comparison that no test would have caught, found by reading the consumers first. Two test-design lessons came out of failures in my own tests, not the code: a `beforeEach` scoped to one `describe` did not apply to its sibling (order-dependent suite), and `list()` handing back the seed module array let a caller `pop()` the shipped demo data (found by writing the Red first, which is the entire argument for TDD). **Commit hygiene rebuilt twice** on the unpushed branch — once for Red/Green commits merged together, once when `git add <paths>` swept a stray uncommitted `remove()` into an unrelated Green commit and left two messages false about their contents; both verified with `git diff` empty against the pre-split tip. Root cause named in Task Record §6: check `git status --porcelain`, not just the paths you add. DEBT-01 still open — nothing is creatable from the UI yet. |
 | 2026-09-10 21:53 UTC | Assistant (TDD, M2a.3) | Failure-mode slice | **11 of 17 behaviours, 6 of 11 ACs, suite 24 → 41.** Availability is decided by a **write probe**, not an existence check — MDN documents browsers that keep `window.localStorage` present while every write is discarded, and my own Red proved the hazard: `create()` on such a store returned **ok: true**. A quota refusal mid-write now maps to a typed error with the envelope proven byte-identical; the stored payload gained a real per-record decode after two tests failed by returning `ok: true` over garbage (a runtime-erased `as` assertion validated nothing); a newer `schemaVersion` refuses reads **and** writes and is deliberately **not** quarantined, because treating a newer file as corruption is how a downgrade deletes records. Three self-caught process failures this slice, all disclosed in Task Record §6: a `describe`-scoped `beforeEach` making a suite order-dependent, a scripted edit writing a template literal with escaped backticks that produced 17 tsc errors, and — the root cause of the last one — **committing anyway because verification and commit were chained on one shell line without `set -e`**. That commit was amended (unpushed) rather than left asserting evidence its tree could not produce, and all 29 commits were then audited in a separate clone: 26 clean, 3 failing = exactly the Red commits, 0 unexpected. Five durable rules added to `AGENTS.md` §Commit discipline + Kilo mirror in the same commit. |
+| 2026-09-10 22:01 UTC | Assistant (`pk:checkpoint`) | Checkpoint 001 + Handoff 001 | Level 2 checkpoint contract satisfied: `docs/tasks/TASK-m2-persistence-seam.checkpoint-001.md` (state, evidence, 9 locked invariants, one next action) and `.handoff-001.md` (receiver pass V1–V7, guard rails). Execution State deliberately left **`in_progress`**, not `handoff_ready`: nothing is blocked, the records exist so a context restart costs nothing, and a fresh session still runs V1–V7 before editing. Hygiene scan clean — 0 debug residue (the 5 `PROBE` grep hits are the production availability probe), 0 `.only`/`.skip`, 0 `.env`, 0 build artefacts. Evidence re-measured at `e5d0bbf`: **41/41 tests, tsc exit 0**. §7 rewritten because it had gone stale (still listed the M1 merge as pending). **Running my own validation pass found a bad check**: `grep " as JobApplication"` hits a comment explaining why that assertion was removed, so V5 was tightened to `JSON.parse(... as ` — a receiver's check must discriminate code from prose about code. |
