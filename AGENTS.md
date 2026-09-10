@@ -70,6 +70,29 @@ Package manager is **npm** (`package-lock.json`); do not mix in pnpm/yarn lockfi
 
 Do not claim success without reporting what was verified.
 
+### Commit discipline
+
+Five rules, each earned by a failure that actually happened on this repository:
+
+- **Gate commits on verification.** Never chain `verify && commit` on one shell line without
+  `set -e` — a failing `tsc` does not stop the commit that follows it. A commit was once made
+  over 17 typecheck errors while its own message claimed passing test counts.
+- **Check `git status --porcelain` before committing**, not only `git add <paths>`. Staging
+  specific paths guarantees what you stage; it says nothing about what you left uncommitted.
+  An unwritten-off `remove()` once rode into an unrelated commit and made two messages false
+  about their contents.
+- **Assert the anchor in scripted edits.** A `str.replace()` that matches nothing reports
+  success and silently half-applies a change; it once inserted a call to a helper that was
+  never written.
+- **Reset shared globals at file scope in tests.** A `beforeEach` inside one `describe` does
+  not apply to its sibling block, so any test asserting on `localStorage` key enumeration or
+  module state becomes order-dependent.
+- **Red, Green, and Refactor are separate commits.** Committed together, history no longer
+  proves the failing test drove the implementation.
+
+Nothing enforces these here: there is **no lint and no CI** (DEBT-03), so the discipline is
+either in the agent's own commands or nowhere.
+
 ## Branch & PR workflow (human-gated phase advance)
 
 Phases advance **through pull requests, never by pushing to `main`.**
