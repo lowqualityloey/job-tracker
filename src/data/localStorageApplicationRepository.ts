@@ -46,11 +46,13 @@ export function createLocalStorageRepository(): ApplicationRepository {
     },
 
     async list() {
-      throw new Error('not implemented: BEHAVIOR-m2-persistence-seam-005')
+      return ok(readStored())
     },
 
-    async get() {
-      throw new Error('not implemented: BEHAVIOR-m2-persistence-seam-005')
+    async get(id: string) {
+      const found = readStored().find((record) => record.id === id)
+
+      return found ? ok(found) : err({ code: 'not-found', id })
     },
 
     async update() {
