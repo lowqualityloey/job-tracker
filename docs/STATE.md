@@ -7,10 +7,10 @@
 ## 1. Executive Summary & Current Position
 
 - **Project Name**: Job Tracker (`job-tracker` v0.2.0)
-- **Current Milestone / Epic**: M0 Frontend Foundation — **done**; M1 Engineering-OS integration — **complete on branch `chore/promptkit-engineering-os`, awaiting your merge**
+- **Current Milestone / Epic**: M0 **done** · M1 **MERGED** (PR #1 → `63d769d`) · **M2 Pipeline Interactivity — planning now (Level 2)**
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
-- **Current Working Branch**: `chore/promptkit-engineering-os` @ (branched from `main`). `main` = `f128376` locally, `origin/main` = `d78f663`. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
+- **Current Working Branch**: `main` @ `63d769d` (== `origin/main`, clean `--ff-only` pull after merge). M2 will branch `feat/m2-*` from here. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
 - **Last Updated**: 2026-09-10 15:55 UTC — `pk:pr` opened M1 for review; `pk:onboard` pass 2 (re-entrant scan, +3 debt items, 9 lost rules recovered) then `pk:fix` shipped **DEBT-11 · 12 · 13** as commits `bd8a8b6` + `f128376`
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
@@ -23,8 +23,8 @@
 ### Milestone Roadmap
 
 - [x] **M0 — Frontend Foundation**: routing, layout shell, typed domain model, mock data, status badges, empty states, dark UI, Vitest + Testing Library wiring, WCAG AA contrast baseline
-- [/] **M1 — Engineering OS Integration**: submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed. **Code-complete on the PR branch; blocked only on human merge.** M2 may not start until it lands
-- [ ] **M2 — Pipeline Interactivity**: search + status filters, create/edit/delete application, client-side persistence. **Level 2 (Controlled)** — introduces durable state and the `src/domain` seam
+- [x] **M1 — Engineering OS Integration**: **MERGED as PR #1 (`63d769d`, 2026-09-10)**. Submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed, lockfile tracked
+- [/] **M2 — Pipeline Interactivity**: persistence seam + create/edit/delete (+ filters as M2b). **Level 2 (Controlled)**: `pk:plan` spec and `docs/tasks/` Task Record must exist before implementation starts
 - [ ] **M3 — Backend**: ASP.NET Core Web API, database, replace mock with HTTP (**Level 2**: `pk:api` + `pk:data`)
 - [ ] **M4 — Authentication** (**Level 2**: `pk:auth`)
 - [ ] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval)
@@ -39,8 +39,8 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - [x] `TASK-2026-09-10-dedup-agents`: Merge `AGENT.md` learning-first rules into `AGENTS.md`, delete the stale `AGENT.md` (its PromptKit block pointed at the removed non-submodule `promptkit/` path)
 - [x] `TASK-2026-09-10-repo-hygiene`: Fix DEBT-11 + DEBT-13 in one commit (`noEmit` in `tsconfig.node.json`; `.kilo/`, `.fallow/`, `*.tsbuildinfo` in shared `.gitignore`) — **done in `bd8a8b6`; `git add .` is now safe for build artifacts**
 - [x] `TASK-2026-09-10-rule-source`: DEBT-12 resolved: kept as a corrected Kilo mirror, commands fixed in `f128376`
-- [ ] `TASK-2026-09-10-bootstrap-commit`: Commit the PromptKit integration as atomic conventional commits (`pk:commit`) — 9 paths, includes the **untracked `package-lock.json`** and the `.gitmodules`+gitlink pair (DEBT-14)
-- [ ] `TASK-M2-persistence`: Spec the persistence seam (`pk:plan` → `pk:data` → `pk:tasks`)
+- [x] `TASK-2026-09-10-bootstrap-commit`: Landed as 4 atomic commits on PR #1, merged in `63d769d` (previously 8 pending paths, incl. `package-lock.json`)
+- [/] `TASK-M2-persistence`: Spec the persistence seam (`pk:plan` → `pk:data` → `pk:tasks`) — **active now**
 
 ---
 
@@ -57,9 +57,31 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### 3A. Execution-Control Projection
 
-**N/A.** No Level 2/3 Controlled Work is active, so no Task Record owns the active pointer. Populate this
-section when `TASK-M2-persistence` opens; canonical authority is then `docs/tasks/<task-id>.md`, and this
-projection must be reconciled with it at every `pk:checkpoint`.
+> Synchronised projection. Canonical authority is `docs/tasks/TASK-m2-persistence-seam.md`.
+
+- **Local Task Source**: `docs/tasks/TASK-m2-persistence-seam.md`
+- **Task ID**: `TASK-m2-persistence-seam`
+- **Task Record**: `docs/tasks/TASK-m2-persistence-seam.md`
+- **Specification**: `docs/specs/2026-09-10-spec-m2-persistence-seam.md` (`PLAN-m2-persistence-seam`, Full)
+- **Execution Scope**: repo `job-tracker`, branch `feat/m2-persistence-seam`, paths `src/**` + `docs/**`
+- **Execution State**: `in_progress`
+- **Mapped `pk:tasks` Status**: `In Progress`
+- **Active Task Pointer**: `TASK-m2-persistence-seam`
+- **Owner / Current Actor**: Lead Engineer (accountable) · Assistant (executing)
+- **Start Time**: 2026-09-10 21:14 UTC
+- **Current Branch**: `feat/m2-persistence-seam`
+- **Current Revision**: `63d769d` at branch creation (PR #1 merge commit)
+- **Checkpoint Policy**: soft ~60 min / hard ≤90 min **estimates only — no wall-clock timer is available to
+  the agent**; enforceable triggers are event-driven (behaviour complete, scope change, handoff, human request)
+- **Blockers and Resume Condition**: None. Resume condition if interrupted: read §5 of the Task Record and
+  continue at the next unfinished `BEHAVIOR-` id
+- **Verification Status**: baseline at start — typecheck exit 0; `npm run test:run` 2/2. Task-owned evidence
+  is recorded in Task Record §6, not here
+- **CI Evidence**: `N/A` — no CI exists in this repository (DEBT-03)
+- **Changed-File Summary**: `docs/specs/2026-09-10-spec-m2-persistence-seam.md`,
+  `docs/tasks/TASK-m2-persistence-seam.md`, `docs/STATE.md` (this projection). No `src/` change yet
+- **Latest Checkpoint**: None · **Latest Handoff**: None
+- **Next Action**: Red for `BEHAVIOR-m2-persistence-seam-001`
 
 ### 3B. Release-Evaluation Handoff
 
@@ -93,10 +115,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 ## 5. Known Blockers, Risks & Open Questions
 
 - **Blockers**: **None.**
-- **Shipping risk** (the only real one left): nothing is on the remote yet. The 2 fix commits (`bd8a8b6`,
-  `f128376`) plus this branch's commits exist **only on this machine**, so a collaborator pulling `main`
-  still gets the stale `AGENT.md` and its hanging `npm run test`. The PR resolves this — **merge it, then
-  `git checkout main && git pull --ff-only`**.
+- **M1 shipped.** All 6 commits are on `origin/main` via PR #1 (`63d769d`); local `main` fast-forwarded
+  cleanly, so the stale `AGENT.md` and its hanging `npm run test` no longer exist for anyone cloning the repo.
 - **Submodule note for the reviewer**: `.promptkit` is a gitlink (mode `160000`) at `a1eb608`, with
   `.gitmodules` committed in the same commit (DEBT-14). GitHub's file view will show it as a link, not a
   folder; a clone needs `git submodule update --init --recursive` before `pk:*` workflow paths resolve.
@@ -123,7 +143,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | DEBT-11 | **P1** | ✅ **FIXED in `bd8a8b6`.** **`tsc -b` emits a `vite.config.js` that shadows the real `vite.config.ts`.** Verified by probe on 2026-09-10: with a throwing `vite.config.js` present, `npx vite build` failed with *my* error (`error during build: Error: PROBE: vite.config.js WAS LOADED`) while `npx vitest run` stayed green — Vite resolves `.js` **before** `.ts` (`DEFAULT_CONFIG_FILES`, `node_modules/vite/dist/node/constants.js:33`), Vitest prefers `.ts`. So any future edit to `vite.config.ts` is silently ignored by dev/build but obeyed by tests, and if the stale file is ever committed every clone and CI run inherits it. `npm run build` produces this file on every run, and `vite.config.d.ts` + `*.tsbuildinfo` land beside it — none gitignored. **Fix (both halves verified this session):** add `"noEmit": true` to `tsconfig.node.json` (accepted alongside `composite: true` by TS 5.5.4, `tsc -b` exits 0, emission stops) and add `*.tsbuildinfo` to `.gitignore` (still written by composite builds) | `tsconfig.node.json` (no `noEmit`), `package.json:9` build script, `node_modules/vite/dist/node/constants.js:33` | `pk:fix` (2-line Level 1 chore, do before M2) |
 | DEBT-12 | **P1** | ✅ **FIXED in `f128376`** (kept as a corrected mirror, per decision). **A second, git-tracked copy of the agent doctrine was missed at pass 1.** `.agents/rules/job-tracker-learning.md` (committed in `d78f663`, 51 lines) is the Kilo Code rules file. It held **9 rules that existed nowhere else** — inspect-before-changing, restate-the-goal, one follow-up practice task, behaviour-focused tests, loading/empty/error/success coverage, no unnecessary libraries, no unrelated refactors, no premature abstraction, no huge code dumps (verified: each phrase present in `.agents/`, absent from `AGENTS.md` at pass 1). Those 9 are now mirrored into `AGENTS.md`. **Remaining conflict:** line 41 tells agents to run `npm run test`, which is `"vitest"` → **watch mode, never exits** — any obeying agent or scripted step hangs. Line 40 also routes all verification through `npm run build`, i.e. through the DEBT-11 polluting command | `.agents/rules/job-tracker-learning.md:40-41`; `package.json:8` (`"test": "vitest"`) | Decide + `pk:fix`: either delete it and let Kilo read `AGENTS.md`, or keep it as the IDE mirror and change line 40-41 to `npx tsc -p tsconfig.app.json --noEmit` + `npm run test:run` |
 | DEBT-13 | P2 | ✅ **FIXED in `bd8a8b6`** (shared `.gitignore` now names them; the 12 local-only `.git/info/exclude` lines are harmless leftovers). **63 MB of tool state is invisible to git.** `.kilo/` (`@kilocode/plugin` 7.4.23 + its own `node_modules`) hides behind `.kilo/.gitignore`, and `.fallow/` behind `.fallow/.gitignore` (`*`). Nothing in the **shared** `.gitignore` names either directory, so the protection lives inside the tool, not in the repo. Tree-walking tools (`find`, glob, greps, subagents) see them: pass 2's debt-marker scan returned 8 `TODO:` hits from `.kilo/node_modules/**` — pure noise. Also `.git/info/exclude` carries 12 Kilo worktree entries, which are **local-only and vanish in every other clone** | `du -sh .kilo` = 63M; `.kilo/.gitignore`; `.fallow/.gitignore`; `.git/info/exclude:9-45` | `pk:fix` — add `.kilo/`, `.fallow/`, `*.tsbuildinfo` to shared `.gitignore`; never `git add .` |
-| DEBT-14 | P2 | **Submodule integrity at commit time.** `.promptkit` sits at `a1eb608` (`v1.1.1-11-ga1eb608`, clean, detached HEAD as expected) but both `.gitmodules` and the gitlink are only **staged**, never committed — the integration exists on this machine alone. The `.gitmodules` entry pins no branch, and the gitlink + `.gitmodules` must land in the **same commit** or other clones get a submodule path with no source-of-truth URL | `git submodule status`; `.gitmodules` | `pk:commit` (stage both paths together) |
+| DEBT-14 | P2 | ✅ **CLOSED by merge.** `.promptkit` sits at `a1eb608` (`v1.1.1-11-ga1eb608`, clean, detached HEAD as expected) `23ceefd` landed `.gitmodules` and the `160000` gitlink for `a1eb608` in one commit; both are now on `origin/main` (verified `git ls-tree HEAD .promptkit`). The entry pins no branch — acceptable for a read-only tooling submodule, since the gitlink is the pin | `git submodule status`; `.gitmodules` | `pk:commit` → done in `23ceefd` |
 
 ---
 
@@ -168,3 +188,4 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | 2026-09-10 | Assistant (`pk:onboard` pass 2) | Re-entrant intake + self-audit | **Swept what pass 1 skipped.** New: `.agents/rules/job-tracker-learning.md` (tracked, second doctrine copy, 9 unique rules, prescribes hanging `npm run test`) → DEBT-12; `.kilo/` 63 MB + `.fallow/` hidden by nested self-ignores with nothing in shared `.gitignore`, and 12 Kilo lines in local-only `.git/info/exclude` → DEBT-13; `.promptkit` gitlink+`.gitmodules` staged-but-uncommitted at `a1eb608` (`v1.1.1-11`) → DEBT-14. **Recovered** the 9 lost rules into `AGENTS.md` (working style 1→9 steps, new Testing principles + Avoid sections, knowledge-map warning). **Self-audit**: pass-1 counts re-verified (9 invariants, 8 deviations, 5 steps, 11 pairs, 187 CSS lines); 4 numeric errors corrected (#93c5fd ×3 not ×4; 13 src files not 12; 9 uncommitted paths not 8; `11 measurements/10 rows`). Zero `src/` or config changes; DoD re-run green. |
 | 2026-09-10 | Assistant (`pk:fix`) | Remediation: DEBT-11 · 12 · 13 | **`bd8a8b6` `chore(repo)`** — `tsconfig.node.json: noEmit true` (+ explanatory comment), `.gitignore` += `*.tsbuildinfo`, `.kilo/`, `.fallow/`; `vite.config.js` intentionally *not* ignored so a recurrence stays loud. **`f128376` `docs(rules)`** — Kilo mirror kept as corrected second copy: `npm run test`→`test:run`, `npm run build`→`tsc -p … --noEmit`, canonical-source header. Both commits made with **pathspec staging** so the pending bootstrap index survived untouched. Evidence: `tsc -b` exit 0 / 0 source files emitted; `npm run build` ✓ 41 modules, no `vite.config.js`; `npm run test:run` 2/2; secret scan 0 findings; `dist/` removed after the build test. Still open: DEBT-01…10, DEBT-14 (8 paths uncommitted, 2 commits unpushed). |
 | 2026-09-10 | Assistant (`pk:pr`) | M1 submission | Branch `chore/promptkit-engineering-os` off `main`; 8 pending paths split into atomic commits; `docs/` empty dirs preserved with 13 `.gitkeep` files (git does not track empty directories, so post-merge the `pk:*` artifact paths would otherwise vanish). Fresh-clone + `submodule update --init` rehearsed. **Awaiting human merge — M2 is gated on it.** |
+| 2026-09-10 | Lead Engineer (human) | M1 merge | Merged PR #1 into `main` as `63d769d` (merge commit, not squash — so local `main` fast-forwarded). Verified: 0 divergence from `origin/main`, 43 tracked files, `.promptkit/workflows/plan.md` resolves. M1 closed; **M2 planning opened**. |
