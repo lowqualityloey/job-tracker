@@ -69,6 +69,24 @@ describe('reconciling a write from another tab', () => {
     expect(screen.getByRole('status')).toHaveTextContent('6 of 6 applications')
   })
 
+  // BEHAVIOR-023 / spec B-3. The count region is the observable: a spurious reload would replace
+  // the snapshot, and a re-read storm would show up as extra list() calls.
+  it('ignores a storage event for an unrelated key', async () => {
+    const repository = createLocalStorageRepository({ storage: localStorage })
+    const list = vi.spyOn(repository, 'list')
+    mount(repository)
+    await screen.findByText('Datacom')
+
+    list.mockClear()
+    // No timer: the handler runs synchronously inside dispatchEvent, so if it had decided to
+    // re-read, the spy would already have been called by the time this line executes.
+    externalWrite('job-tracker:theme')
+
+    expect(list).not.toHaveBeenCalled()
+    expect(screen.getByRole('status')).toHaveTextContent('5 of 5 applications')
+    list.mockRestore()
+  })
+
   it('detaches the listener on unmount (spec B-1)', async () => {
     const repository = createLocalStorageRepository({ storage: localStorage })
     const list = vi.spyOn(repository, 'list')
