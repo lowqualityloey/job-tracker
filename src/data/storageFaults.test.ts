@@ -1,4 +1,11 @@
-import { createInMemoryRepository, createLocalStorageRepository, isStorageAvailable } from './localStorageApplicationRepository'
+import {
+  APPLICATIONS_STORAGE_KEY,
+  createInMemoryRepository,
+  createLocalStorageRepository,
+  isStorageAvailable,
+  type StorageLike,
+} from './localStorageApplicationRepository'
+import type { JobApplication } from '../types/application'
 import { seedApplications } from './seedApplications'
 
 const validInput = {
@@ -85,5 +92,85 @@ describe('repository selection when storage is unavailable', () => {
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toEqual({ code: 'unavailable' })
+  })
+})
+
+// BEHAVIOR-m2-persistence-seam-009
+// A store can pass the availability probe and still refuse one particular write. The
+// requirement is that a refused write leaves nothing half-applied and is reported as
+// itself — not as a generic failure, and not as success.
+/** A store that works until told otherwise, so "was fine, then filled up" is testable. */
+function fakeWorkingStore(): StorageLike & { forceQuotaError: boolean } {
+  const backing = new Map<string, string>()
+  const fake = {
+    forceQuotaError: false,
+    getItem: (key: string) => backing.get(key) ?? null,
+    removeItem: (key: string) => void backing.delete(key),
+    get length() {
+      return backing.size
+    },
+    setItem: (key: string, value: string) => {
+      if (fake.forceQuotaError) {
+        throw new DOMException('quota', 'QuotaExceededError')
+      }
+      backing.set(key, value)
+    },
+  }
+  return fake as StorageLike & { forceQuotaError: boolean }
+}
+
+function storeThatFailsOnlyOn(failKey: string): StorageLike {
+  const backing = new Map<string, string>()
+
+  return {
+    getItem: (key) => backing.get(key) ?? null,
+    removeItem: (key) => void backing.delete(key),
+    get length() {
+      return backing.size
+    },
+    setItem: (key, value) => {
+      if (key === failKey) {
+        throw new DOMException('quota', 'QuotaExceededError')
+      }
+      backing.set(key, value)
+    },
+  }
+}
+
+describe('quota exceeded during a write', () => {
+  it('reports quota-exceeded rather than success or a generic error', async () => {
+    const repository = createLocalStorageRepository({
+      storage: storeThatFailsOnlyOn(APPLICATIONS_STORAGE_KEY),
+    })
+
+    const result = await repository.create(validInput)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toEqual({ code: 'quota-exceeded' })
+  })
+
+  it('leaves the stored envelope untouched when a write is refused', async () => {
+    const storage = fakeWorkingStore()
+    const repository = createLocalStorageRepository({ storage })
+
+    const created = await repository.create(validInput)
+    expect(created.ok).toBe(true)
+    if (!created.ok) return
+
+    const written = storage.getItem(APPLICATIONS_STORAGE_KEY)
+    expect(written).not.toBeNull()
+
+    storage.forceQuotaError = true
+    const failed = await repository.update(created.value.id, { status: 'Offer' })
+    expect(failed.ok).toBe(false)
+    if (!failed.ok) expect(failed.error).toEqual({ code: 'quota-exceeded' })
+
+    // Asserted on the raw durable artefact rather than through a second repository: a new
+    // instance re-runs the availability probe, which correctly fails while the store is in
+    // its forced-error state. That coupling was my first attempt's bug, not the code's.
+    expect(storage.getItem(APPLICATIONS_STORAGE_KEY)).toBe(written)
+    const envelope = JSON.parse(written ?? '{}') as { applications: JobApplication[] }
+    expect(envelope.applications).toHaveLength(6)
+    expect(envelope.applications[5].status).not.toBe('Offer')
   })
 })
