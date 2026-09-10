@@ -132,3 +132,33 @@ describe('localStorage application repository — update', () => {
     if (listed.ok) expect(listed.value).toHaveLength(5)
   })
 })
+
+// BEHAVIOR-m2-persistence-seam-007
+describe('localStorage application repository — remove', () => {
+  it('deletes the record and reports which id went away', async () => {
+    const created = await createLocalStorageRepository().create(validInput)
+    if (!created.ok) return
+
+    const removed = await createLocalStorageRepository().remove(created.value.id)
+
+    expect(removed.ok).toBe(true)
+    if (removed.ok) expect(removed.value).toEqual({ id: created.value.id })
+
+    const after = await createLocalStorageRepository().get(created.value.id)
+    expect(after.ok).toBe(false)
+    if (!after.ok) expect(after.error).toEqual({ code: 'not-found', id: created.value.id })
+
+    const listed = await createLocalStorageRepository().list()
+    if (listed.ok) expect(listed.value).toHaveLength(5)
+  })
+
+  it('returns not-found when deleting an unknown id and removes nothing', async () => {
+    const result = await createLocalStorageRepository().remove('nope')
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toEqual({ code: 'not-found', id: 'nope' })
+
+    const listed = await createLocalStorageRepository().list()
+    if (listed.ok) expect(listed.value).toHaveLength(5)
+  })
+})
