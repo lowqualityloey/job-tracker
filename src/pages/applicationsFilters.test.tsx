@@ -98,3 +98,29 @@ describe('searching the applications list', () => {
     expect(screen.getByRole('button', { name: 'Rejected' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
+
+// BEHAVIOR-m2b-filters-cross-tab-020 — zero matches says "nothing matches this filter" with a
+// clear action, never "no applications yet". An empty result and an empty account are different
+// facts, and the second sentence tells the user to do something they have already done (spec B-6).
+describe('when nothing matches', () => {
+  it('blames the filter instead of claiming the account is empty', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    typeQuery('nothing-matches-this')
+
+    expect(screen.getByRole('heading', { name: /no applications match/i })).toBeInTheDocument()
+    expect(screen.queryByText('No job applications yet')).toBeNull()
+    expect(screen.getByRole('status')).toHaveTextContent('0 of 5 applications')
+  })
+
+  it('keeps the controls on screen so the user is not trapped by their own query', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    typeQuery('nothing-matches-this')
+
+    expect(screen.getByRole('searchbox', { name: /search applications/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Interview' })).toBeInTheDocument()
+  })
+})
