@@ -16,6 +16,13 @@ export default function ApplicationsPage() {
   // Above the early returns, unconditionally: a hook below a `return` changes the hook order
   // between the loading render and the ready render, which React rejects at runtime.
   const visible = useMemo(() => selectApplications(applications, criteria), [applications, criteria])
+  // Derived rather than a third piece of state: a stored `filtersActive` flag beside `criteria`
+  // is one more thing that can disagree with what the controls actually say.
+  const filtersActive = criteria.status !== 'All' || criteria.query !== ''
+
+  function clearFilters() {
+    setCriteria(defaultCriteria)
+  }
 
   if (status === 'loading') {
     return <EmptyState title="Loading applications" description="Reading your saved pipeline." />
@@ -66,26 +73,47 @@ export default function ApplicationsPage() {
           by a single code path instead of appearing only after the user does something. */}
       <p className="filter-count" role="status">
         Showing {visible.length} of {applications.length} applications
+        {filtersActive && visible.length > 0 && (
+          <button type="button" className="clear-filters" onClick={clearFilters}>
+            Clear filters
+          </button>
+        )}
       </p>
 
-      <div className="card-list">
-        {visible.map((application) => (
-          <article key={application.id} className="application-card">
-            <div className="card-header">
-              <div>
-                <h3>{application.jobTitle}</h3>
-                <p className="muted-text">{application.companyName}</p>
+      {/* The zero case keeps the filter controls mounted. Replacing the whole page with an empty
+          state would hide the box that caused it, leaving the user to guess at their own query.
+          Only one "Clear filters" control renders at a time: this branch and the count-row one
+          above are mutually exclusive, so the accessible name stays unambiguous. */}
+      {visible.length === 0 ? (
+        <EmptyState
+          title="No applications match this filter"
+          description="You still have applications saved. Change the search or the status to see them."
+          action={
+            <button type="button" className="button button-quiet" onClick={clearFilters}>
+              Clear filters
+            </button>
+          }
+        />
+      ) : (
+        <div className="card-list">
+          {visible.map((application) => (
+            <article key={application.id} className="application-card">
+              <div className="card-header">
+                <div>
+                  <h3>{application.jobTitle}</h3>
+                  <p className="muted-text">{application.companyName}</p>
+                </div>
+                <StatusBadge status={application.status} />
               </div>
-              <StatusBadge status={application.status} />
-            </div>
-            <p>{application.location}</p>
-            <p className="muted-text">Applied: {application.appliedAt ?? 'Not yet applied'}</p>
-            <Link className="details-link" to={`/applications/${application.id}`}>
-              View details
-            </Link>
-          </article>
-        ))}
-      </div>
+              <p>{application.location}</p>
+              <p className="muted-text">Applied: {application.appliedAt ?? 'Not yet applied'}</p>
+              <Link className="details-link" to={`/applications/${application.id}`}>
+                View details
+              </Link>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   )
 }

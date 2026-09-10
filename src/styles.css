@@ -390,6 +390,30 @@ textarea {
 }
 
 .filter-count {
+  align-items: center;
   color: #94a3b8;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin: 0;
+}
+
+/* Inline, but still a 44px target (§5): a control sized to its text is a control you miss.
+   Underline + accent colour rather than a fill, because it sits inside a sentence. */
+.clear-filters {
+  background: none;
+  border: 0;
+  color: #93c5fd;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.clear-filters:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
 }
