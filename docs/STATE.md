@@ -183,8 +183,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
    `docs/tasks/TASK-m2-persistence-seam.handoff-002.md` §2 and §4.
 2. **Agent**: at M2a close, `pk:review` then `pk:pr` → push `feat/m2-persistence-seam`, open **PR #2**, report
    the URL and **stop**.
-3. **HUMAN (recommended now, without waiting for the PR)**: `git push -u origin feat/m2-persistence-seam`.
-   The branch is **31 commits on this machine only**, with no remote head and no CI — the largest loss risk open.
+3. **Agent, standing duty**: keep `feat/m2-persistence-seam` published after each slice, not only at PR time —
+   an unpublished branch plus no CI is the only way this milestone could vanish. Merging stays the human's.
 4. **HUMAN**: review and merge PR #2 when it opens. M2b (filters/search) and M3 (ASP.NET Core API) begin after.
 5. **Later, gated on merge**: `pk:test` seam plan (41 tests across 3 seam files, still no integration coverage
    above the component leaf); `pk:design` token extraction (`DESIGN.md` §8); DEBT-01/02/04…10 remain open.

@@ -102,6 +102,14 @@ Phases advance **through pull requests, never by pushing to `main`.**
 3. When the task or milestone is ready, run `pk:pr`: full verification evidence, then
    `git push -u origin <branch>` and `gh pr create` with a detailed body (summary by layer, verification
    evidence, rollback plan, reviewer focus, data-safety checklist).
+
+**Ownership of each step is fixed, and it is not 50/50.** Creating the branch, publishing it
+(`git push -u origin <branch>`), pushing commits, and opening the PR are **agent** actions — the human should
+never have to ask for them, and a milestone is not "reported complete" until the PR URL exists. Reviewing and
+merging are **human** actions. Publishing early is also encouraged independently of the PR: a branch with no
+remote head is one disk failure away from being lost, and there is no CI (DEBT-03) to catch a regression.
+Do not describe a branch push as "the human's call" — that phrasing appeared in several 2026-09-10 records and
+was corrected the same day.
 4. **The human reviews and merges.** Report the PR URL and stop — do not start the next phase.
 5. When the human says it is merged, reconcile (`git checkout main && git pull --ff-only`) and only then
    begin the next phase / milestone / task.

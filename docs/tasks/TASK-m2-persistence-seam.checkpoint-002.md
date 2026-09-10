@@ -10,6 +10,10 @@
   `git log --grep='docs(m2a.4): close AC-7..AC-10' -1 --format='%h %s'` and validate **ancestry**, not equality.
 - **Supersedes**: [`checkpoint-001`](TASK-m2-persistence-seam.checkpoint-001.md) §6, whose "next action" (Red for
   behaviour 012) is done. Its invariants and evidence still stand.
+- **Correction after writing (2026-09-10, 2026-09-10 23:11 UTC)**: §5 previously called the branch push "the human's call" and
+  checkpoint-001 §5 said the same. Both were wrong about ownership and the wording here is fixed; 001 is left
+  as written, since it is history, and is corrected by this line. Consequence: the branch was published without
+  waiting to be asked.
 - **Release-evaluation handoff fragment**: N/A — no release candidate, tag, or QA gate exists for this work.
 
 ## 1. Objective (unchanged)
@@ -74,8 +78,9 @@ read and write passing through one `ApplicationRepository` interface.
   table supports "3 rows closed" and not any aggregate like "7 of 14". Tidy the register during M2a.5; do not
   quote an aggregate count until it does.
 - **Principal risk unchanged**: `git ls-remote --heads origin feat/m2-persistence-seam` → **0 heads**. 44 commits
-  and ~1 000 lines of records exist on this machine only, with no CI. Mitigation is the human's:
-  `git push -u origin feat/m2-persistence-seam` (a branch push, not a merge).
+  and ~1 000 lines of records exist on this machine only, with no CI. **Publishing the branch is an agent
+  responsibility** (`AGENTS.md` §Branch & PR workflow), not a decision to defer — corrected 2026-09-10 after
+  the human restated the division of labour: agent creates/pushes/opens the PR, human reviews and merges.
 - **Deferred by decision**: F-5 cross-tab `StorageEvent` reconciliation (M2b), fallback UUID generator (M5),
   filters/search (M2b), `DESIGN.md` §8 token extraction, `updatedAt`.
 - **UNCERTAINTY-001-1** (localStorage quota size) never asserted; design stays quota-agnostic.

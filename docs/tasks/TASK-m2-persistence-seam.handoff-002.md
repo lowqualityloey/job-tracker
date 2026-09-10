@@ -77,8 +77,10 @@ Then, in order: `pk:review` → `pk:pr` → push `feat/m2-persistence-seam`, ope
 - **Tidy while there**: the debt register marks closures two different ways — DEBT-01/05/07 blank the severity
   column, DEBT-11…14 say FIXED in prose and still read `P1`/`P2`. Normalise it; do not quote an aggregate
   closure count until the table supports one.
-- **Human-gated**: merging, `git push` to `main`, tagging, deploying are never agent actions. The branch currently
-  has **0 remote heads** — pushing it is the human's call, and it is the largest loss risk on the project.
+- **Who does what**: the agent creates the branch, publishes it (`git push -u origin feat/…`), pushes commits,
+  and opens the PR — without being asked, and a milestone is not reported complete until the PR URL exists. The
+  human reviews and merges; `main` pushes, tags and deploys stay theirs. Earlier drafts of these records called
+  the branch push "the human's call" — that was wrong and is corrected in `AGENTS.md`.
 - **Interview-explainability**: this is a learning repository. Explain the *why* in the PR body, surface the
   trade-off (Result vs throw, write-probe vs feature detect, confirm-vs-`window.confirm`, fireEvent vs
   user-event), and propose one follow-up practice task.

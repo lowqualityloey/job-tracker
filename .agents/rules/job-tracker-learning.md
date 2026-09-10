@@ -77,3 +77,8 @@ No lint and no CI exist here, so these are enforced only by the agent's own comm
 - Unnecessary libraries.
 - Unrelated refactors.
 - Premature complex abstractions.
+
+## Branch & PR workflow
+Agent owns: branch, `git push -u origin <branch>`, pushing commits, `gh pr create` (publish early;
+a branch with no remote head is one disk failure from lost). Human owns: review and merge. Never call a branch
+push "the human's call". Report the PR URL and stop.
