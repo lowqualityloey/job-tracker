@@ -62,6 +62,49 @@ function writeRecords(storage: StorageLike, applications: JobApplication[]): voi
   storage.setItem(APPLICATIONS_STORAGE_KEY, JSON.stringify(envelope))
 }
 
+/**
+ * Turns whatever a storage call threw into a value the UI can switch on.
+ *
+ * The seam's contract is that it returns Results and never throws: an escaping
+ * DOMException shows up as an unhandled rejection and a blank page, which is a worse
+ * outcome for the user than the fault itself.
+ */
+function toRepositoryError(error: unknown): RepositoryError {
+  if (error instanceof NotFound) {
+    return { code: 'not-found', id: error.id }
+  }
+
+  if (error instanceof DOMException) {
+    if (error.name === 'QuotaExceededError') {
+      return { code: 'quota-exceeded' }
+    }
+    if (error.name === 'SecurityError') {
+      return { code: 'unavailable' }
+    }
+  }
+
+  return { code: 'storage-error', detail: error instanceof Error ? error.name : 'unknown' }
+}
+
+/** Marker used inside attempt() so the not-found case shares the Result contract with faults. */
+class NotFound extends Error {
+  constructor(readonly id: string) {
+    super(`no application with id ${id}`)
+  }
+}
+
+function notFound(id: string): NotFound {
+  return new NotFound(id)
+}
+
+function attempt<T>(run: () => T): Result<T, RepositoryError> {
+  try {
+    return ok(run())
+  } catch (error) {
+    return err(toRepositoryError(error))
+  }
+}
+
 function defaultStorage(): StorageLike {
   return window.localStorage
 }
@@ -105,54 +148,72 @@ export function createLocalStorageRepository(
 
   return {
     async list() {
-      return ok(readRecords(storage))
+      return attempt(() => readRecords(storage))
     },
 
     async get(id: string) {
-      const found = readRecords(storage).find((record) => record.id === id)
-      return found ? ok(found) : err({ code: 'not-found', id })
+      return attempt(() => {
+        const found = readRecords(storage).find((record) => record.id === id)
+        if (!found) {
+          throw notFound(id)
+        }
+        return found
+      })
     },
 
     async create(input: ApplicationInput) {
-      const record: JobApplication = {
-        ...input,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-      }
+      return attempt(() => {
+        const record: JobApplication = {
+          ...input,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        }
 
-      writeRecords(storage, [...readRecords(storage), record])
+        // Read and write inside one attempt(): if the write is refused, nothing has been
+        // returned as saved and the stored envelope is untouched.
+        writeRecords(storage, [...readRecords(storage), record])
 
-      return ok(record)
+        return record
+      })
     },
 
     async update(id: string, patch: ApplicationPatch) {
-      const records = readRecords(storage)
-      const index = records.findIndex((record) => record.id === id)
+      return attempt(() => {
+        const records = readRecords(storage)
+        const index = records.findIndex((record) => record.id === id)
 
-      if (index === -1) {
-        return err({ code: 'not-found', id })
-      }
+        if (index === -1) {
+          throw notFound(id)
+        }
 
-      const existing = records[index]
-      // id and createdAt are re-pinned after the spread so a caller cannot relocate a record
-      // or reset its age by passing them in a patch.
-      const updated: JobApplication = { ...existing, ...patch, id: existing.id, createdAt: existing.createdAt }
+        const existing = records[index]
+        // id and createdAt are re-pinned after the spread so a caller cannot relocate a
+        // record or reset its age by passing them in a patch.
+        const updated: JobApplication = {
+          ...existing,
+          ...patch,
+          id: existing.id,
+          createdAt: existing.createdAt,
+        }
 
-      writeRecords(storage, [...records.slice(0, index), updated, ...records.slice(index + 1)])
+        writeRecords(storage, [...records.slice(0, index), updated, ...records.slice(index + 1)])
 
-      return ok(updated)
+        return updated
+      })
     },
 
     async remove(id: string) {
-      const records = readRecords(storage)
+      return attempt(() => {
+        const records = readRecords(storage)
 
-      if (!records.some((record) => record.id === id)) {
-        return err({ code: 'not-found', id })
-      }
+        if (!records.some((record) => record.id === id)) {
+          throw notFound(id)
+        }
 
-      writeRecords(storage, records.filter((record) => record.id !== id))
+        writeRecords(storage, records.filter((record) => record.id !== id))
 
-      return ok({ id })
+        return { id }
+      })
     },
   }
 }
