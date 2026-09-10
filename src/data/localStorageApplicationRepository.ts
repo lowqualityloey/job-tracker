@@ -1,4 +1,4 @@
-import type { ApplicationInput, JobApplication } from '../types/application'
+import type { ApplicationInput, ApplicationPatch, JobApplication } from '../types/application'
 import { err, ok } from '../domain/applicationRepository'
 import type { ApplicationRepository } from '../domain/applicationRepository'
 import { seedApplications } from './seedApplications'
@@ -55,8 +55,23 @@ export function createLocalStorageRepository(): ApplicationRepository {
       return found ? ok(found) : err({ code: 'not-found', id })
     },
 
-    async update() {
-      throw new Error('not implemented: BEHAVIOR-m2-persistence-seam-006')
+    async update(id: string, patch: ApplicationPatch) {
+      const records = readStored()
+      const index = records.findIndex((record) => record.id === id)
+
+      if (index === -1) {
+        return err({ code: 'not-found', id })
+      }
+
+      const existing = records[index]
+      // id and createdAt are re-pinned after the spread so a caller cannot relocate a record
+      // or reset its age by passing them in a patch.
+      const updated: JobApplication = { ...existing, ...patch, id: existing.id, createdAt: existing.createdAt }
+      const next = [...records.slice(0, index), updated, ...records.slice(index + 1)]
+
+      writeStored(next)
+
+      return ok(updated)
     },
 
     async remove() {
