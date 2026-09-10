@@ -259,6 +259,11 @@ Whole-slice verification at `f1ae7af`: `npm run test:run` -> **68 passed (68)** 
   (1 failed / 59 passed). Neither reached a commit — the commit-discipline rule added after the M1
   incident did the work it was added for.
 
+
+**Current pointers (2026-09-10 22:58 UTC)**: M2a.1–M2a.4 verified in
+`TASK-m2-persistence-seam.checkpoint-002.md`; the receiver pass and the single next action are in
+`TASK-m2-persistence-seam.handoff-002.md` §2/§4. checkpoint-001 remains valid for its invariants; only its
+§6 next action is superseded.
 ## 7. Deviation and Readiness Pointers
 
 - Scope or contract change → `docs/tasks/execution-scope-change-TASK-m2-persistence-seam-<n>.md`
