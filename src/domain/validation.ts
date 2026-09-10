@@ -19,6 +19,30 @@ export type ValidationResult =
  * Data-driven on purpose: adding a sixth short-text field later means adding one row here,
  * not another if-block plus another test for the same shape of mistake.
  */
+const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * True only for 'YYYY-MM-DD' strings that name a real day on the proleptic Gregorian
+ * calendar. The shape test alone is not enough: '2026-02-30' has the right shape, and
+ * Date would roll it to 2 March — storing a date the user never typed. The round-trip
+ * back through Date.UTC is what rejects it, and the same trick catches month 13,
+ * day 32, and a two-digit-looking year that Date.UTC would reinterpret as 19xx.
+ */
+export function isIsoDateOnly(value: string): boolean {
+  if (!ISO_DATE_ONLY.test(value)) {
+    return false
+  }
+
+  const [year, month, day] = value.split('-').map(Number)
+  const parsed = new Date(Date.UTC(year, month - 1, day))
+
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  )
+}
+
 const REQUIRED_TEXT_FIELDS: ReadonlyArray<{ field: ValidationField; label: string }> = [
   { field: 'companyName', label: 'Company name' },
   { field: 'jobTitle', label: 'Job title' },
@@ -56,6 +80,13 @@ export function validateApplication(input: ApplicationInput): ValidationResult {
         message: `${label} must be ${MAX_TEXT_LENGTH} characters or fewer.`,
       })
     }
+  }
+
+  if (value.appliedAt !== undefined && !isIsoDateOnly(value.appliedAt)) {
+    fieldErrors.push({
+      field: 'appliedAt',
+      message: 'Date applied must be a real date in YYYY-MM-DD form, or left empty.',
+    })
   }
 
   if (fieldErrors.length > 0) {
