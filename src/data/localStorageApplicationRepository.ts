@@ -54,6 +54,19 @@ class CorruptData extends Error {
   }
 }
 
+/**
+ * A payload written by a newer build. Deliberately its own failure, not a variety of
+ * corruption: quarantining and reseeding a valid newer file is how a downgrade silently
+ * deletes records the user still has. Read the version, refuse, and change nothing.
+ */
+class UnsupportedVersion extends Error {
+  constructor(readonly found: number) {
+    super(
+      'stored envelope schemaVersion ' + found + ' is newer than this build\'s ' + CURRENT_SCHEMA_VERSION,
+    )
+  }
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -114,6 +127,10 @@ function decodeEnvelope(raw: string): JobApplication[] {
     throw new CorruptData(raw)
   }
 
+  if (parsed.schemaVersion > CURRENT_SCHEMA_VERSION) {
+    throw new UnsupportedVersion(parsed.schemaVersion)
+  }
+
   if (!Array.isArray(parsed.applications)) {
     throw new CorruptData(raw)
   }
@@ -164,6 +181,10 @@ function writeRecords(storage: StorageLike, applications: JobApplication[]): voi
  * outcome for the user than the fault itself.
  */
 function toRepositoryError(storage: StorageLike, error: unknown): RepositoryError {
+  if (error instanceof UnsupportedVersion) {
+    return { code: 'unsupported-version', found: error.found }
+  }
+
   if (error instanceof CorruptData) {
     return { code: 'corrupt-data', quarantinedAs: quarantine(storage, error.raw) }
   }
@@ -202,6 +223,9 @@ function attempt<T>(storage: StorageLike, run: () => T): Result<T, RepositoryErr
     return err(toRepositoryError(storage, error))
   }
 }
+
+/** The only envelope version this build understands. Bumping it requires a migration in §4.2. */
+export const CURRENT_SCHEMA_VERSION = 1
 
 const CORRUPT_KEY_PREFIX = `${APPLICATIONS_STORAGE_KEY}:corrupt-`
 
