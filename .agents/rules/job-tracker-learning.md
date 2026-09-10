@@ -55,6 +55,21 @@ When changing frontend code:
 - Prefer behaviour-focused tests over implementation-detail tests.
 - Cover loading, empty, error, and success states when relevant.
 
+## Commit discipline
+
+Mirrored from `AGENTS.md` (canonical) — every rule below came from a failure on this repo:
+
+- Gate commits on verification; never chain `verify && commit` without `set -e`, because a
+  failing typecheck does not stop the commit that follows it.
+- Run `git status --porcelain` before committing. `git add <paths>` controls what you stage,
+  not what you left uncommitted behind it.
+- In scripted edits, assert the anchor string was found — a no-match `replace` reports success.
+- Put store/global resets at **file** scope in tests; a `beforeEach` in one `describe` does not
+  apply to its siblings, which makes the suite order-dependent.
+- Keep Red, Green, and Refactor in separate commits so history still shows the test drove the code.
+
+No lint and no CI exist here, so these are enforced only by the agent's own commands.
+
 ## Avoid
 
 - Blind vibe coding.
@@ -62,3 +77,8 @@ When changing frontend code:
 - Unnecessary libraries.
 - Unrelated refactors.
 - Premature complex abstractions.
+
+## Branch & PR workflow
+Agent owns: branch, `git push -u origin <branch>`, pushing commits, `gh pr create` (publish early;
+a branch with no remote head is one disk failure from lost). Human owns: review and merge. Never call a branch
+push "the human's call". Report the PR URL and stop.

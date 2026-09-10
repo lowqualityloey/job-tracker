@@ -185,3 +185,151 @@ textarea {
     flex-wrap: wrap;
   }
 }
+
+/* Form controls. styles.css had no control styling at all before this, which meant every
+   input rendered with the UA default — dark text on white inside a dark-only palette.
+   Surfaces and text reuse the measured values in DESIGN.md §2; the 44px minimum target
+   (§5) and the :focus-visible ring (§6) are §8 remediation items applied to the new
+   controls rather than deferred, since shipping them unfocused would knowingly repeat a
+   gap. The 12px radius is new: cards are 18px and pills 999px, and neither reads right on
+   a text field, so DESIGN.md §4 should gain this token if the shape survives review. */
+.form-card {
+  background: #0e1628;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.application-form {
+  display: grid;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field-label {
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.application-form input,
+.application-form select,
+.application-form textarea {
+  background: #19212f;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  color: #e5eef5;
+  font-size: 1rem;
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.application-form textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.application-form input:focus-visible,
+.application-form select:focus-visible,
+.application-form textarea:focus-visible,
+.button:focus-visible,
+.delete-confirm button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+.application-form input[aria-invalid='true'],
+.application-form textarea[aria-invalid='true'] {
+  border-color: #b91c1c;
+}
+
+.field-error,
+.form-error {
+  color: #fee2e2;
+  background: #b91c1c;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  margin: 0;
+  padding: 6px 10px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 18px;
+}
+
+.button-primary {
+  background: #2563eb;
+  color: #e5eef5;
+}
+
+.button-primary:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.button-quiet {
+  background: #19212f;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #e5eef5;
+}
+
+.button-danger {
+  background: #b91c1c;
+  color: #fee2e2;
+}
+
+.page-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.storage-notice {
+  background: #334155;
+  border-radius: 12px;
+  color: #e2e8f0;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+}
+
+.delete-confirm {
+  align-items: center;
+  background: #0e1628;
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 8px 12px;
+}
+  margin-top: 10px;
+  padding: 8px 12px;
+}
+
+.delete-zone {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}

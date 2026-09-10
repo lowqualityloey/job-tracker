@@ -70,6 +70,29 @@ Package manager is **npm** (`package-lock.json`); do not mix in pnpm/yarn lockfi
 
 Do not claim success without reporting what was verified.
 
+### Commit discipline
+
+Five rules, each earned by a failure that actually happened on this repository:
+
+- **Gate commits on verification.** Never chain `verify && commit` on one shell line without
+  `set -e` — a failing `tsc` does not stop the commit that follows it. A commit was once made
+  over 17 typecheck errors while its own message claimed passing test counts.
+- **Check `git status --porcelain` before committing**, not only `git add <paths>`. Staging
+  specific paths guarantees what you stage; it says nothing about what you left uncommitted.
+  An unwritten-off `remove()` once rode into an unrelated commit and made two messages false
+  about their contents.
+- **Assert the anchor in scripted edits.** A `str.replace()` that matches nothing reports
+  success and silently half-applies a change; it once inserted a call to a helper that was
+  never written.
+- **Reset shared globals at file scope in tests.** A `beforeEach` inside one `describe` does
+  not apply to its sibling block, so any test asserting on `localStorage` key enumeration or
+  module state becomes order-dependent.
+- **Red, Green, and Refactor are separate commits.** Committed together, history no longer
+  proves the failing test drove the implementation.
+
+Nothing enforces these here: there is **no lint and no CI** (DEBT-03), so the discipline is
+either in the agent's own commands or nowhere.
+
 ## Branch & PR workflow (human-gated phase advance)
 
 Phases advance **through pull requests, never by pushing to `main`.**
@@ -79,6 +102,14 @@ Phases advance **through pull requests, never by pushing to `main`.**
 3. When the task or milestone is ready, run `pk:pr`: full verification evidence, then
    `git push -u origin <branch>` and `gh pr create` with a detailed body (summary by layer, verification
    evidence, rollback plan, reviewer focus, data-safety checklist).
+
+**Ownership of each step is fixed, and it is not 50/50.** Creating the branch, publishing it
+(`git push -u origin <branch>`), pushing commits, and opening the PR are **agent** actions — the human should
+never have to ask for them, and a milestone is not "reported complete" until the PR URL exists. Reviewing and
+merging are **human** actions. Publishing early is also encouraged independently of the PR: a branch with no
+remote head is one disk failure away from being lost, and there is no CI (DEBT-03) to catch a regression.
+Do not describe a branch push as "the human's call" — that phrasing appeared in several 2026-09-10 records and
+was corrected the same day.
 4. **The human reviews and merges.** Report the PR URL and stop — do not start the next phase.
 5. When the human says it is merged, reconcile (`git checkout main && git pull --ff-only`) and only then
    begin the next phase / milestone / task.
