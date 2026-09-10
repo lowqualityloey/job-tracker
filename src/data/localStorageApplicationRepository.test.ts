@@ -162,3 +162,20 @@ describe('localStorage application repository — remove', () => {
     if (listed.ok) expect(listed.value).toHaveLength(5)
   })
 })
+
+// Hardening of AC-3 / BEHAVIOR-005, not new scope: the seed records are a module constant,
+// so handing the array itself to a caller means one `.sort()` in a component would rewrite
+// the shipped demo data for every later test and every later render.
+describe('localStorage application repository — returned data is not aliased state', () => {
+  it('does not expose the seed module array to caller mutation', async () => {
+    const first = await createLocalStorageRepository().list()
+    if (!first.ok) return
+
+    first.value.pop()
+    first.value.sort((a, b) => a.companyName.localeCompare(b.companyName))
+
+    const second = await createLocalStorageRepository().list()
+    expect(second.ok).toBe(true)
+    if (second.ok) expect(second.value).toHaveLength(5)
+  })
+})
