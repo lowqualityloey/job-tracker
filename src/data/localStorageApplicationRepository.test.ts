@@ -85,3 +85,50 @@ describe('localStorage application repository — persistence', () => {
     expect(Array.isArray(envelope.applications)).toBe(true)
   })
 })
+
+// BEHAVIOR-m2-persistence-seam-006
+// An edit must not mint a new identity or reset the creation timestamp: links, keys and
+// ordering all hang off those two fields.
+describe('localStorage application repository — update', () => {
+  it('applies the patch and preserves id and createdAt', async () => {
+    const created = await createLocalStorageRepository().create(validInput)
+    expect(created.ok).toBe(true)
+    if (!created.ok) return
+
+    const updated = await createLocalStorageRepository().update(created.value.id, {
+      status: 'Interview',
+      notes: 'Loop booked for Thursday.',
+    })
+
+    expect(updated.ok).toBe(true)
+    if (updated.ok) {
+      expect(updated.value.status).toBe('Interview')
+      expect(updated.value.notes).toBe('Loop booked for Thursday.')
+      expect(updated.value.id).toBe(created.value.id)
+      expect(updated.value.createdAt).toBe(created.value.createdAt)
+    }
+
+    const reread = await createLocalStorageRepository().get(created.value.id)
+    expect(reread.ok).toBe(true)
+    if (reread.ok) expect(reread.value.status).toBe('Interview')
+  })
+
+  it('leaves untouched fields alone', async () => {
+    const created = await createLocalStorageRepository().create(validInput)
+    if (!created.ok) return
+
+    const updated = await createLocalStorageRepository().update(created.value.id, { status: 'Offer' })
+
+    if (updated.ok) expect(updated.value.companyName).toBe('Northwind Robotics')
+  })
+
+  it('returns not-found for an unknown id instead of creating a record', async () => {
+    const result = await createLocalStorageRepository().update('nope', { status: 'Offer' })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toEqual({ code: 'not-found', id: 'nope' })
+
+    const listed = await createLocalStorageRepository().list()
+    if (listed.ok) expect(listed.value).toHaveLength(5)
+  })
+})
