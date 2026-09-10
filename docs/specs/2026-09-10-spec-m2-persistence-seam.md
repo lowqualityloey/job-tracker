@@ -248,7 +248,7 @@ export type RepositoryError =
   | { code: 'not-found';   id: string }
   | { code: 'unavailable' }                       // storage disabled/quota-zero (CLAIM-001-4)
   | { code: 'quota-exceeded' }                     // CLAIM-001-5
-  | { code: 'corrupt-data'; quarantinedAs: string }// unparseable envelope, raw copy preserved
+  | { code: 'corrupt-data'; quarantinedAs: string | null } // raw copy preserved; null = copy also failed
   | { code: 'unsupported-version'; found: number } // newer schemaVersion on disk — fail closed
   | { code: 'storage-error'; detail: string }
 

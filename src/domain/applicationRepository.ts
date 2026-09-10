@@ -20,7 +20,11 @@ export type RepositoryError =
   | { code: 'not-found'; id: string }
   | { code: 'unavailable' }
   | { code: 'quota-exceeded' }
-  | { code: 'corrupt-data'; quarantinedAs: string }
+  | {
+      code: 'corrupt-data'
+      /** Where the unreadable payload was copied, or null when even that copy failed. */
+      quarantinedAs: string | null
+    }
   | { code: 'unsupported-version'; found: number }
   | { code: 'storage-error'; detail: string }
 

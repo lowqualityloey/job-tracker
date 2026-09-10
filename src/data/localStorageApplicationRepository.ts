@@ -1,5 +1,5 @@
-import type { ApplicationInput, ApplicationPatch, JobApplication } from '../types/application'
-import { err, ok } from '../domain/applicationRepository'
+import type { ApplicationInput, ApplicationPatch, ApplicationStatus, JobApplication } from '../types/application'
+import { APPLICATION_STATUSES, err, ok } from '../domain/applicationRepository'
 import type { ApplicationRepository, RepositoryError, Result } from '../domain/applicationRepository'
 import { seedApplications } from './seedApplications'
 
@@ -44,6 +44,101 @@ export function isStorageAvailable(storage: StorageLike): boolean {
   }
 }
 
+/**
+ * A stored payload that cannot be understood. Carries the raw text so the caller can
+ * preserve it instead of overwriting it.
+ */
+class CorruptData extends Error {
+  constructor(readonly raw: string) {
+    super('stored applications payload is not readable')
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isStatus(value: unknown): value is ApplicationStatus {
+  return typeof value === 'string' && (APPLICATION_STATUSES as readonly string[]).includes(value)
+}
+
+/**
+ * Rebuilds one record field by field.
+ *
+ * This is not ceremony: the payload on disk crosses the same trust boundary as the form,
+ * and `{ ...stored } as JobApplication` would hand whatever it contains straight to the UI —
+ * including keys no type describes. Rebuilding drops the unknown ones and refuses a record
+ * whose required fields are missing or wrongly typed, rather than rendering `undefined`.
+ */
+function decodeRecord(value: unknown, raw: string): JobApplication {
+  if (!isPlainObject(value)) {
+    throw new CorruptData(raw)
+  }
+
+  const { id, companyName, jobTitle, location, status, appliedAt, notes, createdAt } = value
+
+  if (
+    typeof id !== 'string' ||
+    typeof companyName !== 'string' ||
+    typeof jobTitle !== 'string' ||
+    typeof location !== 'string' ||
+    typeof createdAt !== 'string' ||
+    !isStatus(status)
+  ) {
+    throw new CorruptData(raw)
+  }
+
+  const record: JobApplication = { id, companyName, jobTitle, location, status, createdAt }
+
+  if (typeof appliedAt === 'string') {
+    record.appliedAt = appliedAt
+  }
+
+  if (typeof notes === 'string') {
+    record.notes = notes
+  }
+
+  return record
+}
+
+function decodeEnvelope(raw: string): JobApplication[] {
+  let parsed: unknown
+
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new CorruptData(raw)
+  }
+
+  if (!isPlainObject(parsed) || typeof parsed.schemaVersion !== 'number') {
+    throw new CorruptData(raw)
+  }
+
+  if (!Array.isArray(parsed.applications)) {
+    throw new CorruptData(raw)
+  }
+
+  return parsed.applications.map((entry) => decodeRecord(entry, raw))
+}
+
+/**
+ * Copy the unreadable value somewhere retrievable, then clear the real key so the next read
+ * reseeds. Returns null when even the copy failed — reported, not swallowed, because "we
+ * could not save your data" and "we could not even keep the broken bytes" are different
+ * sentences for the user.
+ */
+function quarantine(storage: StorageLike, raw: string): string | null {
+  const key = `${CORRUPT_KEY_PREFIX}${new Date().toISOString()}`
+
+  try {
+    storage.setItem(key, raw)
+    storage.removeItem(APPLICATIONS_STORAGE_KEY)
+    return key
+  } catch {
+    return null
+  }
+}
+
 function readRecords(storage: StorageLike): JobApplication[] {
   const raw = storage.getItem(APPLICATIONS_STORAGE_KEY)
 
@@ -53,8 +148,7 @@ function readRecords(storage: StorageLike): JobApplication[] {
     return seedApplications.map((record) => ({ ...record }))
   }
 
-  const parsed = JSON.parse(raw) as ApplicationsEnvelopeV1
-  return parsed.applications
+  return decodeEnvelope(raw)
 }
 
 function writeRecords(storage: StorageLike, applications: JobApplication[]): void {
@@ -69,7 +163,11 @@ function writeRecords(storage: StorageLike, applications: JobApplication[]): voi
  * DOMException shows up as an unhandled rejection and a blank page, which is a worse
  * outcome for the user than the fault itself.
  */
-function toRepositoryError(error: unknown): RepositoryError {
+function toRepositoryError(storage: StorageLike, error: unknown): RepositoryError {
+  if (error instanceof CorruptData) {
+    return { code: 'corrupt-data', quarantinedAs: quarantine(storage, error.raw) }
+  }
+
   if (error instanceof NotFound) {
     return { code: 'not-found', id: error.id }
   }
@@ -97,13 +195,15 @@ function notFound(id: string): NotFound {
   return new NotFound(id)
 }
 
-function attempt<T>(run: () => T): Result<T, RepositoryError> {
+function attempt<T>(storage: StorageLike, run: () => T): Result<T, RepositoryError> {
   try {
     return ok(run())
   } catch (error) {
-    return err(toRepositoryError(error))
+    return err(toRepositoryError(storage, error))
   }
 }
+
+const CORRUPT_KEY_PREFIX = `${APPLICATIONS_STORAGE_KEY}:corrupt-`
 
 function defaultStorage(): StorageLike {
   return window.localStorage
@@ -148,11 +248,11 @@ export function createLocalStorageRepository(
 
   return {
     async list() {
-      return attempt(() => readRecords(storage))
+      return attempt(storage, () => readRecords(storage))
     },
 
     async get(id: string) {
-      return attempt(() => {
+      return attempt(storage, () => {
         const found = readRecords(storage).find((record) => record.id === id)
         if (!found) {
           throw notFound(id)
@@ -162,7 +262,7 @@ export function createLocalStorageRepository(
     },
 
     async create(input: ApplicationInput) {
-      return attempt(() => {
+      return attempt(storage, () => {
         const record: JobApplication = {
           ...input,
           id: crypto.randomUUID(),
@@ -178,7 +278,7 @@ export function createLocalStorageRepository(
     },
 
     async update(id: string, patch: ApplicationPatch) {
-      return attempt(() => {
+      return attempt(storage, () => {
         const records = readRecords(storage)
         const index = records.findIndex((record) => record.id === id)
 
@@ -203,7 +303,7 @@ export function createLocalStorageRepository(
     },
 
     async remove(id: string) {
-      return attempt(() => {
+      return attempt(storage, () => {
         const records = readRecords(storage)
 
         if (!records.some((record) => record.id === id)) {
