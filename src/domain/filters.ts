@@ -11,30 +11,53 @@ export type StatusFilter = ApplicationStatus | 'All'
 
 export interface FilterCriteria {
   status: StatusFilter
+  /** Free text over company, title, location and notes. Empty string means "no query". */
+  query: string
 }
 
 export const ALL_STATUSES: readonly StatusFilter[] = ['All', 'Saved', 'Applied', 'Interview', 'Rejected', 'Offer']
 
-export const defaultCriteria: FilterCriteria = { status: 'All' }
+export const defaultCriteria: FilterCriteria = { status: 'All', query: '' }
+
+/**
+ * `'  AUCKLAND '` and `'auckland'` must behave identically, or the first thing a user types after
+ * a paste ("it's not finding it", spec B-5) is a bug report about a feature that works.
+ *
+ * Trimmed at the ends only: collapsing inner whitespace would match a query for "rocket  lab"
+ * against text that does not contain it, which is a different promise than the UI makes.
+ */
+export function normaliseQuery(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+/** The fields a query searches. Deliberately not every field: `status` has chips, and `id`/`createdAt` are not user-meaningful text. */
+const SEARCHED_FIELDS = ['companyName', 'jobTitle', 'location', 'notes'] as const
+
+export function matchesQuery(record: JobApplication, query: string): boolean {
+  const needle = normaliseQuery(query)
+
+  if (needle === '') {
+    return true
+  }
+
+  return SEARCHED_FIELDS.some((field) => {
+    const value = record[field]
+    return typeof value === 'string' && value.toLowerCase().includes(needle)
+  })
+}
 
 /**
  * The subset of records the criteria select, in the order the store returned them.
  *
- * Pure and total on purpose: it takes records and returns records, so the same predicate is what
- * M3 can mirror server-side (`WHERE status = $1`) instead of a second, drifting copy in C#. It is
- * also the only place a matching rule can live — inlining it into the page would scatter the rules
- * across every component that lists applications.
- *
- * No sorting happens here. Order is store order, and adding an implicit sort would change what
- * `BEHAVIOR-018` promises without anyone asking for it (spec §2 non-goals, B-10).
+ * Status and query combine with AND, not OR: pressing `Rejected` and typing "auckland" asks for
+ * rejected applications in Auckland. Two independent filters that replaced each other would make
+ * the count region lie about what the user selected.
  */
 export function selectApplications(
   records: readonly JobApplication[],
   criteria: FilterCriteria,
 ): JobApplication[] {
-  if (criteria.status === 'All') {
-    return [...records]
-  }
-
-  return records.filter((record) => record.status === criteria.status)
+  return records.filter(
+    (record) => (criteria.status === 'All' || record.status === criteria.status) && matchesQuery(record, criteria.query),
+  )
 }

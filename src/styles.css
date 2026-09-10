@@ -335,6 +335,27 @@ textarea {
    an idle chip is `.button-quiet`'s surface with its text, a pressed chip is the active-nav pair
    `#eff6ff` on `#2563eb` (4.75:1 — thin but already shipped and already measured). The pressed
    state is carried by `aria-pressed` as well as by fill, so §7's "never colour alone" holds. */
+.filter-bar {
+  display: grid;
+  gap: 12px;
+}
+
+.filter-input {
+  background: #19212f;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  color: #e5eef5;
+  font-size: 1rem;
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.filter-input:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;
