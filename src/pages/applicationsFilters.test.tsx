@@ -50,3 +50,51 @@ describe('filtering the applications list by status', () => {
     expect(screen.getByRole('status')).toHaveTextContent('1 of 5 applications')
   })
 })
+
+function typeQuery(value: string) {
+  fireEvent.change(screen.getByRole('searchbox', { name: /search applications/i }), {
+    target: { value },
+  })
+}
+
+// BEHAVIOR-m2b-filters-cross-tab-019 — a query matches company, title, location and notes,
+// insensitive to case and to surrounding whitespace.
+describe('searching the applications list', () => {
+  it.each([
+    ['trade', ['Frontend Developer']], // companyName: "Trade Me"
+    ['GRADUATE', ['Graduate Software Engineer']], // jobTitle, wrong case
+    ['auckland', ['Software Developer', 'Full Stack Developer']], // location, two records
+    ['typescript', ['Junior Frontend Developer']], // notes only — no other field says it
+  ])('narrows to the records containing "%s" in any searched field', async (query, expected) => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    typeQuery(query)
+
+    expect(cardTitles()).toEqual(expected)
+    expect(screen.getByRole('status')).toHaveTextContent(`${expected.length} of 5 applications`)
+  })
+
+  it('ignores surrounding whitespace', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    typeQuery('   remote  ')
+
+    expect(cardTitles()).toEqual(['Frontend Developer'])
+  })
+
+  it('combines with a status chip rather than replacing it', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rejected' }))
+    typeQuery('auckland')
+
+    expect(cardTitles()).toEqual(['Software Developer'])
+    expect(screen.getByRole('status')).toHaveTextContent('1 of 5 applications')
+
+    // The status chip stays pressed while the query narrows inside it: two controls, one result.
+    expect(screen.getByRole('button', { name: 'Rejected' })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
