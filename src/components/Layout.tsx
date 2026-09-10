@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from 'react'
+import StorageNotice from './StorageNotice'
 import { NavLink } from 'react-router-dom'
 
 const navItems = [
@@ -32,7 +33,8 @@ export default function Layout({ children }: PropsWithChildren) {
           </ul>
         </nav>
       </header>
-      <main className="main-content">{children}</main>
+      <main className="main-content">
+        <StorageNotice />{children}</main>
     </div>
   )
 }

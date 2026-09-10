@@ -70,6 +70,18 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
     [repository],
   )
 
+  const updateApplication = useCallback(
+    async (id: string, patch: ApplicationPatch) => {
+      const result = await repository.update(id, patch)
+
+      if (result.ok) {
+        setApplications((current) => current.map((record) => (record.id === id ? result.value : record)))
+      }
+
+      return result
+    },
+    [repository],
+  )
   const api = useMemo<ApplicationsApi>(
     () => ({
       status,
@@ -78,12 +90,13 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
       storageAvailable,
       getApplication: (id: string) => applications.find((record) => record.id === id),
       createApplication,
-      // Honest placeholders: their Red tests are BEHAVIOR-013..017. A silent [] here would
+      // Honest placeholder: delete’s Red test is BEHAVIOR-017. Returning an empty list here would
+      // let that Green commit look as though it had passed on its first attempt.
       // let a later Green commit appear to have passed on its first attempt.
-      updateApplication: async () => err({ code: 'storage-error', detail: 'not implemented: BEHAVIOR-013' }),
+      updateApplication,
       deleteApplication: async () => err({ code: 'storage-error', detail: 'not implemented: BEHAVIOR-017' }),
     }),
-    [status, error, applications, storageAvailable, createApplication],
+    [status, error, applications, storageAvailable, createApplication, updateApplication],
   )
 
   return <ApplicationsContext.Provider value={api}>{children}</ApplicationsContext.Provider>
