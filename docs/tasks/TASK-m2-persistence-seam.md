@@ -60,10 +60,11 @@
 
 Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits in spec §6.
 
-- [x] **AC-1** `BEHAVIOR-m2-persistence-seam-001` — **Given** a valid new application **When** it is validated
+- [ ] **AC-1** `BEHAVIOR-m2-persistence-seam-001` — **Given** a valid new application **When** it is validated
   **Then** validation succeeds and **And** the created record carries a v4 string `id` and a `createdAt` stamp
-  - **Result**: **Partially met** — the validation half is Met; the `id`/`createdAt` half belongs to
-    `BEHAVIOR-004` (M2a.2) and is untested. Not closed.
+  - **Result**: **Partially met** — box left UNCHECKED deliberately: — the validation half is Met; the `id`/`createdAt` half belongs to
+    `BEHAVIOR-004` (M2a.2) and is untested. An AC box is ticked only when the whole criterion is met, so a
+    half-satisfied AC stays open — otherwise the ledger's Met count overstates progress at a glance.
   - **Evidence**: Red `f84a970` (`Tests no tests`, module absent) → Green `fdffc2c`
     (`Tests 1 passed (1)`, exit 0). Final M2a.1 state `1f6aba2` @ `npx vitest run`: 13 passed.
 - [x] **AC-2** `BEHAVIOR-m2-persistence-seam-002` **and** `-003` — **Given** a blank/over-length company name,
@@ -151,7 +152,8 @@ Gherkin form; each maps to a stable `BEHAVIOR-` identity used by the TDD commits
 - **Changed-file summary**: M2a.1 — `src/domain/validation.ts` (new), `src/domain/validation.test.ts` (new),
   `src/types/application.ts` (`ApplicationInput` added additively; `JobApplication.id` still `number` until
   M2a.2), plus the spec/record/STATE docs. No page, component, or data module touched yet.
-- **Acceptance results**: AC-2 Met. AC-1 Partial (validation half). AC-3…AC-11 Pending.
+- **Acceptance results**: **1 of 11 ACs met** (AC-2). AC-1 Partial (validation half only, box left open).
+  AC-3…AC-11 Pending. 3 of 17 `BEHAVIOR-` ids implemented.
 - **Verification commands / results** at `1f6aba2`, 2026-09-10 21:22 UTC:
   - `npm run test:run` → **13 passed (13)**, 2 files, exit 0
   - `npx tsc -p tsconfig.app.json --noEmit` → exit 0
