@@ -82,6 +82,7 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
     },
     [repository],
   )
+  // The snapshot only drops a record once the store has agreed to the removal.
   const deleteApplication = useCallback(
     async (id: string) => {
       const result = await repository.remove(id)
@@ -102,9 +103,6 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
       storageAvailable,
       getApplication: (id: string) => applications.find((record) => record.id === id),
       createApplication,
-      // (the snapshot only drops a record once the store has agreed to the removal)
-      // let that Green commit look as though it had passed on its first attempt.
-      // let a later Green commit appear to have passed on its first attempt.
       updateApplication,
       deleteApplication,
     }),
