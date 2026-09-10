@@ -29,9 +29,9 @@ function writeStored(applications: JobApplication[]): void {
 /**
  * The only module in the app allowed to touch window.localStorage.
  *
- * Currently implements create() alone. list/get/update/remove throw rather than returning
- * something plausible, because their Red tests have not run yet — an unimplemented stub that
- * silently returns [] would let a later Green commit look like it passed on first try.
+ * Every method of the ApplicationRepository contract is now implemented. What is still
+ * deliberately absent: availability probing, quota/corrupt/version handling. Those are the
+ * Red tests of M2a.3 (BEHAVIOR-008..011); writing them now would be untested code.
  */
 export function createLocalStorageRepository(): ApplicationRepository {
   return {
