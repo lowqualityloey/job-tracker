@@ -74,8 +74,16 @@ export function createLocalStorageRepository(): ApplicationRepository {
       return ok(updated)
     },
 
-    async remove() {
-      throw new Error('not implemented: BEHAVIOR-m2-persistence-seam-007')
+    async remove(id: string) {
+      const records = readStored()
+
+      if (!records.some((record) => record.id === id)) {
+        return err({ code: 'not-found', id })
+      }
+
+      writeStored(records.filter((record) => record.id !== id))
+
+      return ok({ id })
     },
   }
 }
