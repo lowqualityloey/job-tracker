@@ -124,3 +124,42 @@ describe('when nothing matches', () => {
     expect(screen.getByRole('button', { name: 'Interview' })).toBeInTheDocument()
   })
 })
+
+// BEHAVIOR-m2b-filters-cross-tab-021 — clearing restores the full list and leaves exactly one
+// active control. A "clear" that resets the chips but leaves the query in the box is the worst
+// outcome: the list stays short and the reason for it is invisible.
+describe('clearing filters', () => {
+  it('restores the whole pipeline from one press and leaves only All active', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rejected' }))
+    typeQuery('auckland')
+    expect(cardTitles()).toEqual(['Software Developer'])
+
+    fireEvent.click(screen.getByRole('button', { name: /^clear filters$/i }))
+
+    expect(cardTitles()).toHaveLength(seedApplications.length)
+    expect(screen.getByRole('searchbox', { name: /search applications/i })).toHaveValue('')
+    expect(screen.getByRole('status')).toHaveTextContent('5 of 5 applications')
+
+    const pressed = screen.getAllByRole('button', { pressed: true })
+    expect(pressed.map((chip) => chip.textContent)).toEqual(['All'])
+  })
+
+  it('clears from the zero-match state too, without a second visible clear control', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    typeQuery('nothing-matches-this')
+
+    // Exactly one control named "Clear filters" — two would make the announcement ambiguous.
+    const clears = screen.getAllByRole('button', { name: /clear filters/i })
+    expect(clears).toHaveLength(1)
+
+    fireEvent.click(clears[0])
+
+    expect(cardTitles()).toHaveLength(seedApplications.length)
+    expect(screen.queryByRole('heading', { name: /no applications match/i })).toBeNull()
+  })
+})
