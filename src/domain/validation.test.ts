@@ -77,3 +77,39 @@ function errorFields(result: ValidationResult): string[] {
   if (result.ok) throw new Error('expected a failed validation result')
   return result.fieldErrors.map((error) => error.field)
 }
+
+// BEHAVIOR-m2-persistence-seam-003
+// appliedAt is optional, but when present it must be a real calendar date. String
+// shape checks alone let '2026-02-30' through, and Date would silently roll it into
+// March — the stored record would then disagree with what the user typed.
+describe('validateApplication — appliedAt date', () => {
+  it('accepts a real date', () => {
+    expect(validateApplication(base({ appliedAt: '2026-02-28' })).ok).toBe(true)
+  })
+
+  it('accepts the field being absent', () => {
+    const result = validateApplication(base({ appliedAt: undefined }))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.appliedAt).toBeUndefined()
+  })
+
+  it('rejects a date that does not exist on the calendar', () => {
+    const result = validateApplication(base({ appliedAt: '2026-02-30' }))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(errorFields(result)).toContain('appliedAt')
+  })
+
+  it('rejects a wrongly formatted date', () => {
+    for (const bad of ['2026/02/28', '28-02-2026', '2026-02', 'not-a-date', '2026-2-8']) {
+      const result = validateApplication(base({ appliedAt: bad }))
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(errorFields(result)).toContain('appliedAt')
+    }
+  })
+
+  it('rejects a future-free-form value that Date would coerce', () => {
+    const result = validateApplication(base({ appliedAt: '2026-02-28T10:00:00Z' }))
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(errorFields(result)).toContain('appliedAt')
+  })
+})
