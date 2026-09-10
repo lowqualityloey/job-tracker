@@ -75,7 +75,9 @@ describe('dashboard counts derive from live data', () => {
     }
     setup(failing, '/')
 
-    await screen.findByText(/could not be read|could not load/i)
+    // Role-scoped: a bare text regex matched the heading and the description, so this
+    // assertion was failing on ambiguity rather than on the missing error branch.
+    await screen.findByRole('heading', { name: 'Your applications could not be read' })
     expect(screen.queryByText('Total applications')).toBeNull()
   })
 })
