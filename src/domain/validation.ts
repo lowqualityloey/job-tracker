@@ -43,7 +43,9 @@ export function isIsoDateOnly(value: string): boolean {
   )
 }
 
-const REQUIRED_TEXT_FIELDS: ReadonlyArray<{ field: ValidationField; label: string }> = [
+type RequiredTextField = 'companyName' | 'jobTitle' | 'location'
+
+const REQUIRED_TEXT_FIELDS: ReadonlyArray<{ field: RequiredTextField; label: string }> = [
   { field: 'companyName', label: 'Company name' },
   { field: 'jobTitle', label: 'Job title' },
   { field: 'location', label: 'Location' },
@@ -70,7 +72,7 @@ export function validateApplication(input: ApplicationInput): ValidationResult {
   }
 
   for (const { field, label } of REQUIRED_TEXT_FIELDS) {
-    const text = value[field as 'companyName' | 'jobTitle' | 'location']
+    const text = value[field]
 
     if (text.length === 0) {
       fieldErrors.push({ field, message: `${label} is required.` })
