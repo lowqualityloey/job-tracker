@@ -232,3 +232,10 @@ envelope rule for the input the client cannot construct.
 AC-5's "client whose machine is UTC+13" is now a command, not an adjective: `TZ=Etc/GMT-13 dotnet test
 api/tests/JobTracker.Api.Tests` → `Passed: 10, Failed: 0`. Note for anyone re-running it: this host is **NZST+12**,
 so `Pacific/Auckland` in September measures +12, not +13.
+
+**`-032` executed early, in Slice 1** (2026-09-11 07:35 UTC): the intent was written against a table that did not exist when the
+register was authored, and once the table existed the CHECK inside it did not. The registered expectation was
+"constraint not enforced"; the actual Red was `Assert.Throws() Failure: No exception was thrown` — the same
+conclusion, reached by inserting a sixth status into the shipped schema rather than by reading a migration file and
+believing it. Slice 0's harness probe (23514 on a `create temporary table`) is now labelled in code as a **premise
+test about PostgreSQL, not evidence about `applications`**, so the confusion cannot be re-made by the next reader.
