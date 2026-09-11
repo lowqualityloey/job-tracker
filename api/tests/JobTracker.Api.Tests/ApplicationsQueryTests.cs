@@ -156,6 +156,47 @@ public sealed class ApplicationsQueryTests(ApplicationsApiFixture fixture) : ICl
         Assert.Equal("Saved", row.RootElement.GetProperty("status").GetString());
     }
 
+    [Fact]
+    public async Task Revision_changes_after_update()
+    {
+        // BEHAVIOR-m3-backend-api-029 (p0). The register says exactly how this must fail first: "field absent".
+        //
+        // `revision` is the number every optimistic-concurrency behaviour in Slice 2 is built on (033's stale
+        // write, 044's missing If-Match), and it comes from PostgreSQL's `xmin` rather than from a counter the
+        // application maintains. Two properties matter and both are asserted here, because neither is what a
+        // reviewer would think to check: it must be **stable across reads** (a GET that bumps the version would
+        // make every If-Match stale before it was used, and the failure would look like a network race), and it
+        // must **change on any write** (a version that only moved when a field value changed would miss the
+        // `updated_at`-only updates the client cannot see).
+        var id = Guid.NewGuid();
+        await fixture.ExecuteAsync("delete from applications");
+        await fixture.ExecuteAsync(
+            $"insert into applications (id, company_name, job_title, status, created_at, updated_at) values ('{id}', 'Umbrella Co', 'Engineer', 'Saved', timestamptz '2026-02-01T00:00:00Z', timestamptz '2026-02-01T00:00:00Z')");
+
+        var first = await RevisionAsync();
+        var repeated = await RevisionAsync();
+        Assert.Equal(first, repeated);
+
+        await fixture.ExecuteAsync($"update applications set status = 'Applied' where id = '{id}'");
+
+        Assert.NotEqual(first, await RevisionAsync());
+    }
+
+    /// <summary>The one row's `revision` as the JSON number the client's `revision?: number` expects.</summary>
+    private async Task<long> RevisionAsync()
+    {
+        using var document = JsonDocument.Parse(await fixture.Http.GetStringAsync("/api/applications"));
+        var row = Assert.Single(document.RootElement.EnumerateArray());
+
+        Assert.True(row.TryGetProperty("revision", out var revision),
+            $"the list response carries no `revision` field; fields present: {string.Join(", ", row.EnumerateObject().Select(p => p.Name).Order())}");
+        // Number and not string: DECISION-m3-backend-api-006 added `revision?: number` to the domain type, and a
+        // quoted xmin would compare unequal on the client's first If-Match while still *looking* correct in a
+        // debugger.
+        Assert.Equal(JsonValueKind.Number, revision.ValueKind);
+        return revision.GetInt64();
+    }
+
     /// <summary>
     /// A missing field is a named failure listing what did arrive, not a <see cref="KeyNotFoundException"/> from
     /// an indexer — the difference between "the server sent no companyName" and "my dictionary threw".
