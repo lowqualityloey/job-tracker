@@ -87,4 +87,6 @@ behaviours whose diff carries one, or an `--amend` that staged nothing.
 ## Branch & PR workflow
 Agent owns: branch, `git push -u origin <branch>`, pushing commits, `gh pr create` (publish early;
 a branch with no remote head is one disk failure from lost). Human owns: review and merge. Never call a branch
-push "the human's call". Report the PR URL and stop.
+push "the human's call". Report the PR URL and stop. After pushing, verify `gh pr view <n> --json headRefOid`
+equals `git rev-parse HEAD` — a commit pushed while GitHub is mid-processing can end up on the branch but out
+of the merge (happened 2026-09-11 on PR #4: tip `28f3408` never reached `main`).

@@ -124,6 +124,13 @@ Phases advance **through pull requests, never by pushing to `main`.**
    `git push -u origin <branch>` and `gh pr create` with a detailed body (summary by layer, verification
    evidence, rollback plan, reviewer focus, data-safety checklist).
 
+   **Then confirm the PR's head is your commit:** `gh pr view <n> --json headRefOid` must equal
+   `git rev-parse HEAD`. Pushing again while GitHub is still processing a previous head can leave a commit
+   on the branch and out of the merge — measured on 2026-09-11, where PR #4 merged at `415f819` and the
+   branch's own tip `28f3408` (a P1 debt record) never reached `main`. It surfaced as a stale `head.sha` in
+   the API, which is the only reason it was noticed. Same family as the `git status` rule: **the branch
+   having a commit is not the same as the PR carrying it.**
+
 **Ownership of each step is fixed, and it is not 50/50.** Creating the branch, publishing it
 (`git push -u origin <branch>`), pushing commits, and opening the PR are **agent** actions — the human should
 never have to ask for them, and a milestone is not "reported complete" until the PR URL exists. Reviewing and
