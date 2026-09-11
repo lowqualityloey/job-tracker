@@ -71,7 +71,15 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   "**CRUD through the HTTP adapter works**", which needs a live server and a browser, owned by `-042`. Left `Pending`
   deliberately: a checked box here would say the adapter has moved real records, and so far it has only ever been
   shown a mocked `fetch`.
-- [ ] **AC-2** — **Flag off changes nothing.** `npm run verify` green with `VITE_API_BASE_URL` unset, exactly as on `main` today. **Result**: Pending · **Evidence**: `npm run verify` exit 0
+- [x] **AC-2** — **Flag off changes nothing.** `npm run verify` green with `VITE_API_BASE_URL` unset, exactly as on `main` today. **Result**: **Verified** (2026-09-11 18:30 UTC). `VITE_API_BASE_URL= npm run verify` -> **exit 0**,
+  **197 tests / 20 files**, build OK — and the suite's *signature* (`197` passed, `20` files) is **identical** to the run
+  with the flag set, so the flag-off gate is not merely green, it is the same gate. Selection itself is `-036`'s
+  (it proves both adapters satisfy `ApplicationRepository` and that the env var chooses between them), so this AC is the
+  no-regression half of that pair.
+  **What this command does *not* prove, stated so nobody over-reads it:** jsdom implements no `EventSource` and its
+  `fetch` enforces no origin policy, so a flag-off run cannot observe anything a flag-on run could not — it proves the
+  default path is intact and the suite is flag-independent, **not** that the two adapters are runtime-equivalent. That
+  claim rests on `-036`/`-037` and on AC-1's browser run, where `localStorage` was empty.
 - [x] **AC-3** — **Durability outside the client process.** *Given* a record created in the browser, *When* the browser is closed and reopened, *Then* the record is present **and** `psql -c 'select id from applications'` shows it. **Result**: **Verified by `BEHAVIOR-…-043`** (2026-09-11 18:00 UTC) — proof deliberately outside both test suites.
   `tests/browser/run-043.sh` + `persistenceAfterRestart.mjs`: a record is created **by filling the real form in
   Chromium** (the Given clause is "created in the browser", so a raw `POST` would change what is proved) — `POST` 201,
@@ -114,6 +122,15 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
    `count(*) == 1`. AC-6's *Given* names two browser tabs; what its *Then* claims — the API's answer and the stored
    content — is what these two behaviours test, and the tabs arrive with Slice 3's adapter (AC-1).
 - [ ] **AC-7** — **Create is idempotent under retry.** A retried `POST` with the same client-minted id yields `409`, the adapter re-reads and treats it as success, and the table holds **exactly one** row. **Result**: **two of three clauses verified** (2026-09-11 08:30 UTC), AC stays open · **Evidence**: `BEHAVIOR-…-034` (Red
+
+  **Correction to the 18:00 UTC hypothesis, and why it matters.** I wrote in PR #25's review notes that "`-034` asserts
+  409 where AC-7 says 201", i.e. that the wording disagreed. **It does not** — AC-7 says 409 too. The real divergence is
+  one layer down and only became visible after reading a test's `invoke:` line rather than its name: `-037`'s error table
+  pins `repository.create()` against a `409 conflict` and asserts it **throws** `{ code: 'conflict', id }`, whereas
+  `DECISION-m3-backend-api-007` says the adapter "resolves that by re-reading the row and treating an existing record as
+  success". So the third clause is not awaiting evidence — **it is contradicted by a Green test.** Filed as **gap 9**
+  with options and a recommendation. **AC-7 stays open.** A guessed diagnosis would have had me "repair" the wrong
+  clause: the direction of a hypothesis does not license acting on it before reading the line that decides it.
    `8b491d3` → Green `01b4f77`) proves `409` and `count(*) == 1`; the third clause — "**the adapter re-reads and
    treats it as success**" — is client behaviour owned by `BEHAVIOR-…-036`/`-037` in Slice 3 and has no evidence yet.
    Wording learned from the AC-4 retraction: an earlier draft of this line would have said "half-verified" and left
@@ -213,7 +230,24 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   anyone opens to decide whether a green check means something. First observation of the skip note is the *next*
   docs-only PR: this one edits `ci.yml`, which the detector counts as API surface, so it takes the `running` branch
   by design — a nice demonstration that the toolchain re-proves itself when CI changes.
-- [ ] **AC-14** — **Locked invariants I-1…I-6 still hold** (spec §3), checked by command rather than by re-reading code: no `fetch`/`EventSource` outside `src/data/`, no `Number(id)` anywhere, **runtime dependency count still 3**, no `.only`/`.skip`, no `vite.config.js` in the tree, **and `revision` referenced nowhere outside `src/data/` + its declaration** (grill F-5: the field's isolation was a comment; it is now a grep). **Result**: Pending · **Evidence**: §8's invariant scan block, output quoted verbatim
+- [x] **AC-14** — **Locked invariants I-1…I-6 still hold** (spec §3), checked by command rather than by re-reading code: no `fetch`/`EventSource` outside `src/data/`, no `Number(id)` anywhere, **runtime dependency count still 3**, no `.only`/`.skip`, no `vite.config.js` in the tree, **and `revision` referenced nowhere outside `src/data/` + its declaration** (grill F-5: the field's isolation was a comment; it is now a grep). **Result**: **Verified** (2026-09-11 18:30 UTC — all six by command) · **Evidence**: §8's invariant scan block, output quoted verbatim
+
+  Every clause measured rather than read off the code, which is what this AC explicitly asks for ("checked by command
+  rather than by re-reading code"). **Violations, per invariant: `0`, `0`, `3 deps`, `0`, `0`, `0`.**
+
+  | # | Invariant | Command shape | Observed |
+  | :--- | :--- | :--- | :--- |
+  | I-1 | no `fetch`/`EventSource` outside `src/data/` | grep for `fetch(` / `new EventSource` in `src`, minus `src/data/`, minus `*.test.ts` | **0 files** |
+  | I-2 | no `Number(id)` anywhere | `grep -rn 'Number(' src --include=*.ts --include=*.tsx \| wc -l` | **0** — not merely zero *on ids*: there is no `Number(` call anywhere in `src/` |
+  | I-3 | runtime dependency count | read `package.json`'s `dependencies` | **3** = `react`, `react-dom`, `react-router-dom` — unmoved since **M0** |
+  | I-4 | no `.only` / `.skip` | `grep -rnE '\.(only\|skip)\(' src tests` | **0 hits** |
+  | I-5 | no `vite.config.js` in the tree | `ls vite.config.js` | **absent**, and deliberately *not* gitignored, so DEBT-11's emitted-file failure mode stays loud in `git status` |
+  | I-6 | `revision` referenced nowhere outside `src/data/` | grep for `revision` in `src`, minus `src/data/` | **0 files** — the concurrency token is confined to the adapter, exactly as DECISION-006's seam requires |
+
+  Two notes on how to read this table. I-2 passes with a grep **broader** than the invariant it checks, which is the
+  right direction for a scan: a stricter command can clear a looser claim, the reverse cannot. And I-5's value exists
+  only while `vite.config.js` stays *un-*ignored — the **absence is the assertion**, so a future tidy-up that
+  gitignores it quietly deletes this check.
 
 ## 4. Execution Policy
 

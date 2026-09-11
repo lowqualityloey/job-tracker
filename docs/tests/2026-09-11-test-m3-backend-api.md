@@ -433,3 +433,75 @@ oversight; `-041`'s mutations show what the guard is worth on the fields it does
 | Frontend suite | 179 / 19 files | **197 / 20 files** |
 | Shared fixture rows | 34 | **36** |
 | Fields checked by the wire guard | 6 of 9 | **9 of 9** |
+
+## §17 — Gap 9: the last open AC was blocked by a *passing* test, not a missing one (2026-09-11 18:35 UTC, AC-7 sweep)
+
+**Why this one is different from gaps 1–8.** Every earlier gap was an untested path. This is a **tested path that tests
+the wrong thing**, which is exactly why `-037` could be Green while AC-7 remained unclosable — and why a coverage table
+reviewed row by row would not have caught it.
+
+### What was ratified
+
+`DECISION-m3-backend-api-007` (`Status: decided`, `Remaining Uncertainty: None internal`): client-mints the id, and
+"`POST` on an existing id returns **409**, and the adapter **resolves that by re-reading the row and treating an existing
+record as success** (idempotent create)". Not a stray sentence — the claim appears three times: DECISION-007, the risk
+table (`POST retried after a timeout` → "*adapter re-reads and accepts the existing row*"), and spec §6's
+`BEHAVIOR-034` ("retried `POST` with the same id → `409`, **and the adapter treats it as success after re-reading**").
+
+### What is built, and proven to be built that way
+
+`src/data/httpApplicationRepository.ts`: `case 'conflict':` → returns `{ code: 'conflict', id }`, i.e. a **thrown**
+`RepositoryError`. And `-037`'s totality table asserts precisely that **on create**:
+
+```
+    name: '409 becomes conflict — the eighth variant, DECISION-006',
+    invoke: (repository) => repository.create({ companyName: 'Hooli', … }),
+    expect: { code: 'conflict', id: ID },
+```
+
+**The suite is green because `create()` throws.** AC-7's server half is proven twice over (`-034`: `409`, and
+`count(*) == 1`), and DECISION-007's *purpose* — a retried submit must not duplicate a row — **is already guaranteed**.
+What is unimplemented, and cannot be closed by adding evidence, is the client's resolution of the conflict.
+
+### The spec looks self-contradictory and isn't
+
+§4.3's table says `409 conflict → { code:'conflict', id }` (the `DECISION-006` eighth variant, whose **totality AC-8
+exists to lock down**), while DECISION-007 says create re-reads and succeeds. Those reconcile if §4.3 describes the
+**generic** mapping — what `get`/`update`/`delete` surface — and `create()` carries a deliberate narrow exception.
+**Nothing in the spec says that**, and `-037` currently pins `create` to the generic row. So implementing (A) below means
+**editing a ratified table's applicability**, which is the owner's call, not an agent's — the same category as gap 5 and
+the `location` null-map.
+
+### Options
+
+- **(A) Implement idempotent create** (~2h). Special-case `409 conflict` inside `create()` → re-read by the minted id →
+  return the existing record as success. Move `-037`'s `409` row's `invoke` from `create` to `update` so the generic
+  mapping is *still* proven total, and add a create-specific Red/Green pair. Closes AC-7 as written.
+- **(B) Narrow `DECISION-007`'s clause to what is proven** (docs only): M3 surfaces a retried create as a conflict error;
+  no duplicate row is created, which was the decision's purpose. Amends DECISION-007, `BEHAVIOR-034`'s client clause, and
+  AC-7's wording.
+- **(C) Defer to M4**, where auth and sessions make retried submits materially likelier and the spurious error graduates
+  from wart to defect.
+
+### Recommendation — (B)
+
+Because of **the shape of the missing behaviour, not its size.** Turning a conflict into a *silent success* is
+user-visible: someone who double-submits a form stops receiving any acknowledgement that the second submit was refused.
+That deserves its own spec pass with an observable outcome, not a late edit that quietly narrows the table AC-8 protects.
+The cost of (B) is low because the *safety* property is proven: a retried `POST` cannot duplicate the row (`-034`), so
+what M3 ships is a spurious error message, **not data loss**.
+
+### The transferable lesson
+
+`-037`'s table was written to satisfy AC-8 ("the error table is total"), and it *is* total for the generic mapping — which
+is how the very artifact that proves AC-8 also **hid AC-7's third clause**. A row named "`409` becomes `conflict`" reads
+as complete coverage of `409` while quietly claiming `create`. **A coverage table's rows are method-agnostic; a spec's
+clauses are not.** So when a decision names a method, the row that satisfies it must name that method in its
+**assertion**, not merely in its `invoke` — otherwise totality over *statuses* is reported as totality over *behaviours*.
+
+### Also corrected this sweep
+
+PR #25's review notes claimed "`-034` asserts 409 where **AC-7 says 201**". **AC-7 says 409 too** — I had the divergence
+in the wrong place and guessed at its direction. Both AC and test agree on the status; the disagreement is between the
+test and a decision, one layer down, and surfaced only when I read the test's `invoke:` line rather than its name. A
+hypothesis about *which* clause is wrong does not license acting before the deciding line is read.
