@@ -83,7 +83,19 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - [ ] **AC-9** — **Server unreachable degrades like storage blocked.** A `fetch` rejection maps to `unavailable`, and the provider's existing refusal gate behaves exactly as M2a's tests describe. **Result**: Pending · **Evidence**: `BEHAVIOR-…-038`
 - [ ] **AC-10** — **Out-of-order re-reads cannot repaint stale data** (closes M2b's handed-over **P2-2**). *Given* request 1 is delayed and request 2 resolves first, *When* request 1 lands, *Then* the list still shows request 2's data. **Result**: Pending · **Evidence**: `BEHAVIOR-…-039`
 - [ ] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040`
-- [ ] **AC-12** — **Two validators, one truth — by one fixture, not by coincidence** (grill F-1). A single checked-in `api/tests/fixtures/validation-cases.json` is consumed by **both** suites: the xUnit theory and a vitest case read the same `{ input, expect }` rows, so the C# validator cannot pass its own opinion. Boundary values: empty, max, max+1, whitespace-only, unicode, control chars, 10 kB notes, all five statuses + a sixth. **The grill caught a real divergence, and reading `validation.ts` narrowed it further (grill §4):** the client caps `companyName`/`jobTitle`/`location` at `MAX_TEXT_LENGTH = 120`, so **`notes` alone has no client ceiling** — a server limit there is a server-only rule and needs its own case. And **`status` has no runtime client validation at all** (a TS union), so feeding "a sixth status" to both validators was **impossible as written**; the fixture carries a per-side expectation instead. **Result**: Pending · **Evidence**: `BEHAVIOR-…-031` + the contract test named in §8
+- [x] **AC-12** — **Two validators, one truth — by one fixture, not by coincidence** (grill F-1). A single checked-in `api/tests/fixtures/validation-cases.json` is consumed by **both** suites: the xUnit theory and a vitest case read the same `{ input, expect }` rows, so the C# validator cannot pass its own opinion. Boundary values: empty, max, max+1, whitespace-only, unicode, control chars, 10 kB notes, all five statuses + a sixth. **The grill caught a real divergence, and reading `validation.ts` narrowed it further (grill §4):** the client caps `companyName`/`jobTitle`/`location` at `MAX_TEXT_LENGTH = 120`, so **`notes` alone has no client ceiling** — a server limit there is a server-only rule and needs its own case. And **`status` has no runtime client validation at all** (a TS union), so feeding "a sixth status" to both validators was **impossible as written**; the fixture carries a per-side expectation instead. **Result**: Pending · **Evidence**: `BEHAVIOR-…-031` + the contract test named in §8
+  **Result**: **Verified** (2026-09-11 09:46 UTC) · **Evidence**: `BEHAVIOR-…-031` against one fixture —
+  `api/tests/fixtures/validation-cases.json`, **34 cases**, consumed by **both** suites: `ValidationContractTests.cs`
+  (Red `a7ec076` = 17 failures, Green `dd501ef` = `Passed: 34`) and `src/domain/validationFixtureContract.test.ts`
+  (35 tests, `b8a4318`, inside `npm run verify` exit 0 at 135 tests). **The client half had no Red and that is
+  reported, not smoothed**: its rows were derived *from* `validation.ts`, so a first-run pass evidences that I read
+  the file correctly, not that a behaviour was driven out of a failing test. The fixture found two defects in my own
+  design rather than in the code: one shared `violations` list cannot express `three-fields-empty-at-once` (both
+  sides reject, **different sets**) → `clientViolations`/`apiViolations` override, used by exactly one row so the
+  common case cannot drift; and `applied-at-empty-string` was inexpressible while `appliedAt` was bound to
+  `DateOnly?`, because a binding failure answers with the framework's envelope — **no `code`**, which the client's
+  fail-closed rule reports as `corrupt-data` about a typo. The wire field is now `string?` and the parse sits inside
+  the validator.
 - [ ] **AC-13** — **CI jobs are independent.** The API job is gated by an **internal `if:` on changed paths, not by `on.pull_request.paths`** (grill F-10: an excluded job reports *no status*, which is indistinguishable from a check that never ran the day branch protection requires all checks). So the job always reports and only its steps skip. **Result**: Pending · **Evidence**: two PR pushes — a docs-only push showing job *success / steps skipped* and an `api/**` push showing steps executed, both run lists quoted
 - [ ] **AC-14** — **Locked invariants I-1…I-6 still hold** (spec §3), checked by command rather than by re-reading code: no `fetch`/`EventSource` outside `src/data/`, no `Number(id)` anywhere, **runtime dependency count still 3**, no `.only`/`.skip`, no `vite.config.js` in the tree, **and `revision` referenced nowhere outside `src/data/` + its declaration** (grill F-5: the field's isolation was a comment; it is now a grep). **Result**: Pending · **Evidence**: §8's invariant scan block, output quoted verbatim
 
@@ -107,14 +119,29 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared fixture.** Author
-  `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules (empty,
-  whitespace-only, `MAX_TEXT_LENGTH = 120` at max and max+1, unicode, control characters, the 10 kB `notes` probe,
-  all five statuses plus a sixth carrying **per-side** expectations, because `status` has no client runtime check at
-  all), then the xUnit theory that reads it, then the server validator answering `400 validation` with `errors[]`
-  naming field paths, then the vitest case consuming the *same file* — in that order, so neither side can encode its
-  own opinion. Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and
-  `job_title` (deferred item 1), and the `PUT` path's still-unvalidated body.
+- **Next Action (Slice 2b complete — PR #14)**: **Slice 3 — `BEHAVIOR-…-036` through `-041`, the client's HTTP
+  adapter.** First code in `src/` this milestone, so start from the register's own filters rather than inventing
+  names: `-036` is `npx vitest run src/data/applicationStore.test.ts -t "…"`-shaped and asserts the **env var selects
+  the adapter and both satisfy `ApplicationRepository` structurally**; `-037` is the total `HTTP × code →
+  RepositoryError` table (one case per row of §4.3, unrecognised code → `corrupt-data`); `-038` transport failure →
+  `unavailable`; `-039` out-of-order re-read (closes M2b's **P2-2**); `-040` SSE with **at most one re-list per
+  `open`**; `-041` unicode/long-string fidelity. Take each method name from the register *before* writing the test —
+  the discipline 031 broke (see §13) and the reason every quoted filter in Slices 0–2a ran as printed.
+  Four things Slice 3 must not absorb silently: **`AC-7`'s third clause** (the adapter re-reads a `409` and treats
+  it as success) is the only thing keeping that AC open; **`notes` has no ceiling on either side** and the
+  `notes-ten-kilobytes` row is the one-line flip point if the owner wants one; **`location` is required by the
+  client's model and optional on the wire**, so the adapter is where that asymmetry either resolves or gets
+  documented as intended; and the register gaps below (`-046` for a successful `PUT`, `ETag`'s retirement, index
+  existence, `PUT`'s unasserted `400`).
+  (Preceding text read: "**Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared
+  fixture.** Author `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules …
+  Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and `job_title` (deferred
+  item 1), and the `PUT` path's still-unvalidated body." — **delivered, including both follow-ups.** The placeholder
+  defaults are gone under `-031+` with an `information_schema` guard, and `PUT` validates through the same
+  `ApplicationValidation.Validate` call as `POST` (§4.3 lists `400 validation` for both verbs) — though no test
+  asserts the `PUT` rejection path, which is the fourth unregistered §4.3 statement and is listed above rather than
+  assumed away. The fixture grew one mechanism the instruction did not anticipate: a per-side `violations` override,
+  because one row turned out to be inexpressible with a single shared list.
   (Preceding text read: "**Next Action (Slice 1 complete)**: **Slice 2** — `BEHAVIOR-…-030` first … and it needs two
   things this slice left deliberately on the table: `defaultValueSql: now()` on `created_at`/`updated_at`, and the
   **second problem-document factory**, which is the trigger to extract `ApplicationCatalog` (spec §4.1). Slice 2 also
@@ -172,6 +199,12 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
      `DEFAULT ''`, also EF placeholders. An empty `status` can no longer succeed (the CHECK rejects `''` as a
      sixth value), so only the two text defaults stay permissive; dropping them is fidelity-only and belongs with
      **BEHAVIOR-…-031**, the behaviour that asserts the API rejects an empty company name.
+
+     → **Closed with 031.** All three defaults are gone (`6e12432` Red → `3c6aaa7` Green), guarded from here on by
+     `No_text_column_carries_an_unchosen_default`, which reads `information_schema` rather than a migration file.
+     The `DEFAULT ''` on `status` turned out not to be fidelity-only after all: with a default attached, an insert
+     that *omits* the column stores `''` and nothing fails, so the CHECK constraint 032 verified could never be
+     reached by omission — only by an explicit empty string.
   2. **Resolved differently than deferred, and that needs saying.** `If-Match` handling arrived with 033/044.
      `ETag` response headers did **not**: no behaviour in the ladder asserts them, the client's adapter reads
      `revision` from the JSON body (DECISION-m3-backend-api-006's 8th field) and never looks at a header, and
@@ -368,6 +401,49 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   Slice 1 ("the second problem-document factory") met by 034's `Conflict`. 14 tests passed before and after, clean
   rebuild, 0 warnings, **no behaviour changed**: I removed the `detail:` members I had added to the envelopes mid-
   move, because a commit labelled refactor that alters what the client sees stops the label meaning anything.
+
+  **`TDD-EXEC-m3-backend-api-031`** · `BEHAVIOR-…-031` · Red `a7ec076` → Green `dd501ef` · p0 · Slice 2b ·
+  client half `b8a4318` · **count corrected by `0dd3aa2`**
+  - Red's shape is the part worth re-reading: **17 failures, and the set was derivable before reading a single
+    message** — the 15 rows the fixture declares the API must reject plus the 2 it declares must be normalised
+    (`company-name-padded`, `notes-whitespace-only`). Set-compared against the data: zero unexplained failures, zero
+    reject rows silently passing. A 34-case theory that fails unpredictably is noise; this one failed to a pattern,
+    which is what makes the Green mean anything.
+  - Every failure carries its case id (`[job-title-over-max-emoji] …`) because the first run printed seventeen red
+    rows with no way to say which rule each was about: xUnit shows MemberData parameter *names* and a 300-character
+    JSON blob is not a label.
+  - Method name drifted from the register's planned `…~Validation_matches_client_boundaries` → actual
+    `Validation_matches_declared_cases`. Disclosed and amended in the register §13 rather than quietly re-pointed:
+    031 is the one behaviour in this slice where I did **not** take the name from the register before writing it,
+    the discipline introduced in Slice 2a precisely so a quoted `--filter` runs as printed.
+  - Green: `ApplicationValidation` mirrors the client (trim → required → ≤120 UTF-16 units → five-status list →
+    `TryParseExact("yyyy-MM-dd", Invariant)`), returns a **`ValidatedApplication`** rather than mutating the request,
+    and is called by POST *and* PUT. The status message is built from the same `Statuses` array the validator tests
+    and the `CHECK` enforces — G-6 satisfied by construction, not by a comment saying "keep these in sync".
+    `InvariantCulture` is load-bearing: this host is NZST+12 and the runners are UTC.
+  - **The bug the process caught, which no assertion was looking for:** the build was clean while **two types named
+    `NewApplicationRequest` existed** — Slice 2a's nested record (`DateOnly?`) and the file this Green added
+    (namespace-level, `string?`). Name lookup bound the handlers to one and the validator to the other, so
+    `0 Error(s)` described a program where nothing was wired to anything. Surfaced only because a scripted *removal*
+    asserted `IsCurrent not in slice` and failed — which exposed that `IsCurrent` had been committed **between the
+    record's doc comment and its declaration** in `7f86e66`, so for one commit "the write contract of §4.3"
+    described a precondition helper. Both fixed here. The check that settles it is not the build: `grep -rn "record
+    NewApplicationRequest" api/src/` → one line.
+  - Client-side guard added with it (`carries at least one case per field the client validates`) because a fixture
+    can be green while ceasing to cover anything; it fails closed on zero cases, duplicate ids, and a row with no
+    `why`, at module load. Reads the same file through `resolveJsonModule` — `node:fs` was the obvious route and is
+    unavailable (no `@types/node`, `compilerOptions.types` pinned), so the alternative would have been a dependency
+    for a test asset; verified through `tsc -b`, not just vitest.
+
+  **`TDD-EXEC-m3-backend-api-031+`** · additive schema-fidelity assertion · Red `6e12432` → Green `3c6aaa7`
+  - `No_text_column_carries_an_unchosen_default`: §4.1 declares three bare `text NOT NULL` columns, the shipped
+    schema had `DEFAULT ''` on all three. `migrations add` generated an **empty `Up()`** — the snapshot already says
+    "no default", so EF sees no change; the divergence lives only in the database. Hand-written
+    `migrationBuilder.Sql … alter column … drop default`, with a symmetric `Down()` that admits it restores the hazard.
+  - Evidence beyond the assertion: `information_schema` → `<none>` ×3, and `insert into applications (id, job_title,
+    status)` now fails `23502` with `DETAIL: Failing row contains (…, null, …)`. Before, the statement succeeded and
+    stored `''`: a blank row in the list, no error anywhere. Third guard on the same field after 031 — validator
+    rejects empty, `CHECK` rejects unknown, `NOT NULL` without a default rejects **omission**.
 
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — the first `api` job run FAILED, and why it was right**: provider GitHub Actions, workflow
