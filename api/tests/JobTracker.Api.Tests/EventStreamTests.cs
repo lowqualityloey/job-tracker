@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using JobTracker.Api.Tests.Infrastructure;
 using Xunit;
 
@@ -131,14 +132,14 @@ public sealed class EventStreamTests(ApplicationsApiFixture fixture) : IClassFix
     [Fact]
     public async Task A_committed_update_and_delete_also_publish()
     {
-        // "after each committed write" is three verbs, and the read-modify-write in the client's `update()` makes PUT
-        // the most common one in practice. A stream that fires only on create would leave the app's own status
-        // dropdown looking dead on every other client.
+        // "after each committed write" is three verbs, and the client's read-modify-write makes PUT the common one.
+        // A stream that fired only on create would leave the app's own status dropdown looking dead on every other
+        // client — the failure a reviewer would notice first, and the one a create-only implementation hides.
         await fixture.ExecuteAsync("delete from applications;");
         await using var stream = await OpenStreamAsync();
 
         var id = Guid.NewGuid();
-        await fixture.Http.PostAsJsonAsync("/api/applications", new
+        var created = await fixture.Http.PostAsJsonAsync("/api/applications", new
         {
             id,
             companyName = "Sleek",
@@ -146,30 +147,56 @@ public sealed class EventStreamTests(ApplicationsApiFixture fixture) : IClassFix
             location = "Wellington, NZ",
             status = "Saved",
         });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         await ReadUntilAsync(stream, id.ToString());
 
-        var updated = await fixture.Http.PutAsJsonAsync($"/api/applications/{id}", new
-        {
-            id,
-            companyName = "Sleek",
-            jobTitle = "Backend Engineer",
-            location = "Wellington, NZ",
-            status = "Interview",
-        });
-        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var update = await SendUpdateAsync(id, await RevisionAsync(id), "Interview");
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
 
-        var revision = updated.Headers.ETag?.Tag?.Trim('"');
-        Assert.False(string.IsNullOrEmpty(revision));
+        // The assertion is "a frame arrived after this write", and it is carried by **read position**, not by content:
+        // §4.3's payload is the id alone, so an update frame and a delete frame are byte-identical by design. That is
+        // fine here and worth stating, because it is also why the client cannot tell *what* changed from the stream
+        // and must re-read the catalog — the event is an invalidation signal, not a delta.
+        var afterUpdate = await ReadUntilAsync(stream, id.ToString());
+        Assert.Contains("event: change", afterUpdate, StringComparison.Ordinal);
 
-        var deleted = await fixture.Http.DeleteAsync($"/api/applications/{id}");
+        var deletion = new HttpRequestMessage(HttpMethod.Delete, $"/api/applications/{id}");
+        deletion.Headers.TryAddWithoutValidation("If-Match", $"\"{await RevisionAsync(id)}\"");
+        var deleted = await fixture.Http.SendAsync(deletion);
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
 
-        // Both later frames must carry the id too. Checked as "the stream keeps emitting", not as a count: this
-        // fixture's host is shared, and a sibling test writing to the same database legitimately pushes extra
-        // frames. Asserting "exactly one" here would be asserting a property the test itself does not control.
-        var afterUpdate = await ReadUntilAsync(stream, "Interview");
-        Assert.Contains("event: change", afterUpdate, StringComparison.Ordinal);
-        await ReadUntilAsync(stream, id.ToString());
+        var afterDelete = await ReadUntilAsync(stream, id.ToString());
+        Assert.Contains("event: change", afterDelete, StringComparison.Ordinal);
+
+        // Not asserted: a count. This host is shared across the class and a sibling test's write legitimately pushes
+        // frames, so "exactly N" here would be asserting something the test does not control — the same trap
+        // M2's file-scoped global resets exist to avoid, in a different building.
+    }
+
+    /// <summary>The current <c>revision</c> of a stored record, read from the API rather than assumed (§4.3's
+    /// <c>xmin</c> → <c>revision</c>). F-3 made <c>If-Match</c> required on DELETE, so a test that skips this is
+    /// refused for a reason unrelated to the stream.</summary>
+    private async Task<uint> RevisionAsync(Guid id)
+    {
+        using var stored = JsonDocument.Parse(await fixture.Http.GetStringAsync($"/api/applications/{id}"));
+        return stored.RootElement.GetProperty("revision").GetUInt32();
+    }
+
+    private Task<HttpResponseMessage> SendUpdateAsync(Guid id, uint revision, string status)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/applications/{id}")
+        {
+            Content = JsonContent.Create(new
+            {
+                id = id.ToString(),
+                companyName = "Sleek",
+                jobTitle = "Backend Engineer",
+                location = "Wellington, NZ",
+                status,
+            }),
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{revision}\"");
+        return fixture.Http.SendAsync(request);
     }
 
     [Fact]

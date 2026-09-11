@@ -16,6 +16,13 @@ builder.Services.AddProblemDetails();
 builder.Services.AddDbContext<JobTrackerDb>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
+// BEHAVIOR-m3-backend-api-046: the fan-out behind `GET /api/applications/events`. A singleton because its whole
+// purpose is to connect a request that *writes* to requests that are *already open* — scoped or transient would give
+// every connection a bus of one. It is also the visible form of ASSUMPTION-m3-backend-api-002 (single instance
+// through M5): state lives in this process, so a second instance would notify only its own subscribers. Lifting that
+// assumption means replacing this class with a Redis backplane or PostgreSQL `NOTIFY`, not rewriting the endpoints.
+builder.Services.AddSingleton<ApplicationEventBus>();
+
 var app = builder.Build();
 
 // Migrations apply at startup. Declared as a decision, not a default, because it has a real failure mode: two

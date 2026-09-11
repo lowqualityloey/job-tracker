@@ -47,7 +47,52 @@ public static class ApplicationCatalog
         // database (032), and the field-by-field validator is 031's registered subject, which brings the shared fixture
         // with it. What this handler must do is refuse nothing the schema would accept, and return the row the client
         // needs — including `revision`, which EF populates on save because xmin is a store-generated concurrency token.
-        endpoints.MapPost("/api/applications", async (NewApplicationRequest request, JobTrackerDb db, CancellationToken ct) =>
+        // BEHAVIOR-m3-backend-api-046 (spec DECISION-m3-backend-api-005, §4.3's sixth row). Registered ahead of
+        // `/api/applications/{id}` for legibility rather than correctness: ASP.NET Core scores literal segments
+        // above parameters, so "events" was never going to be looked up as an application id — but a reader who does
+        // not know that should not have to find out by experiment, and the test asserts the media type for the same
+        // reason.
+        endpoints.MapGet("/api/applications/events", async (HttpContext http, ApplicationEventBus bus,
+            CancellationToken ct) =>
+        {
+            // Headers set directly rather than negotiated: `EventSource` will not move out of CONNECTING until the
+            // response starts streaming, and a buffered JSON-shaped start would leave every client silently
+            // "connecting" while the user looks at a stale list. `no-cache` is not decoration either — a proxy that
+            // considered an SSE response cacheable would serve one client's stream to another.
+            http.Response.Headers.ContentType = "text/event-stream";
+            http.Response.Headers.CacheControl = "no-cache";
+
+            var changes = bus.Subscribe();
+            try
+            {
+                // A comment frame, which SSE defines as ignorable and clients never dispatch. It exists to put bytes
+                // on the wire the moment the connection opens, and it is what the "a dropped stream reconnects" row in
+                // §4.3 depends on: without an initial flush the client's `open` event waits for the first write, so a
+                // quiet catalog means a client that never learns it is connected.
+                await http.Response.WriteAsync(": open\n\n", System.Text.Encoding.UTF8, ct);
+
+                // `event: change` and not the default `message`: the adapter listens for a named event, so a frame
+                // that carries a correct id and the wrong event name is delivered to no one. Both lines and the
+                // terminating blank line are the wire format, not formatting.
+                await foreach (var id in changes.Reader.ReadAllAsync(ct))
+                {
+                    await http.Response.WriteAsync($"event: change\ndata: {{\"id\":\"{id}\"}}\n\n",
+                        System.Text.Encoding.UTF8, ct);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The browser navigated away, closed the tab, or dropped the connection — the normal end of an event
+                // stream. `ct` is the request's cancellation token, so this is also how the endpoint stops holding a
+                // Kestrel thread when a client goes silent.
+            }
+            finally
+            {
+                bus.Unsubscribe(changes);
+            }
+        });
+
+        endpoints.MapPost("/api/applications", async (NewApplicationRequest request, JobTrackerDb db, ApplicationEventBus bus, CancellationToken ct) =>
         {
             var (errors, value) = ApplicationValidation.Validate(request);
             if (errors.Count > 0)
@@ -84,6 +129,13 @@ public static class ApplicationCatalog
 
             // Results.Created rather than Ok: the 201 is what the client's adapter distinguishes a fresh create from, and
             // the Location header is the canonical path 033/044 will address with If-Match.
+            // Published after `SaveChangesAsync` has returned, which for a relational provider means the transaction
+            // is committed: notifying about a row that a constraint then rejects would have other clients re-read a
+            // catalog that never contained it. §4.3's word is "committed", and this is the line that earns it. The
+            // duplicate-key branch above returns early, so a refused write publishes nothing — asserted by
+            // `A_rejected_write_publishes_nothing`.
+            bus.Publish(entity.Id.ToString("D"));
+
             return Results.Created($"/api/applications/{entity.Id}", entity);
         });
         // BEHAVIOR-m3-backend-api-033. §4.3 spells PUT as a *full replacement* with If-Match required, and the
@@ -91,7 +143,7 @@ public static class ApplicationCatalog
         // here, because IsCurrent refuses an absent header exactly as it refuses a stale one. No branch of its own
         // to write, and no branch that could rot untested.
         endpoints.MapPut("/api/applications/{id}", async (string id, NewApplicationRequest request, JobTrackerDb db,
-            CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
+            ApplicationEventBus bus, CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
         {
             // The path is authoritative for identity and the body's id is ignored. Nothing in the register covers
             // a mismatch between the two; a fourth §4.3 statement with no behaviour. Documented rather than
@@ -133,6 +185,7 @@ public static class ApplicationCatalog
             entity.Notes = value.Notes;
 
             await db.SaveChangesAsync(ct);
+            bus.Publish(entity.Id.ToString("D"));
             return Results.Ok(entity);
         });
 
@@ -141,7 +194,7 @@ public static class ApplicationCatalog
         //
         // If-Match is ignored here, which is a known defect and not an oversight — 044's Red turns it into a
         // failing test first. See that commit's message for why a minimal 035 Green was written blind to it.
-        endpoints.MapDelete("/api/applications/{id}", async (string id, JobTrackerDb db, CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
+        endpoints.MapDelete("/api/applications/{id}", async (string id, JobTrackerDb db, ApplicationEventBus bus, CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
         {
             if (!Guid.TryParse(id, out var guid))
             {
@@ -164,6 +217,7 @@ public static class ApplicationCatalog
 
             db.Applications.Remove(entity);
             await db.SaveChangesAsync(ct);
+            bus.Publish(guid.ToString("D"));
             return Results.NoContent();
         });
 
