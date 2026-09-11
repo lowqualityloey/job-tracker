@@ -23,7 +23,15 @@ export interface FilterCriteria {
  */
 export const ALL_STATUSES: readonly StatusFilter[] = ['All', ...APPLICATION_STATUSES]
 
-export const defaultCriteria: FilterCriteria = { status: 'All', query: '' }
+/**
+ * A factory, not a shared constant. `useState(defaultCriteria)` and the clear action both hand this
+ * object to the view; one module-level instance would mean a single in-place mutation (`criteria.query
+ * = …`) silently redefines the starting point for every future mount of every page. Cheap insurance
+ * against the one bug class that TypeScript cannot see coming.
+ */
+export function defaultCriteria(): FilterCriteria {
+  return { status: 'All', query: '' }
+}
 
 /**
  * `'  AUCKLAND '` and `'auckland'` must behave identically, or the first thing a user types after

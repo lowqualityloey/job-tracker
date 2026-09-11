@@ -12,6 +12,7 @@ export default function ApplicationsPage() {
   // View state, deliberately not provider state: criteria describe what this user is looking at,
   // not what the store holds. Putting them beside the snapshot would make a filter change look
   // like a data change, and would leak a transient choice into every other consumer (spec §3).
+  // Passed as a function, so React calls it once for the initial value and never again.
   const [criteria, setCriteria] = useState<FilterCriteria>(defaultCriteria)
   // Above the early returns, unconditionally: a hook below a `return` changes the hook order
   // between the loading render and the ready render, which React rejects at runtime.
@@ -21,7 +22,7 @@ export default function ApplicationsPage() {
   const filtersActive = criteria.status !== 'All' || criteria.query !== ''
 
   function clearFilters() {
-    setCriteria(defaultCriteria)
+    setCriteria(defaultCriteria())
   }
 
   if (status === 'loading') {
