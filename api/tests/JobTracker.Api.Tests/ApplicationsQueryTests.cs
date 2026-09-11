@@ -104,6 +104,58 @@ public sealed class ApplicationsQueryTests(ApplicationsApiFixture fixture) : ICl
         });
     }
 
+    [Theory]
+    [InlineData("11111111-1111-1111-1111-111111111111")] // well-formed, absent
+    [InlineData("not-a-uuid")] // well-formedness is not the client's job to guarantee
+    public async Task An_unknown_id_answers_404_with_a_problem_document(string id)
+    {
+        // BEHAVIOR-m3-backend-api-028 (p0). The status is the headline, but the *content type* is the assertion
+        // that keeps a promise DECISION-m3-backend-api-004 made: an error response is never a bare status code,
+        // because the client's adapter must produce `code: 'not-found'` with an id rather than guess from a
+        // reason phrase some proxy rewrote.
+        //
+        // Both cases are one behaviour — "no such record" — so they are one theory. The tempting alternative is a
+        // route constraint ({id:guid}) that answers `not-a-uuid` with the framework's own empty 404: it would
+        // satisfy this test's sibling and break the envelope rule. Guid.TryParse in the handler is the version
+        // that keeps every 404 a problem document.
+        var response = await fixture.Http.GetAsync($"/api/applications/{id}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(404, problem.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal("not-found", problem.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task A_known_id_answers_200_with_that_record_and_nothing_else()
+    {
+        // BEHAVIOR-m3-backend-api-028's positive half, and the reason the 404 above is a fact about the row
+        // rather than about routing: with only the unknown-id case in the register, "answer 404 always" would be
+        // green.
+        var id = Guid.NewGuid();
+        await fixture.ExecuteAsync("delete from applications");
+        // Timestamps spelled out, not defaulted: §4.1's `DEFAULT now()` belongs to the column, but nothing has
+        // made the server write a row yet — that is Slice 2's POST, whose Red will want it. Until then the seed
+        // states the instant itself, which keeps 028 about "can a known row be found by id" and not about who
+        // fills in audit columns.
+        await fixture.ExecuteAsync(
+            $"insert into applications (id, company_name, job_title, status, created_at, updated_at) values ('{id}', 'Initech', 'Engineer', 'Saved', timestamptz '2026-01-05T10:00:00Z', timestamptz '2026-01-05T10:00:00Z')");
+
+        var response = await fixture.Http.GetAsync($"/api/applications/{id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var row = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(id.ToString(), row.RootElement.GetProperty("id").GetString());
+        Assert.Equal("Initech", row.RootElement.GetProperty("companyName").GetString());
+        // The null half of §4.1: location and notes are absent from the seed and applied_at is null, while the
+        // client models all three as optional. A 500 from a null-ref, or a location coerced to "", is what this
+        // pins; Slice 3's adapter decides how to read them, and must not have to guess.
+        Assert.Equal(JsonValueKind.Null, row.RootElement.GetProperty("location").ValueKind);
+        Assert.Equal("Saved", row.RootElement.GetProperty("status").GetString());
+    }
+
     /// <summary>
     /// A missing field is a named failure listing what did arrive, not a <see cref="KeyNotFoundException"/> from
     /// an indexer — the difference between "the server sent no companyName" and "my dictionary threw".
