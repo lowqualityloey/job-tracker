@@ -269,7 +269,15 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 18:00 UTC): the behaviour ladder is **complete** — `-026` … `-046` all executed. What is
+- **Next Action (2026-09-11 18:45 UTC): **the ladder and the AC sweep are both done — 13 of 14 ACs verified.** M3
+  waits on one owner decision, **gap 9 (A / B / C)**, which is the only thing between this task and "all 14". If **(B)**
+  is chosen, amend `DECISION-m3-backend-api-007`, spec §6's `BEHAVIOR-034` client clause, and AC-7's wording **in one
+  commit** so the three cannot drift, then close AC-7 and run §10's close-out. If **(A)**, it is a normal
+  Red → Green → Refactor slice: move `-037`'s `409` row from `create` to `update` (keeping the generic mapping proven
+  total), then a create-specific pair. Either way **§10 remains**, and the other owner items travel with it: gap 5, the
+  `notes` ceiling, the `location` interpretation, `status` at the seam, and gap 7's sweep of §4.3 against the ladder.
+  The unreproduced `dotnet test` failure (1/64, once) is still open as an honesty item — a fourth clean run would not
+  close it, only a named test would.
   left before M3 goes to review is an **AC sweep, not features**: **AC-2** (flag off changes nothing — already measured,
   `VITE_API_BASE_URL= npm run verify` → **197 tests / 20 files**, identical to the flagged run, needing only quoting into
   the AC line), **AC-7** (a retried `POST` with the same client-generated id returns the original 201 — *trace* whether
