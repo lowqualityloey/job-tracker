@@ -59,14 +59,35 @@ internal static class ApplicationValidation
     /// </summary>
     public const int MaxTextLength = 120;
 
+    /// <summary>
+    /// Trims the character set a browser calls blank, which is not quite the set .NET calls blank.
+    ///
+    /// `char.IsWhiteSpace` covers everything ECMAScript's `trim()` does **except U+FEFF** — the byte-order mark,
+    /// category Cf rather than Zs, and the one code point where the two definitions diverge. Measured by
+    /// `BEHAVIOR-m3-backend-api-041`: a company name of nothing but a BOM was stored by the API (`Created`) while the
+    /// client's validator called it empty, so the record appeared in the list with no visible name and then refused to
+    /// save any edit the user made to it.
+    ///
+    /// The direction of the fix is deliberate: the server adopts the **wider** trim, so it can only ever become
+    /// stricter, never newly-permissive. Any value the client accepts, the server accepts — an inversion the other way
+    /// would mean a form that validates cleanly and then gets a 400 it cannot display.
+    ///
+    /// Three trims, not one, because the character can sit on either side of ordinary whitespace: `"\uFEFF x"` and
+    /// `" x\uFEFF"` both have to reach `"x"`, and `Trim(char[])` replaces the default set rather than extending it.
+    /// </summary>
+    private static string? TrimInvisible(string? value)
+    {
+        return value?.Trim().Trim('\uFEFF').Trim();
+    }
+
     public static (List<FieldError> Errors, ValidatedApplication? Value) Validate(NewApplicationRequest request)
     {
         var errors = new List<FieldError>();
 
-        var companyName = (request.CompanyName ?? string.Empty).Trim();
-        var jobTitle = (request.JobTitle ?? string.Empty).Trim();
-        var location = request.Location?.Trim();
-        var notes = request.Notes?.Trim();
+        var companyName = TrimInvisible(request.CompanyName) ?? string.Empty;
+        var jobTitle = TrimInvisible(request.JobTitle) ?? string.Empty;
+        var location = TrimInvisible(request.Location);
+        var notes = TrimInvisible(request.Notes);
 
         RequiredText(errors, "companyName", "Company name", companyName);
         RequiredText(errors, "jobTitle", "Job title", jobTitle);
