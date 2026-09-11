@@ -36,7 +36,7 @@
 | Authentication | **None.** No auth provider, no session cookies, no token handling, no protected routes |
 | Testing | Vitest 2.0.5 (`globals: true`, `environment: 'jsdom'`, `css: true`, `include: src/**/*.{test,spec}.{ts,tsx}`), Testing Library React 16 + jest-dom 6, setup `src/test/setup.ts` (registers `afterEach(cleanup)`) |
 | Lint / Format | **Absent** — no ESLint, Prettier, or Biome config and no `lint` script |
-| CI / CD | **Absent** — no `.github/workflows/`, no pipelines |
+| CI / CD | **GitHub Actions** — `.github/workflows/ci.yml` runs `npm run verify` on every PR and on `main`. No deploy pipeline (AWS is M5) |
 | Package Manager | **npm** (`package-lock.json`, lockfileVersion 3). `node_modules/` present, no `pnpm-workspace.yaml`, no `turbo.json`, no `nx.json` |
 
 ### Source topology (single-package SPA, 13 files in `src/`: 12 TS/TSX + 1 stylesheet)
@@ -98,12 +98,15 @@ the `DashboardPage` filters.
 | :--- | :--- | :--- |
 | Install | `npm install` | ✅ |
 | Dev server | `npm run dev` | ✅ |
-| **Typecheck (fast inner loop)** | `npx tsc -p tsconfig.app.json --noEmit` | ✅ exit 0 at intake; **emits no files**. There is no `typecheck` script |
+| **Typecheck (fast inner loop)** | `npm run typecheck` (= `tsc -p tsconfig.app.json --noEmit`) | ✅ exit 0; **emits no files**. The script exists as of DEBT-03 (2026-09-11); it did not at intake, which is why older records say "there is no `typecheck` script" |
 | Build (typecheck + bundle) | `npm run build` (`tsc -b && vite build`) | ✅ re-verified after the DEBT-11 fix (`bd8a8b6`): exit 0, 41 modules, **no `vite.config.js` emitted** |
 | Preview production build | `npm run preview` | ✅ |
 | Tests (watch) | `npm test` | ⚠️ this is bare `vitest` — **watch mode, never exits**. Never use it as a verification step |
-| **Tests (single run — CI-style)** | `npm run test:run` | ✅ 2/2 passed, 1.10s at intake |
-| Lint / Format | — | ❌ **does not exist**. Do not run `npm run lint`; it is not declared |
+| **Tests (single run — CI-style)** | `npm run test:run` | ✅ 100 tests / 13 files, ~11s (intake figure was 2/2; the suite grew through M1–M2b) |
+| Lint (JS/TS) | `npm run lint` (`eslint . --max-warnings 0`) | ✅ 0 problems. `--max-warnings 0` means a warning fails the gate |
+| Lint (CSS) | `npm run lint:css` (`stylelint "src/**/*.css"`) | ✅ 0 problems. Proven against the real DEBT-15 orphan: `git show f1ae7af:src/styles.css` fails |
+| **All checks, in order** | `npm run verify` | ✅ typecheck → lint → lint:css → test:run → build. **This is what CI runs** — do not hand-roll a chain of the five |
+| Format | — | ❌ **still no formatter, deliberately.** Prettier would rewrite all 35 TS/TSX files in a commit unrelated to any feature; add it alone or not at all |
 | E2E | — | ❌ not installed (no Playwright/Cypress) |
 
 🚫 **Do not run bare `npx tsc -b` as a typecheck shortcut, and never remove `"noEmit": true` from
