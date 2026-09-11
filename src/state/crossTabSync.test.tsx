@@ -46,6 +46,9 @@ function otherTab() {
   return createLocalStorageRepository({ storage: localStorage })
 }
 
+/** The rendered cards in the order the page shows them, keyed by job title. */
+const cardTitles = () => screen.getAllByRole('article').map((card) => card.querySelector('h3')?.textContent)
+
 const fishermend = {
   companyName: 'Fishermend Limited',
   jobTitle: 'Staff Frontend Engineer',
@@ -85,6 +88,25 @@ describe('reconciling a write from another tab', () => {
     expect(list).not.toHaveBeenCalled()
     expect(screen.getByRole('status')).toHaveTextContent('5 of 5 applications')
     list.mockRestore()
+  })
+
+  // BEHAVIOR-024 — `key: null` means storage was cleared wholesale. That says "something changed",
+  // not "there is nothing", so the provider must re-read instead of rendering an empty list it
+  // invented. Re-reading is also the only branch that survives a clear() followed by a write.
+  it('re-reads on a null-key event instead of assuming the store is empty', async () => {
+    mount(createLocalStorageRepository({ storage: localStorage }))
+    await screen.findByText('Datacom')
+
+    // Another tab drops two records and does not tell us how.
+    const repository = otherTab()
+    await repository.remove('d36b4d5f-291b-40c0-b96c-c1a61a23bf93')
+    await repository.remove('6b2a7f52-ad38-4fca-a3fe-4d95437be9f9')
+
+    externalWrite(null)
+
+    await screen.findByText('Full Stack Developer')
+    expect(cardTitles()).toEqual(['Graduate Software Engineer', 'Software Developer', 'Full Stack Developer'])
+    expect(screen.getByRole('status')).toHaveTextContent('3 of 3 applications')
   })
 
   it('detaches the listener on unmount (spec B-1)', async () => {
