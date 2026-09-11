@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ApplicationDetailsPage from '../pages/ApplicationDetailsPage'
 import ApplicationFormPage from '../pages/ApplicationFormPage'
@@ -8,7 +9,7 @@ import {
   createLocalStorageRepository,
 } from '../data/localStorageApplicationRepository'
 import type { ApplicationRepository } from '../domain/applicationRepository'
-import { ApplicationsProvider } from './applicationsProvider'
+import { ApplicationsProvider, useApplications } from './applicationsProvider'
 
 beforeEach(() => {
   // jsdom's Storage is module-scoped, so a leftover envelope from a sibling file would seed
@@ -16,10 +17,34 @@ beforeEach(() => {
   localStorage.clear()
 })
 
+/**
+ * Renders what a write attempted **through the provider** did, so "refuses writes" is observable
+ * from the UI instead of asserted by spying on a call the user cannot see.
+ */
+function WriteProbe() {
+  const { status, createApplication } = useApplications()
+  const [outcome, setOutcome] = useState('idle')
+
+  async function attempt() {
+    const result = await createApplication(fishermend)
+    setOutcome(result.ok ? 'saved' : `refused:${result.error.code}`)
+  }
+
+  return (
+    <div>
+      <button type="button" onClick={() => void attempt()}>
+        Attempt a write
+      </button>
+      <p data-testid="write-outcome">{`provider:${status} write:${outcome}`}</p>
+    </div>
+  )
+}
+
 function mount(repository: ApplicationRepository, route = '/applications') {
   return render(
     <MemoryRouter initialEntries={[route]}>
       <ApplicationsProvider repository={repository}>
+        <WriteProbe />
         <Routes>
           <Route path="/applications" element={<ApplicationsPage />} />
           <Route path="/applications/:id" element={<ApplicationDetailsPage />} />
@@ -147,6 +172,29 @@ describe('reconciling a write from another tab', () => {
 
     await screen.findByRole('heading', { name: 'Application not found' })
     expect(screen.queryByLabelText(/company name/i)).toBeNull()
+  })
+
+  // BEHAVIOR-026 — the tab is already open when a *newer* build rewrites the envelope. Failing
+  // closed at startup is M2a's rule (invariant 13); this is the same rule on a live tab, and the
+  // data-safety half is the point: a v1 write over a newer envelope destroys records this build
+  // cannot even read.
+  it('flips to the version error and refuses writes when a newer build writes mid-session', async () => {
+    const repository = createLocalStorageRepository({ storage: localStorage })
+    mount(repository)
+    await screen.findByText('Datacom')
+
+    localStorage.setItem(APPLICATIONS_STORAGE_KEY, JSON.stringify({ schemaVersion: 999, applications: [] }))
+    externalWrite()
+
+    expect(await screen.findByText(/newer version of this app/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attempt a write' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('write-outcome')).toHaveTextContent('provider:error write:refused:unsupported-version'),
+    )
+
+    // The newer bytes are untouched — not quarantined, not rewritten (invariant 13).
+    expect(JSON.parse(String(localStorage.getItem(APPLICATIONS_STORAGE_KEY))).schemaVersion).toBe(999)
   })
 
   it('detaches the listener on unmount (spec B-1)', async () => {
