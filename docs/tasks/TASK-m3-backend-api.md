@@ -50,7 +50,20 @@
 
 Every AC is objectively checkable and names its command. `Result: Pending` until executed. Gherkin scenarios for the behaviours a user can observe; AC ids are stable and **do not renumber** if the ladder below changes.
 
-- [ ] **AC-1** — **The seam holds.** *Given* `VITE_API_BASE_URL` is set, *When* the app runs, *Then* CRUD through the HTTP adapter works and `git diff --name-only` lists **no** file under `src/pages|components|state`. **TypeScript's structural check is the first line of this test, not the last.**
+- [x] **AC-1** — **The seam holds.** *Given* `VITE_API_BASE_URL` is set, *When* the app runs, *Then* CRUD through the HTTP adapter works and `git diff --name-only` lists **no** file under `src/pages|components|state`. **TypeScript's structural check is the first line of this test, not the last.**
+  **Result**: **Verified** (2026-09-11 17:25 UTC, `-042`) — the seam asserted three ways, and the third is what makes
+  the first two mean something. (1) **Structural**: `git diff --name-only main -- src/pages src/components src/state`
+  → **0 files**; in fact the *entire* `src/` tree is identical to `main` on this branch. (2) **Type-level**:
+  `npx tsc -p tsconfig.app.json --noEmit` → exit 0, so `HttpApplicationRepository` really does satisfy
+  `ApplicationRepository` instead of being described as doing so. (3) **Behavioural, in a real browser**:
+  `tests/browser/httpCrossTab.mjs` runs 7/7 — a production bundle served over HTTP in Chromium performed a `GET` (200)
+  with **`localStorage` holding no application key**, a `POST` through the real form (201), and a second tab that
+  learned of it without reloading.
+
+  Why the order matters: (1) and (2) were **both true while the app could not have worked at all** — the API answered a
+  browser's CORS preflight with 405 for the entire lifetime of those 257 tests. A green typecheck and an empty diff are
+  consistency claims about one half of a seam; only the browser showed the halves meeting. That is the argument for
+  `-042` having been scheduled, and AC-1 is checked only because it was run.
   - **Result**: Pending · **Evidence**: `git diff main --name-only -- src/pages src/components src/state` → empty · `npx tsc -p tsconfig.app.json --noEmit` → 0
   **Half-verified** (2026-09-11 10:35 UTC, stays open): `-036` (Red `2568d84` → Green `fb7d98e`) proves the flag
   selects the adapter, that Web Storage stops being read once it is set, and that both adapters satisfy
@@ -115,7 +128,16 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   handed-over P2-2.** The guard is adapter-side, so AC-1's diff check still passes: `src/state/` is imported, never
   edited.
 - [ ] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040`
-  **Result**: **Verified in two halves; the browser join is `-042`** (2026-09-11 13:55 UTC) · **Evidence**: `-046`
+  **Result**: **Verified — including the browser join** (2026-09-11 17:25 UTC; `-042` closes what `-040`/`-046` left
+  open). **Evidence**: `-046` (server — real bytes off `WebApplicationFactory`, one `event: change` +
+  `data: {"id":"…"}` per committed write), `-040` (client — 11 tests over a fake `EventSource`: one re-list per
+  `change`, exactly one per reconnect, unsubscriber closes and nothing fires after), and now **`-042` (the join, in real
+  Chromium — a write in tab A appears in tab B, which has **1 navigation entry** and was never reloaded or touched)**.
+
+  **The clause only a browser can prove** is the last one. `-040` asserted what *my code* does when a listener is
+  called; it could not assert that Chromium turns `text/event-stream` bytes into that call, because jsdom implements no
+  `EventSource` at all. Tab B's single navigation entry is the load-bearing number: without it, "the row appeared" is
+  equally consistent with a reload, a poll, or a refresh — and none of those is the behaviour under test.
   (server — real bytes off `WebApplicationFactory`, `event: change` + `data: {"id":"…"}` per committed write) and
   `-040` (client — Red `ffcd230` = 8 failed / 1 passed → Green `f3b1d77` = **11 passed**). All three clauses are
   asserted: one re-list per `change`; **exactly one re-read per reconnect, three rapid reconnects tested**; the
@@ -186,7 +208,14 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 15:10 UTC, Slice 4 IN FLIGHT, `-042` not yet passing): the browser harness exists at
+- **Next Action (2026-09-11 17:25 UTC): `-043`, survives a browser restart with `psql` confirming** — the last
+  behaviour in M3, and cheap now that `-042` works: same container, same harness, one extra step — create over HTTP,
+  close the tab and open a fresh one, assert the row survives, then query PostgreSQL directly and quote the row. That
+  quoted `psql` output is the evidence AC-3 asks for and the only proof in the ladder that lives outside both test
+  suites. Carried forward: **AC-2** (flag off changes nothing — a `verify` run with `VITE_API_BASE_URL` unset), **AC-7**
+  (a retried `POST` with the same client-generated id returns the original 201 — likely already satisfied by `-032` and
+  needing a trace, not a build), **AC-14** (§8's invariant scan, run and quoted), and the owner items: gap 5, the
+  `notes` ceiling, the `location` interpretation, `status` having no runtime validation at the seam, and gap 7's sweep.
   `tests/browser/httpCrossTab.mjs` and has already produced its first finding — **without Chromium's help**.
   - **`-042`'s reason for existing is now documented evidence, not a prediction.** Against the running API
     (`dotnet` on :5080, built with `VITE_API_BASE_URL=http://127.0.0.1:5080`, page served on :4173 — the two-origin
@@ -649,6 +678,27 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   - Test defects found by running, both mine: my "two different strings" were the same string (one `replace` matched
     both literals), and 3 cases were **skipped** because the register's filter matched only some names — the describe
     now carries the phrase, so `-t "survives unicode"` runs all 16 exactly as the ladder prints it.
+
+  **`TDD-EXEC-m3-backend-api-042`** · `BEHAVIOR-…-042` · Red = the harness could not complete (CORS 405 → PR #21; then
+  `app never rendered`) → Green `0614c25` = **7/7 browser checks** · p0 · Slice 4
+  - **One behaviour whose Red was a stack of causes.** Four independent failures stood between "257 tests green" and
+    "the browser works": (1) the API had no CORS at all — **257 tests passed against an API no browser could use**;
+    (2) the running API was a *stale pre-CORS process*, which made a correct fix look broken (banner: `Hosting
+    environment: Production`, so `appsettings.Development.json`'s origins never loaded and my own fail-closed default
+    did exactly what it was designed to); (3) Chromium's DevTools socket was unreachable *from the shell*, because the
+    sandbox cannot route into the Docker network; (4) the harness opened `/` and waited for `.application-card`, which
+    lives on `/applications` — a test bug dressed as an app bug. Each was diagnosed by reading output rather than
+    reasoning, which is the only method that distinguishes them.
+  - **The spike's own comment held the answer and I read it as a convenience**: "everything therefore runs inside one
+    container". `--network=host` was tried first because it looked simpler. Measured: container→host works (my API
+    answered 200 from inside the container), host→container does not (`127.0.0.1:9222` and the bridge IP both empty).
+  - **Not CI, and honestly so.** `-042`'s verification is this harness plus its quoted output, not a workflow job: it
+    needs Docker, a ~2 GB image, a running API and a built bundle. CI keeps the CORS contract test (`CorsContractTests`,
+    5 cases) because that is the *code* claim; the browser is the *evidence* claim. The harness exits non-zero on any
+    failed check, so promoting it later is a wiring job, not a rewrite.
+  - **Cleanup is part of the test**: the marker record is deleted over HTTP (`204`) at the end, because the dev database
+    persists across runs and a harness that leaves rows behind turns the *next* run's counts into lies — the same
+    reasoning `-039` applied to ordering. A test that can only pass once is not yet a regression test.
 
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — superseded text**: Slice 0 **adds the second job** (`api`), so this PR's run resolves the

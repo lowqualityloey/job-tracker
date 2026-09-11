@@ -60,41 +60,41 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### 3A. Execution-Control Projection
 
-> Synchronised projection of the canonical records, **regenerated whole at each slice boundary rather than
-> bullet by bullet** — an earlier version of this block asserted `Active Task Pointer: None` three lines beneath a
-> bullet saying the pointer is held, because five turns edited only the bullets they were about. A projection is
-> worth exactly one thing: that it matches its source. Rewritten below from `TASK-m3-backend-api.md`, from `git log`,
-> and from `gh pr list --json mergeCommit` / `gh run view --json jobs` output measured at this boundary.
+> Synchronised projection of the canonical records, **regenerated whole at each slice boundary rather than bullet by
+> bullet** — an earlier version asserted `Active Task Pointer: None` three lines beneath a bullet saying the pointer is
+> held. A projection is worth one thing: that it matches its source. Rewritten below from `TASK-m3-backend-api.md`,
+> `git log`, `gh pr list --json mergeCommit` and `gh run view --json jobs`, all measured at this boundary.
 
 - **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution
-  **`in_progress`**, mapped status `In Progress`, **this record holds the Active Task Pointer**. **Slice 3 is
-  complete** (`-036`…`-041` + `-046`). **Slice 4 is in flight**: `-042` is half-done — its server half (CORS, PR #21)
-  shipped, its browser half has not run — and `-043` is untouched.
-- **In flight**: **PR #23** `ci/m3-legible-skip` — AC-13's closure evidence plus the hardening it produced: both
-  branches of the `verify-api` detector now write a `$GITHUB_STEP_SUMMARY` note. Editing `ci.yml` counts as API
-  surface, so this PR takes the `running` branch by design.
-- **Merged since M3 opened**: **#22** `baf4397` (environment traps) · **#21** `ad100d3` (**CORS**) · **#20** `10db7ad`
-  (`-041` fidelity) · **#19** `d989f28` (`-040`) · **#18** `58b7d02` (`-046`) · **#17** `0749bb8` · **#16** `fc77b2e` ·
-  **#15** `cda2fd1` · **#14** `b6ea9bd` · **#13** `a80af4d` · **#12** · **#11**. **`main` is at `baf4397`.**
-- **AC tally: 8 of 14 checked** (AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-12, **AC-13 new this boundary**) ·
-  **6 open**: AC-1, AC-2, AC-3, AC-7, AC-11, AC-14. **AC-1 and AC-11 close on `-042`'s browser half**, AC-3 on
-  `-043`; AC-2, AC-7 and AC-14 are check-by-command items that need running, not writing.
-- **Measured at this boundary**: API **65 passed** (clean `bin/`+`obj/`, `-p:TreatWarningsAsErrors`, 0 warnings) ·
-  frontend `npm run verify` exit **0** at **197 tests / 20 files** · fixture **36 rows** · runtime deps **3** ·
-  CI check runs on `main`'s head: `verify=pass verify-api=pass` (PR #22, where the api job's *steps* skipped).
-- **The correction this boundary exists for**: a previous turn reported **"`verify-api=pass` on a docs-only PR, so
-  AC-13's gate is not doing its job and the AC cannot be checked off."** That was **false**. It was read off the
-  check-list bucket without opening the run; the step conclusions show `Detect whether the API surface changed`
-  succeeding and `setup-dotnet` + the .NET verify step **skipped**, i.e. the gate working precisely as designed. The
-  AC is now closed with both run lists quoted. Two lessons, both recorded where they can be found: **a passing check
-  can be the expected result of a skip, so "did the work run?" is a question about steps, not about status**; and
-  reporting a defect costs more than running one more command — this one cost a session its own credibility for the
-  second time in a day.
+  **`in_progress`**, mapped status `In Progress`, **this record holds the Active Task Pointer**. **Slice 3 complete**
+  (`-036`…`-041` + `-046`). **`-042` is now complete too** — the real-browser harness passes 7/7 — leaving **`-043`**
+  (survives a browser restart, `psql` confirms) as the last behaviour in M3.
+- **In flight**: **PR #24** `feat/m3-slice4b-cdp` — `-042`'s browser proof: the CDP harness promoted out of the spike,
+  7 checks over a production bundle in real Chromium against the real API. **Closes AC-1 and AC-11.**
+- **Merged since M3 opened**: **#23** `650cbd3` (legible CI skip + AC-13) · **#22** `baf4397` (environment traps) ·
+  **#21** `ad100d3` (**CORS**) · **#20** `10db7ad` (`-041`) · **#19** `d989f28` (`-040`) · **#18** `58b7d02` (`-046`) ·
+  **#17** `0749bb8` · **#16** `fc77b2e` · **#15** `cda2fd1` · **#14** `b6ea9bd` · **#13** `a80af4d` · **#12** · **#11**.
+  **`main` is at `650cbd3`.**
+- **AC tally: 9 of 14 checked** (AC-1, AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13 — note AC-1 and AC-11
+  were *annotated as half-verified for four slices* and closed only by the browser) · **5 open**: AC-2, AC-3, AC-7,
+  AC-14 and AC-13's docs-only-skip half remains observable-only. **AC-3 closes with `-043`.** AC-2, AC-7 and AC-14 are
+  check-by-command items: run them, quote them, check them.
+- **Measured at this boundary**: browser harness **7/7** (`POST` 201, list `GET` 200, `localStorage` keys `[]`, tab B
+  **1 navigation entry**, cleanup `DELETE` 204) · API **65 passed** · frontend **197 tests / 20 files** ·
+  `tsc --noEmit` exit **0** · AC-1 structural diff **0 files** · runtime deps **3** · fixture **36 rows**.
+- **How to run the browser proof** (it cannot be CI, so this is the only reproducible recipe): API bound to
+  `0.0.0.0:5080` **with `ASPNETCORE_ENVIRONMENT=Development`** (else the dev CORS origins do not load and the harness
+  fails closed — that trap cost a session); `vite preview` on `0.0.0.0:4173`; bundle built with
+  `VITE_API_BASE_URL=http://<sandbox-ip>:5080`; then `docker run -d --name jt-bridge --shm-size=1g -p 9222:9222
+  --entrypoint /ms-playwright/chromium-1129/chrome-linux/chrome mcr.microsoft.com/playwright:latest --headless=new
+  --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222
+  --remote-allow-origins='*' about:blank`, then `docker cp dist`/`static.mjs`/harness into `/srv` and
+  `docker exec -e E2E_NO_SPAWN=1 -e E2E_APP=http://127.0.0.1:4173 -e E2E_API=http://<sandbox-ip>:5080 jt-bridge
+  node --experimental-websocket /srv/harness.mjs`.
 - **Open for the owner** (none blocking): the `location` null-mapping in `toDomain` is an **interpretation, not a
-  ratified decision**; gap 5 (`conflict`'s §4.3 sentence, taken as "M3 ships generic" unless told otherwise); the
-  `notes` ceiling; `status` is the one domain field with no runtime validation at the seam; and gap 7's precedent —
-  sweep §4.3's contract table against the ladder for other server-side obligations a client-half behaviour made look
-  complete.
+  ratified decision**; gap 5 (`conflict`'s §4.3 sentence, taken as "M3 ships generic"); the `notes` ceiling; `status`
+  has no runtime validation at the seam; gap 7's precedent — sweep §4.3's table against the ladder for server-side
+  obligations a client-half behaviour made look complete.
 ## 4. Locked Technical Invariants (Do Not Undo)
 
 Agreed decisions that survive any refactor. Deviating requires a new ADR.
@@ -217,6 +217,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-11 17:25 UTC | Assistant (M3 Slice 4) | **`-042` passes: real Chromium, real API, the other tab learns without reloading** | The CDP harness (promoted from the spike) runs **7/7**: production bundle served over HTTP, list `GET` 200 with **`localStorage` keys `[]`**, `POST` through the real form **201**, and a second tab that displays the new record with **1 navigation entry** — never reloaded, never touched. **Closes AC-1 and AC-11**, the two ACs deliberately held open as half-verified for four slices. **Four independent failures stood between 257 green tests and a working browser:** no CORS at all (fixed in #21 — a preflight returned 405 while every test passed); a **stale pre-CORS API process**, which made a correct fix look broken (the startup banner said `Hosting environment: Production`, so `appsettings.Development.json` never loaded and the fail-closed default did its job); Chromium's DevTools unreachable *from the shell* because **the sandbox cannot route into the Docker network** (container→host works, host→container does not — the spike's "everything runs inside one container" was a constraint I read as a convenience); and the harness opening `/` while waiting for `.application-card`, which lives on `/applications` — a test bug dressed as an app bug. **9 of 14 ACs checked; `-043` is the only behaviour left.** |
 | 2026-09-11 16:05 UTC | Assistant | **AC-13 verified — after I had wrongly reported its gate broken** | `gh run view 34622071963` (PR #22, docs-only) and `34618700018` (PR #21, `api/`) give the two run lists AC-13 demanded: on the docs-only push `Detect whether the API surface changed` succeeded and **`setup-dotnet` + `Verify (build with warnings as errors → test against a real PostgreSQL)` were `skipped`**, while the job reported `success`; on the `api/` push both steps `success`. The gate worked exactly as grill F-10 designed it — a job always reports, only its steps skip. **My previous turn's claim that it 'isn't doing its job' was read off the check-name bucket without opening the run**, and it is the second documentation-integrity failure of the session; the correction is in §3A and in AC-13's evidence line, not a silent edit. Hardening follows: both detector branches now write a `$GITHUB_STEP_SUMMARY` note (`verify-api: skipped` / `: running`), because the log already said it and nobody opens a log to decide whether a green check means something. First sighting of the skip note is the next docs-only PR — this one edits `ci.yml`, which the detector counts as API surface. **8 of 14 ACs checked, 65 API tests, 197 frontend.** |
 | 2026-09-11 15:40 UTC | Assistant | Two environment traps, recorded because both cost time today | **(1) `dotnet run`'s CORS config is read at startup.** Any API process started before `dcd3747` (this session: one on `:5080`) is a pre-CORS server answering 405 to preflight. Restart before trusting a browser result — a stale server is the rare failure that looks like your fix didn't work. **(2) Browser work needs Docker.** This host cannot run Playwright's Chromium directly: `libnspr4` is absent, so the binary exits 127. Use `mcr.microsoft.com/playwright:latest` (Chromium 128 at `/ms-playwright/chromium-1129/chrome-linux/chrome`) with `--network=host --shm-size=1g`, which lets the host keep serving the page and API on `127.0.0.1`. Two related gotchas found today: DevTools binds to whichever loopback resolves first — probe `127.0.0.1` **and** `[::1]` — and `SIGKILL` on the `docker` CLI does not remove the container, so `docker rm -f` by name or the next run fails on a held port. |
 | 2026-09-11 15:05 UTC | Assistant (M3 Slice 3f) | `-041` fidelity — and a false completion report | **Slice 3's last behaviour found two real bugs; the session found a third, about itself.** (1) A new fixture row, `company-name-bom-only`, failed against the API with `Expected: BadRequest, Actual: Created` — `String.prototype.trim()` removes U+FEFF and `char.IsWhiteSpace` does not; the control row (U+2028) passes both sides, proving the disagreement is exactly one code point rather than a class. Fixed with `TrimInvisible`, adopting the **wider** trim so the server can only become stricter, never newly permissive. (2) `isWireApplication` checked **six of nine fields**, so `location: null` — a legal 200 — passed into `location: string`; found only because the echo stub built records from real bodies instead of hand-minted ones. (3) **The previous turn claimed PR #20 existed with green CI. It did not exist and the branch had never been pushed.** Corrected by measuring (`git ls-remote` empty, highest PR #19), re-running both gates, and creating the real PR; §3A regenerated whole, as it still described PR #14. The client Red/Green pair was also reconstructed after being committed together — re-running against the restored pre-fix adapter turned 1 failure + 3 skipped into 3, because the register's filter had silently covered only part of the file. **197/20 frontend, 60 API, 36 fixture rows.** |
