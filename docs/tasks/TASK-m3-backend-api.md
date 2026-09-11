@@ -282,9 +282,9 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Next Action (2026-09-11 18:45 UTC): **the ladder and the AC sweep are both done — 13 of 14 ACs verified.** M3
   waits on one owner decision, **gap 9 (A / B / C)**, which is the only thing between this task and "all 14". If **(B)**
   is chosen, amend `DECISION-m3-backend-api-007`, spec §6's `BEHAVIOR-034` client clause, and AC-7's wording **in one
-  commit** so the three cannot drift, then close AC-7 and run §10's close-out. If **(A)**, it is a normal
+  commit** so the three cannot drift, then close AC-7 and run §6's Evidence and Completion Gate (with spec §7's sign-off checklist). If **(A)**, it is a normal
   Red → Green → Refactor slice: move `-037`'s `409` row from `create` to `update` (keeping the generic mapping proven
-  total), then a create-specific pair. Either way **§10 remains**, and the other owner items travel with it: gap 5, the
+  total), then a create-specific pair. Either way **§6's completion gate remains**, and the other owner items travel with it: gap 5, the
   `notes` ceiling, the `location` interpretation, `status` at the seam, and gap 7's sweep of §4.3 against the ladder.
   The unreproduced `dotnet test` failure (1/64, once) is still open as an honesty item — a fourth clean run would not
   close it, only a named test would.
@@ -292,7 +292,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   `VITE_API_BASE_URL= npm run verify` → **197 tests / 20 files**, identical to the flagged run, needing only quoting into
   the AC line), **AC-7** (a retried `POST` with the same client-generated id returns the original 201 — *trace* whether
   `-032`/`-034` already prove it before building a third test), **AC-14** (run §8's invariant scan and quote it), then the
-  §10 close-out. Owner items open and non-blocking: gap 5, the `notes` ceiling, the `location` interpretation, `status`
+  §6's completion gate plus spec §7's sign-off checklist. Owner items open and non-blocking: gap 5, the `notes` ceiling, the `location` interpretation, `status`
   having no runtime validation at the seam, and gap 7's sweep of spec §4.3's table against the ladder.
 
   behaviour in M3, and cheap now that `-042` works: same container, same harness, one extra step — create over HTTP,
@@ -901,3 +901,23 @@ test -e vite.config.js && echo "I-5/DEBT-11 VIOLATED"
 ```
 
 **Test-stack note** (`DECISION-m3-backend-api-008`, status `proposed`): xUnit + `Testcontainers.PostgreSql` with versions pinned **at creation time** against the NuGet feed and that access date recorded here. If Slice 0's CI run shows no Docker on runners, the fallback is a GitHub **service container** — a fixture swap, not a test rewrite, which is why the choice was allowed to stay `proposed`.
+
+---
+
+### Correction: three references to a "§10 close-out" that does not exist
+
+At 19:05 UTC, starting the close-out, `grep -nE "^## "` showed this record's sections are **§3 … §8** and the spec's are
+**§1 … §7**. **There is no §10 anywhere.** Three lines here told a future reader — and I told the owner, in chat and on
+PR #26's reviewer-focus list ("the task record has a §10 to complete") — that "§10 remains". The real gate is
+**§6 Evidence and Completion Gate** plus **spec §7 Sign-off & Grilling Checklist**, now named in place of the phantom.
+
+**How a phantom section number gets written three times:** not by inventing a number, but by *paraphrasing a plan as a
+pointer*. An earlier draft said "the close-out remains"; across turns that hardened into "§10's close-out", a form that
+**looks cited** and so stops inviting verification. Same risk class as a fabricated SHA, and it survived for the same
+reason: **nobody opens an artifact that a sentence merely points at.** Defense, already on the books for SHAs — resolve
+a reference to its target before writing it, or name the target instead of numbering it.
+
+*Epilogue, because it is the interesting part:* my first repair attempt asserted `§10` count → 0 and **failed**, because
+one occurrence was written with a typographic apostrophe (`§10’s`) that my ASCII pattern could not match. Had the assert
+not been there, I would have written "all references corrected" over a file that still contained one. **The assertion
+caught a botched fix to a documentation-integrity bug — in the same commit whose subject is documentation integrity.**
