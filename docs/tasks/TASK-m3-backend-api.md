@@ -52,6 +52,12 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 
 - [ ] **AC-1** — **The seam holds.** *Given* `VITE_API_BASE_URL` is set, *When* the app runs, *Then* CRUD through the HTTP adapter works and `git diff --name-only` lists **no** file under `src/pages|components|state`. **TypeScript's structural check is the first line of this test, not the last.**
   - **Result**: Pending · **Evidence**: `git diff main --name-only -- src/pages src/components src/state` → empty · `npx tsc -p tsconfig.app.json --noEmit` → 0
+  **Half-verified** (2026-09-11 10:35 UTC, stays open): `-036` (Red `2568d84` → Green `fb7d98e`) proves the flag
+  selects the adapter, that Web Storage stops being read once it is set, and that both adapters satisfy
+  `ApplicationRepository` — so the *seam* half of this AC is measured. The clause that stays unevidenced is
+  "**CRUD through the HTTP adapter works**", which needs a live server and a browser, owned by `-042`. Left `Pending`
+  deliberately: a checked box here would say the adapter has moved real records, and so far it has only ever been
+  shown a mocked `fetch`.
 - [ ] **AC-2** — **Flag off changes nothing.** `npm run verify` green with `VITE_API_BASE_URL` unset, exactly as on `main` today. **Result**: Pending · **Evidence**: `npm run verify` exit 0
 - [ ] **AC-3** — **Durability outside the client process.** *Given* a record created in the browser, *When* the browser is closed and reopened, *Then* the record is present **and** `psql -c 'select id from applications'` shows it. **Result**: Pending · **Evidence**: `BEHAVIOR-…-043` + quoted `psql` output
 - [x] **AC-4** — **Constraints are real, not advisory.** A status outside the five is rejected **by the database** even when the API validator is bypassed (direct SQL). **Result**: Pending · **Evidence**: `BEHAVIOR-…-032`; the Red runs `INSERT … status='Escalated'` and asserts violation. **Result**: **Verified** (2026-09-11 07:31 UTC) · **Evidence**: `BEHAVIOR-…-032`, executed early —
@@ -79,7 +85,14 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
    treats it as success**" — is client behaviour owned by `BEHAVIOR-…-036`/`-037` in Slice 3 and has no evidence yet.
    Wording learned from the AC-4 retraction: an earlier draft of this line would have said "half-verified" and left
    the reader to guess which half.
-- [ ] **AC-8** — **The error table is total.** Every documented `HTTP × code` pair maps to its stated `RepositoryError` variant, and an **unrecognised** code maps to `corrupt-data` — no silent default, no throw. **Result**: Pending · **Evidence**: `BEHAVIOR-…-037` table-driven, one case per row of spec §4.3
+- [x] **AC-8** — **The error table is total.** Every documented `HTTP × code` pair maps to its stated `RepositoryError` variant, and an **unrecognised** code maps to `corrupt-data` — no silent default, no throw. **Result**: Pending · **Evidence**: `BEHAVIOR-…-037` table-driven, one case per row of spec §4.3
+  **Result**: **Verified** (2026-09-11 10:35 UTC) · **Evidence**: `BEHAVIOR-…-037` (Red `a49d1c4` = 8 of 12 rows
+  wrong → Green `f3d95a3` = **14 passed**), twelve cases covering every row of §4.3's table plus the two the table
+  only implies: an unrecognised `code`, and a problem body with **no** `code` — which is the real 415 that `-045`
+  verified our API answers, since ASP.NET's own `ProblemDetails` adds no extension member. `mapFailure` holds the
+  table in one place and tests **status before body**, because a `502`/`504` arrives from an intermediary whose body
+  is in whichever vocabulary the proxy speaks. Not covered, because nothing in the ladder covers it: the *sentence* a
+  `conflict` should render as — see the register's §14 gap 5.
 - [ ] **AC-9** — **Server unreachable degrades like storage blocked.** A `fetch` rejection maps to `unavailable`, and the provider's existing refusal gate behaves exactly as M2a's tests describe. **Result**: Pending · **Evidence**: `BEHAVIOR-…-038`
 - [ ] **AC-10** — **Out-of-order re-reads cannot repaint stale data** (closes M2b's handed-over **P2-2**). *Given* request 1 is delayed and request 2 resolves first, *When* request 1 lands, *Then* the list still shows request 2's data. **Result**: Pending · **Evidence**: `BEHAVIOR-…-039`
 - [ ] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040`
@@ -119,20 +132,17 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (Slice 2b complete — PR #14)**: **Slice 3 — `BEHAVIOR-…-036` through `-041`, the client's HTTP
-  adapter.** First code in `src/` this milestone, so start from the register's own filters rather than inventing
-  names: `-036` is `npx vitest run src/data/applicationStore.test.ts -t "…"`-shaped and asserts the **env var selects
-  the adapter and both satisfy `ApplicationRepository` structurally**; `-037` is the total `HTTP × code →
-  RepositoryError` table (one case per row of §4.3, unrecognised code → `corrupt-data`); `-038` transport failure →
-  `unavailable`; `-039` out-of-order re-read (closes M2b's **P2-2**); `-040` SSE with **at most one re-list per
-  `open`**; `-041` unicode/long-string fidelity. Take each method name from the register *before* writing the test —
-  the discipline 031 broke (see §13) and the reason every quoted filter in Slices 0–2a ran as printed.
-  Four things Slice 3 must not absorb silently: **`AC-7`'s third clause** (the adapter re-reads a `409` and treats
-  it as success) is the only thing keeping that AC open; **`notes` has no ceiling on either side** and the
-  `notes-ten-kilobytes` row is the one-line flip point if the owner wants one; **`location` is required by the
-  client's model and optional on the wire**, so the adapter is where that asymmetry either resolves or gets
-  documented as intended; and the register gaps below (`-046` for a successful `PUT`, `ETag`'s retirement, index
-  existence, `PUT`'s unasserted `400`).
+- **Next Action (Slice 3 open — `-036`, `-037` shipped)**: **`BEHAVIOR-…-038`, the transport case** — the first
+  behaviour in this milestone that starts on a contradiction rather than an absence. **§4.3's table says a `fetch`
+  rejection becomes `storage-error`, "deliberately *not* `unavailable`: 'we could not learn anything' is not 'the
+  server said it is busy'", while AC-9 above and the spec's own ladder row for `-038` both say `unavailable`.** The
+  Green of `-037` follows §4.3, and `f3d95a3` says so in code. What is *not* in dispute is AC-9's observable claim:
+  the refusal gate engages on any error state (`applicationsProvider.tsx:102`), so both codes refuse further writes
+  identically and only the label differs — which is precisely why `-038` has to assert the label rather than the
+  behaviour. **Then `-039`** (out-of-order re-read, closes M2b's **P2-2**), **`-040`** (SSE, bounded at one re-list per
+  `open`), **`-041`** (unicode fidelity). Carried alongside: the `location` asymmetry has not bitten yet because
+  nothing so far sends a real record, and it will bite at `-041`; and **`conflict` has no registered user-facing
+  sentence** (register §14, gap 5).
   (Preceding text read: "**Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared
   fixture.** Author `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules …
   Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and `job_title` (deferred
@@ -444,6 +454,42 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     status)` now fails `23502` with `DETAIL: Failing row contains (…, null, …)`. Before, the statement succeeded and
     stored `''`: a blank row in the list, no error anywhere. Third guard on the same field after 031 — validator
     rejects empty, `CHECK` rejects unknown, `NOT NULL` without a default rejects **omission**.
+
+  **`TDD-EXEC-m3-backend-api-036`** · `BEHAVIOR-…-036` · Red `2568d84` → Green `fb7d98e` · p0 · Slice 3
+  - First code in `src/` this milestone. Asserted through `createApplicationStore()` and the six methods of
+    `ApplicationRepository` only — never by importing the adapter — because "the flag selects the adapter" is a claim
+    about the **composition root**, and a test that constructs the adapter directly would pass even if nothing ever
+    called it.
+  - The negative case earned the slice: *"does not read Web Storage once the API is configured."* `sends reads to the
+    API` alone could be satisfied by an adapter that fetches **and** keeps serving local records — a switch that
+    changes a label and not a source, which is how a stale local list ends up looking like the server's data.
+  - Two defects in the test before any implementation existed. A guard failed first for a wrong envelope field
+    (`version` vs `schemaVersion` in `ApplicationsEnvelopeV1`) — a guard failing for the wrong reason reads exactly
+    like the behaviour under test failing. Worse, the negative case went **green while the adapter was reading Web
+    Storage**: the spy sat on `window.localStorage`, and jsdom's accessor can hand back a different object per read.
+    Now it spies `Storage.prototype`. A bypassable negative assertion certifies a lie.
+  - `src/vite-env.d.ts` is new: nothing in `src/` had ever read build-time configuration, so `import.meta.env` was a
+    **TS2339 error while all five tests stayed green** (vitest does not typecheck). The declaration marks the variable
+    `readonly`; the test writes through a local mutable view instead of loosening a production type.
+  - `revision` lives in a `Map` inside the adapter, never on `JobApplication` (I-6), and `update()` is a
+    read-modify-write because the contract is partial while `PUT` is a full replacement.
+  - Deliberately incomplete: every refusal mapped to `storage-error`, and `subscribe()` is an honest no-op. `-037`
+    and `-040` own them; writing either here would be code with no failing test behind it.
+
+  **`TDD-EXEC-m3-backend-api-037`** · `BEHAVIOR-…-037` · Red `a49d1c4` → Green `f3d95a3` · p0 · Slice 3
+  - Twelve cases, one per row of §4.3's table, plus two the table implies: an **unrecognised `code`**, and a problem
+    body with **no `code` at all** — the latter is the 415 `-045` caught live, not a hypothetical.
+  - Red printed 8 failed / 6 passed, and the passes are informative: the unknown-pointer and HTML-on-500 cases landed
+    on `storage-error` for the right reason only because it was the one thing the placeholder could say.
+  - `RepositoryError` gains its eighth variant (`conflict`, DECISION-006). It typechecked clean with **no other edit**,
+    which is the finding rather than the convenience: every consumer is an `if`/ternary chain, none an exhaustive
+    `switch` with a `never` fallback, so the compiler will never report an unhandled code in the UI. The guard test
+    listing all eight codes stands in for the check the type system is not giving us.
+  - `not-found`/`conflict` carry **the id the caller asked for**, never one read out of the body: trusting a
+    server-authored id lets a reply name a different record than the request, and the UI would navigate somewhere the
+    user never pointed. Such a code arriving on an id-less request (a list) is `corrupt-data`.
+  - The register's filter `-t "error mapping"` matches the `describe`, so the command reports 14 rather than 12 — the
+    block's two non-table guards share the name. Recorded so nobody "fixes" the count later.
 
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — the first `api` job run FAILED, and why it was right**: provider GitHub Actions, workflow

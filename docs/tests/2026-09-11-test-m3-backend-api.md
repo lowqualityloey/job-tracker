@@ -315,3 +315,29 @@ temptation is to describe every passing test as if it had once failed.
 4. **`ETag` response headers are emitted nowhere.** §4.3 documents them; `revision` in the JSON body carries the
    same token and the client reads only the body (DECISION-m3-backend-api-006). Recommend retiring the §4.3 line at
    the next contract amendment rather than emitting a second copy of a value that must then be kept in agreement.
+
+## §14 — Two gaps opened by Slice 3 (2026-09-11 10:35 UTC, `-036` + `-037`)
+
+**Gap 5 — a `conflict` reaches the UI and nothing has decided what it says.** §4.3 specifies the sentence ("someone
+else changed this record; reload to see it") and calls it the first user-facing line in this project that only a
+server could make necessary. `-037` had to add the variant to make the table total, and AC-1 forbids touching
+`src/pages/**` this milestone, so the code now exists with no behaviour asserting how it reads. It is not *unsafe*:
+the provider refuses further writes on any error, so a 409 shows a generic failure and loses nothing. But a generic
+failure is advice to retry, and retrying is the one thing a conflict must not invite. Two fixes — register `-046` for
+the sentence and admit that file to the scope, or state in the spec's correction section that M3 ships generic and
+name the milestone that owns the wording.
+
+**Gap 6 — `AC-9` and §4.3 disagree about a `fetch` rejection, inside the same approved spec.** AC-9: "a `fetch`
+rejection maps to `unavailable`". §4.3's table: `storage-error`, "deliberately **not** `unavailable`", with a
+rationale attached. The spec's own behaviour ladder repeats AC-9's version. Where the ladder and the table appear to
+overlap — "PostgreSQL container down / unreachable at request time → `unavailable` in the client" — they do not
+conflict at all: that path is a real **503 emitted by the API**, not a `TypeError` from `fetch`. "Server down" is two
+different events and the ladder names only one of them, which is how the contradiction was written without anyone
+noticing. `-037`'s Green implements §4.3, the more specific statement, the one carrying reasoning, and consistent with
+DECISION-006's rejection of `unavailable` for situations where the service is plainly available. Recorded rather than
+chosen silently, and `-038` must assert the **label**, because in this app the two codes are otherwise
+indistinguishable — the refusal gate engages for both.
+
+**Amendment to `-037` in §7**: executed as twelve table cases plus two guards in the new
+`src/data/httpApplicationRepository.test.ts`. The registered filter `-t "error mapping"` matches the `describe` and
+so selects 14 tests, not 12; the count is left as-is because the two extra assertions belong with the block.

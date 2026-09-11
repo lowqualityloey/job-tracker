@@ -18,6 +18,16 @@ export const APPLICATION_STATUSES: readonly ApplicationStatus[] = [
 export type RepositoryError =
   | { code: 'validation'; fieldErrors: FieldError[] }
   | { code: 'not-found'; id: string }
+  /**
+   * The eighth variant, added by `DECISION-m3-backend-api-006` for the HTTP medium: the row changed underneath this
+   * client between reading it and writing it back. No existing code carried that meaning — `validation` is about the
+   * payload, `storage-error` about not being able to reach the store — and reusing either would tell the user to
+   * edit their input when the right instruction is "reload and look at what someone else wrote".
+   *
+   * `quota-exceeded` and `unsupported-version` stay in the union even though HTTP can never produce them: they are
+   * `localStorage` concepts, and §4.3 keeps them until the local adapter goes away.
+   */
+  | { code: 'conflict'; id: string }
   | { code: 'unavailable' }
   | { code: 'quota-exceeded' }
   | {
