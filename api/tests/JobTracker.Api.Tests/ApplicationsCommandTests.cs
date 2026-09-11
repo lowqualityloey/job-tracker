@@ -56,6 +56,68 @@ public sealed class ApplicationsCommandTests(ApplicationsApiFixture fixture) : I
         Assert.Equal(HttpStatusCode.NotFound, after.StatusCode);
     }
 
+    [Fact]
+    public async Task Stale_if_match_conflicts_without_writing()
+    {
+        // BEHAVIOR-m3-backend-api-033 (p0): "Stale If-Match → 409 + code:\"conflict\" and a re-read proves the row
+        // is unchanged; fails: last write wins". AC-6's clause in executable form.
+        //
+        // The arrangement *is* a successful PUT: a revision can only become stale if some write advanced it, so
+        // this test is currently the only thing in the suite that would notice a broken update. §7's ladder has no
+        // behaviour for PUT success — the third unasserted statement in §4.3, alongside the index and the ETag
+        // header — so rather than invent a row, the happy path is asserted here as arrangement and the gap is
+        // raised for review with two fixes: register -046, or let -042's browser run own it.
+        await fixture.ExecuteAsync("delete from applications");
+        var id = Guid.NewGuid();
+        await fixture.Http.PostAsJsonAsync("/api/applications", new
+        {
+            id = id.ToString(),
+            companyName = "Hooli",
+            jobTitle = "VP of Sales",
+            location = "New York",
+            status = "Saved",
+        });
+
+        using var first = JsonDocument.Parse(await fixture.Http.GetStringAsync($"/api/applications/{id}"));
+        var original = first.RootElement.GetProperty("revision").GetUInt32();
+
+        // The write that makes `original` stale. Asserted, not just performed: if this 200 never arrives, the 409
+        // below would be proving an absence rather than a conflict.
+        var fresh = await PutAsync(id, original, "Hooli", "VP of Partnerships", "Applied");
+        Assert.Equal(HttpStatusCode.OK, fresh.StatusCode);
+        using var advanced = JsonDocument.Parse(await fresh.Content.ReadAsStringAsync());
+        Assert.Equal("VP of Partnerships", advanced.RootElement.GetProperty("jobTitle").GetString());
+        var current = advanced.RootElement.GetProperty("revision").GetUInt32();
+        Assert.NotEqual(original, current);
+
+        // Now the request a second client would send if it had loaded the record before that first write landed:
+        // same id, a version it can no longer claim, and a different edit.
+        var stale = await PutAsync(id, original, "Hooli", "VP of Sales", "Rejected");
+
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal("application/problem+json", stale.Content.Headers.ContentType?.MediaType);
+        using var problem = JsonDocument.Parse(await stale.Content.ReadAsStringAsync());
+        Assert.Equal("conflict", problem.RootElement.GetProperty("code").GetString());
+
+        // The clause that makes AC-6 real: the loser's edit is absent and the winner's is intact, field by field.
+        // "409 was returned" alone would be satisfied by a handler that wrote first and apologised afterwards.
+        using var after = JsonDocument.Parse(await fixture.Http.GetStringAsync($"/api/applications/{id}"));
+        Assert.Equal("VP of Partnerships", after.RootElement.GetProperty("jobTitle").GetString());
+        Assert.Equal("Applied", after.RootElement.GetProperty("status").GetString());
+        Assert.Equal(current, after.RootElement.GetProperty("revision").GetUInt32());
+    }
+
+    /// <summary>One place that spells the §4.3 update contract: full replacement, quoted <c>If-Match</c>.</summary>
+    private Task<HttpResponseMessage> PutAsync(Guid id, uint revision, string companyName, string jobTitle, string status)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/applications/{id}")
+        {
+            Content = JsonContent.Create(new { id = id.ToString(), companyName, jobTitle, location = "New York", status }),
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{revision}\"");
+        return fixture.Http.SendAsync(request);
+    }
+
     [Theory]
     [InlineData("1")] // certainly not this row's version: any write since the dawn of the cluster is newer
     [InlineData(null)] // grill F-3 made If-Match *required*; a delete carrying nothing cannot prove it is current
