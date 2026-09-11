@@ -54,7 +54,15 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   - **Result**: Pending · **Evidence**: `git diff main --name-only -- src/pages src/components src/state` → empty · `npx tsc -p tsconfig.app.json --noEmit` → 0
 - [ ] **AC-2** — **Flag off changes nothing.** `npm run verify` green with `VITE_API_BASE_URL` unset, exactly as on `main` today. **Result**: Pending · **Evidence**: `npm run verify` exit 0
 - [ ] **AC-3** — **Durability outside the client process.** *Given* a record created in the browser, *When* the browser is closed and reopened, *Then* the record is present **and** `psql -c 'select id from applications'` shows it. **Result**: Pending · **Evidence**: `BEHAVIOR-…-043` + quoted `psql` output
-- [ ] **AC-4** — **Constraints are real, not advisory.** *(database half verified; validator half pending Slice 2)* A status outside the five is rejected **by the database** even when the API validator is bypassed (direct SQL). **Result**: Pending · **Evidence**: `BEHAVIOR-…-032`; the Red runs `INSERT … status='Escalated'` and asserts violation. **Half-verified in Slice 0**: the harness asserts `SqlState 23514` for exactly that insert against the real server; what remains is the API validator rejecting it *before* the database and G-6's agreement of the two lists
+- [x] **AC-4** — **Constraints are real, not advisory.** A status outside the five is rejected **by the database** even when the API validator is bypassed (direct SQL). **Result**: Pending · **Evidence**: `BEHAVIOR-…-032`; the Red runs `INSERT … status='Escalated'` and asserts violation. **Result**: **Verified** (2026-09-11 07:31 UTC) · **Evidence**: `BEHAVIOR-…-032`, executed early —
+    `Assert.Throws<PostgresException>` on a direct `insert … values (…,'Escalated')` → `SqlState 23514`, plus the
+    five legitimate statuses all inserting. **Retraction**: an earlier edit of this line said AC-4 was
+    "half-verified in Slice 0 by the harness". That was false. Slice 0's test asserts the violation on
+    `create temporary table probe_status (… check (…))` — it proves PostgreSQL enforces CHECK constraints, and
+    proves nothing about `applications`, which at the time had no CHECK and today still had none until 032's Red
+    inserted `'Escalated'` and the database accepted it. The API validator rejecting a sixth status *before* it
+    reaches the database is G-6/AC-12's job in Slice 2; AC-4's own claim was always the database's half, and that
+    half is now real.
 - [x] **AC-5** — **No timezone drift on a date-only field.** `applied_at = 2026-08-10` round-trips as `"2026-08-10"` for a client whose machine is UTC+13. **Result**: **Verified** (2026-09-11 07:15 UTC) · **Evidence**: `BEHAVIOR-…-027`,
     `TZ=Etc/GMT-13 dotnet test api/tests/JobTracker.Api.Tests` → `Passed: 10, Failed: 0`. The assertion is exact text,
     and its teeth were proven by mutation (a converter writing `yyyy/MM/dd` made it fail with `Strings differ`). Note
@@ -125,7 +133,12 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   **`src/**` still untouched**, `npm run verify` green at the slice boundary, runtime deps still **3**.
 - **Deliberately deferred, each with the behaviour that will force it** — recorded so "not done yet" is never
   mistaken for "not needed":
-  1. `defaultValueSql: "now()"` on `created_at` / `updated_at` → **BEHAVIOR-…-030**, the first server-side write.
+  1. ~~defaults on `created_at` / `updated_at`~~ → **done in 032's Green**, because EF's placeholder for those
+     columns was `DEFAULT TIMESTAMPTZ '-infinity'`, which §4.1 never specified and which sorts beautifully while
+     meaning nothing. **Remaining divergence from §4.1**: `company_name`, `job_title` and `status` still carry
+     `DEFAULT ''`, also EF placeholders. An empty `status` can no longer succeed (the CHECK rejects `''` as a
+     sixth value), so only the two text defaults stay permissive; dropping them is fidelity-only and belongs with
+     **BEHAVIOR-…-031**, the behaviour that asserts the API rejects an empty company name.
   2. `ETag` responses and `If-Match` handling → **BEHAVIOR-…-033** and **-044**. `revision` is on the wire now,
      which is all 029 registered; an `ETag` nothing sends yet would be untested code.
   3. Extracting `ApplicationCatalog` (spec §4.1's deep module) out of `Program.cs` → the **second**
@@ -225,6 +238,22 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     `xmin` with `attnum = -2` (system column), no user column shadowing it.
   - Refactor: none; the named trigger for extracting `ApplicationCatalog` is **the second problem-document
     factory**, which Slice 2 needs for `validation` and `conflict` anyway.
+
+  **`TDD-EXEC-m3-backend-api-032`** · `BEHAVIOR-…-032` · Red `0109a75` → Green `5d45d29` · **executed early**
+  (registered under Slice 2; pulled into Slice 1 because its premise turned out to be absent from the schema)
+  - Red: `--filter "~Status_check_constraint_rejects_sixth_value|~All_five_statuses"` →
+    `Assert.Throws() Failure: No exception was thrown; Expected: typeof(Npgsql.PostgresException)` — the real
+    `applications` table accepted a sixth status. `pg_constraint` confirmed it: PK + six NOT NULLs, **no CHECK**.
+  - Green: model gains `HasCheckConstraint("applications_status_check", …)` → migration emits
+    `ALTER TABLE applications ADD CONSTRAINT …`; read back from the server as
+    `CHECK ((status = ANY (ARRAY['Saved','Applied','Interview','Rejected','Offer'])))`, and the rejected insert's
+    own `DETAIL` line shows `created_at` filled by the new `now()` default. Whole suite `Passed: 12, Failed: 0`;
+    dev database back to **0 rows** (statement-level rollback, which is the property a CHECK exists to provide).
+  - **The finding, stated plainly because it is the one to learn from**: AC-4 was annotated "half-verified" an hour
+    earlier on the strength of a green test that measured a temporary probe table. A passing test of a different
+    configuration than you ship is not evidence — the same error I criticised this morning about the PostgreSQL 18
+    volume mount, committed by me one slice later. What caught it was reading
+    `dotnet ef migrations script --idempotent`, i.e. the SQL that would actually ship, instead of trusting a count.
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — the first `api` job run FAILED, and why it was right**: provider GitHub Actions, workflow
   `ci.yml`, job `verify-api`, commit `47501b6`, 2026-09-11 06:07 UTC:
@@ -290,6 +319,11 @@ Phase-2 sizing rule applied: each row is one unit inside the **1–4 hour** band
 | `…-043` | 4 | survives browser restart; `psql` confirms | 1h | p1 | `area:data` `type:test` | harness + quoted `psql` output |
 | `…-044` | 2 | **delete carrying a stale revision is refused and the row still exists** *(grill F-3 — `If-Match` now required on `DELETE`)* | 1h | p0 | `area:backend` `type:test` | `…~Delete_with_stale_revision_is_refused` |
 | `…-045` | 2 | **`text/plain` body → `415`, no row created** *(grill F-4 — makes the preflight the real cross-origin write guard)* | 1h | p1 | `area:backend` `type:test` | `…~Non_json_body_rejected` |
+
+**`BEHAVIOR-…-032` executed out of ladder order, in Slice 1** (2026-09-11 07:31 UTC, Red `0109a75` → Green `5d45d29`), because
+its registered premise — that the table's CHECK exists and rejects a sixth status — turned out to be false of the
+schema Slice 1 had just created. Reordering one p1 row to keep an AC honest is the trade the ladder exists to
+allow; leaving it queued would have left a false `Result` on the record.
 
 **Names drifted between this ladder and the code, and the code is the artefact.** The ladder's Red commands for
 026/027/028 named `Empty_list_returns_200_empty_array`, `RoundTripsEveryField`, `UnknownId_returns_404_problem`; the
