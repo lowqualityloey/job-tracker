@@ -265,3 +265,53 @@ advanced it) and asserts its 200, so a broken update would be caught — but by 
 Options: register `-046` for update round-trip + revision advance, or let `-042`'s browser run own it. Recorded in
 `§7` of the task record alongside the two older gaps (the unasserted index, and `ETag`, which Slice 2 declined to
 emit for want of a consumer).
+
+## §13 — Corrections added by Slice 2b (2026-09-11 09:55 UTC, `BEHAVIOR-…-031` + F-1's fixture)
+
+| Register row | Planned | Executed | Status |
+| :--- | :--- | :--- | :--- |
+| `…-031` | `…~Validation_matches_client_boundaries`, one `[Fact]` | `Validation_matches_declared_cases`, a 34-case `[Theory]` over the shared fixture | **executed, name amended below** |
+| `…-032` | the four `CHECK`/default assertions | unchanged, plus one additive guard (see `-031+`) | executed early |
+
+**The name drift is the finding, and it is mine rather than the register's.** Slice 2a opened §12's discipline of
+reading each registered `--filter` string out of the table *before* writing the test, and every quoted command in
+Slices 0–2a then ran as printed. `-031` is the one behaviour where I did not: the ladder predicted
+`Validation_matches_client_boundaries` and the shipped method is `Validation_matches_declared_cases`, because the
+fixture turned out to carry normalisation and accept-cases as well as boundaries, and "matches client boundaries"
+describes a narrower test than the one that exists. The register's filter column is amended to the real name for
+the same reason the last two slices amended rows on contact: a plan nobody corrects is not a plan, it is a document
+that slowly stops being true.
+
+**`-031+` · `No_text_column_carries_an_unchosen_default` — an assertion with no `BEHAVIOR` id.** It arrived while
+closing deferred item 1, and it belongs to `-032`'s family (schema fidelity against §4.1's DDL) rather than to the
+validator's. Registered here as additive so the ladder stays the authority on what is *supposed* to be covered, and
+so the next reader does not conclude from its absence in §7 that it was dropped. Recommend folding into `-032`'s row
+at the next amendment, since what it guards — "`NOT NULL` means *omission* is impossible, not merely explicit
+`null`" — is exactly the constraint 032 asserts from the other side.
+
+**AC-12's boundary list, audited against the fixture rather than asserted from memory.** The clause reads
+"empty, max, max+1, whitespace-only, unicode, control chars, 10 kB notes, all five statuses + a sixth", and the
+easiest way to fail it silently was to write 34 rows that felt comprehensive. Measured from the JSON: all five
+statuses have an `api: accept` row; `status-sixth-value`, `status-lowercase`, `status-empty` reject; unicode is two
+rows (`job-title-at-max-emoji` at 120 UTF-16 units, `job-title-over-max-emoji` at 122 — the pair that catches either
+side switching to code points); control chars and the 10 kB probe are one row each. **The `notes` ceiling is absent
+on purpose**: neither validator has one, and `notes-ten-kilobytes` is the flip point if the owner decides otherwise.
+
+**One Green with no Red, disclosed in both directions.** `validationFixtureContract.test.ts` passed its 35 tests on
+first run, because its rows were derived *from* `validation.ts`. That is not a TDD violation — the Red for this
+behaviour is the 17-failure API run — but it does mean the client suite evidences *my reading of the file*, not a
+behaviour driven out of a failure. §11's retracted AC-4 claim is the reason this sentence exists at all: the
+temptation is to describe every passing test as if it had once failed.
+
+**Register gaps after Slice 2b — four, all in §4.3/§4.1, none of them new code paths:**
+1. **A successful `PUT` has no behaviour of its own** (§12's gap, still open): `-033` performs one as arrangement
+   and asserts its 200. Recommend `-046` for update round-trip + revision advance.
+2. **`PUT`'s `400 validation` is now possible and still unasserted.** `dd501ef` routes both verbs through the same
+   `ApplicationValidation.Validate` call — §4.3 says both reject — but no test sends an invalid body to `PUT`. The
+   rules cannot diverge between verbs, which is the argument for not duplicating them; it is not an argument for
+   leaving the path untested. A `-046` that asserts the update round-trip should carry this assertion too.
+3. **The index in §4.1 is not created by any migration**, so `ORDER BY created_at DESC` has no supporting index —
+   invisible at five rows, and the only cheap moment to fix it is before data exists.
+4. **`ETag` response headers are emitted nowhere.** §4.3 documents them; `revision` in the JSON body carries the
+   same token and the client reads only the body (DECISION-m3-backend-api-006). Recommend retiring the §4.3 line at
+   the next contract amendment rather than emitting a second copy of a value that must then be kept in agreement.

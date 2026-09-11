@@ -49,15 +49,21 @@ public static class ApplicationCatalog
         // needs — including `revision`, which EF populates on save because xmin is a store-generated concurrency token.
         endpoints.MapPost("/api/applications", async (NewApplicationRequest request, JobTrackerDb db, CancellationToken ct) =>
         {
+            var (errors, value) = ApplicationValidation.Validate(request);
+            if (errors.Count > 0)
+            {
+                return Problems.Validation(errors, "/api/applications");
+            }
+
             var entity = new Application
             {
-                Id = request.Id,
-                CompanyName = request.CompanyName,
-                JobTitle = request.JobTitle,
-                Location = request.Location,
-                Status = request.Status,
-                AppliedAt = request.AppliedAt,
-                Notes = request.Notes,
+                Id = value!.Id,
+                CompanyName = value.CompanyName,
+                JobTitle = value.JobTitle,
+                Location = value.Location,
+                Status = value.Status,
+                AppliedAt = value.AppliedAt,
+                Notes = value.Notes,
                 // Left at default on purpose: created_at/updated_at are the database's now(), and a client-supplied
                 // creation time would let a retry claim the record is older than it is.
             };
@@ -95,6 +101,16 @@ public static class ApplicationCatalog
                 return Problems.NotFound(id);
             }
 
+            // Validated before the row is even looked up, and through the same call the create path makes: two
+            // verbs each keeping their own copy of the rules is how one of them starts accepting records the other
+            // rejects. §4.3 lists `400 validation` for both, and this is the whole reason the validator is a
+            // function rather than a few lines inside the POST handler.
+            var (errors, value) = ApplicationValidation.Validate(request);
+            if (errors.Count > 0)
+            {
+                return Problems.Validation(errors, $"/api/applications/{id}");
+            }
+
             var entity = await db.Applications.FirstOrDefaultAsync(a => a.Id == guid, ct);
             if (entity is null)
             {
@@ -109,12 +125,12 @@ public static class ApplicationCatalog
             // Assigned field by field rather than attaching a detached entity, because an update that overwrote
             // id, revision, created_at or updated_at from a client payload would be a silent data-loss bug in the
             // one operation whose whole purpose is editing a record.
-            entity.CompanyName = request.CompanyName;
-            entity.JobTitle = request.JobTitle;
-            entity.Location = request.Location;
-            entity.Status = request.Status;
-            entity.AppliedAt = request.AppliedAt;
-            entity.Notes = request.Notes;
+            entity.CompanyName = value!.CompanyName;
+            entity.JobTitle = value.JobTitle;
+            entity.Location = value.Location;
+            entity.Status = value.Status;
+            entity.AppliedAt = value.AppliedAt;
+            entity.Notes = value.Notes;
 
             await db.SaveChangesAsync(ct);
             return Results.Ok(entity);
@@ -155,12 +171,6 @@ public static class ApplicationCatalog
     }
 
     /// <summary>
-    /// The write contract of §4.3 — the fields a user supplies, which is exactly <c>ApplicationInput</c> plus the
-    /// client-minted <c>id</c> (DECISION-m3-backend-api-007). Record and not class: it is a boundary shape with no
-    /// behaviour, and `required` members mean a payload missing company_name fails during binding rather than as a
-    /// null-ref somewhere downstream.
-    /// </summary>
-    /// <summary>
     /// Does this <c>If-Match</c> value name the row's current version?
     ///
     /// Quoted, because §4.3 spells the token as `ETag: "&lt;xmin&gt;"` and a client that echoes a header verbatim sends
@@ -186,13 +196,4 @@ public static class ApplicationCatalog
         candidate = candidate.Trim('"');
         return uint.TryParse(candidate, out var value) && value == revision;
     }
-
-    public sealed record NewApplicationRequest(
-        Guid Id,
-        string CompanyName,
-        string JobTitle,
-        string? Location,
-        string Status,
-        DateOnly? AppliedAt,
-        string? Notes);
 }

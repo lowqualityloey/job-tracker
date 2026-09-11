@@ -1,0 +1,694 @@
+{
+  "$comment": [
+    "M3 AC-12 / grill F-1: the single source of truth for record-validation rules, consumed by BOTH suites.",
+    "xUnit reads it in ValidationContractTests.cs (BEHAVIOR-m3-backend-api-031); vitest reads it in",
+    "src/domain/validationFixtureContract.test.ts. The C# validator therefore cannot pass its own opinion of the",
+    "rules, and neither can the client's.",
+    "Rows were authored FROM src/domain/validation.ts and the spec's sections 4.1/4.3, not from what anyone believes",
+    "the rules should be. Where the two sides differ, expect differs per side and why names the document that grants",
+    "the difference. `violations` is the expectation for a rejecting side; `clientViolations`/`apiViolations`",
+    "override it for one side alone, used only where both reject but not the same fields.",
+    "the difference. Add a rule by adding rows, never by adding a branch to one validator alone."
+  ],
+  "violationsFormat": "A rejecting side must report exactly these violations, in order, by field and message text.",
+  "counting": "Lengths are UTF-16 code units: JavaScript String.length and .NET string.Length agree; Python len() does not.",
+  "cases": [
+    {
+      "id": "valid-minimal",
+      "why": "The reference case: every other row is a mutation of this one.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "valid-complete",
+      "why": "All seven writable fields present.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07",
+        "notes": "Referred by Oreos"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "location-empty",
+      "why": "The approved asymmetry: the client's model requires a location, the wire contract (section 4.3, location?) and the column (nullable) do not. The client rejects it; the server must not invent a rule the contract does not carry.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "accept"
+      },
+      "violations": [
+        {
+          "field": "location",
+          "message": "Location is required."
+        }
+      ],
+      "stored": {
+        "location": ""
+      }
+    },
+    {
+      "id": "status-sixth-value",
+      "why": "status is a TS union with NO runtime check, so the client cannot reject this and the server must. The CHECK in -032 already refuses it at the database; AC-12's point is that the API answers 400 validation with a pointer rather than leaking 23514 as a 500.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Escalated",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "status",
+          "message": "Status must be one of: Saved, Applied, Interview, Rejected, Offer."
+        }
+      ]
+    },
+    {
+      "id": "status-lowercase",
+      "why": "The CHECK's list is case-sensitive and so is the validator: 'saved' is not 'Saved'. The database would reject this too, but the API must be the one that says so, with a field the form can highlight.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "status",
+          "message": "Status must be one of: Saved, Applied, Interview, Rejected, Offer."
+        }
+      ]
+    },
+    {
+      "id": "status-empty",
+      "why": "The column's DEFAULT '' placeholder lives in this row: an omitted status is the one input that both a permissive database and a permissive validator would let through.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "status",
+          "message": "Status must be one of: Saved, Applied, Interview, Rejected, Offer."
+        }
+      ]
+    },
+    {
+      "id": "status-saved",
+      "why": "One of five legitimate values; all five are carried so the validator cannot agree with an opinion about a subset of them.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "status-applied",
+      "why": "One of five legitimate values; all five are carried so the validator cannot agree with an opinion about a subset of them.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Applied",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "status-interview",
+      "why": "One of five legitimate values; all five are carried so the validator cannot agree with an opinion about a subset of them.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Interview",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "status-rejected",
+      "why": "One of five legitimate values; all five are carried so the validator cannot agree with an opinion about a subset of them.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Rejected",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "status-offer",
+      "why": "One of five legitimate values; all five are carried so the validator cannot agree with an opinion about a subset of them.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Offer",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "company-name-empty",
+      "why": "Trimmed-empty is the rule M2 established first.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "companyName",
+          "message": "Company name is required."
+        }
+      ]
+    },
+    {
+      "id": "job-title-empty",
+      "why": "Same rule, second field: the loop, not a chain of ifs.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "jobTitle",
+          "message": "Job title is required."
+        }
+      ]
+    },
+    {
+      "id": "company-name-whitespace-only",
+      "why": "Three spaces trim to nothing, so length is measured AFTER trimming.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "   ",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "companyName",
+          "message": "Company name is required."
+        }
+      ]
+    },
+    {
+      "id": "company-name-padded",
+      "why": "Both sides normalise, so the stored value is the trimmed one. This row is what forces the server to trim: otherwise one company is stored two ways depending on which client wrote it.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "  Hooli  ",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      },
+      "stored": {
+        "companyName": "Hooli"
+      }
+    },
+    {
+      "id": "three-fields-empty-at-once",
+      "why": "The row that proved the fixture needed per-side lists: both sides reject this input, but they reject DIFFERENT SETS. The client demands a location (its model requires a string); section 4.3 makes it optional on the wire, so the server must not invent that rule. A single shared violations list can only hold one truth, and on this row it held the client's. errors[] stays a list because a form shows every problem at once.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "",
+        "jobTitle": "",
+        "location": "",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "companyName",
+          "message": "Company name is required."
+        },
+        {
+          "field": "jobTitle",
+          "message": "Job title is required."
+        },
+        {
+          "field": "location",
+          "message": "Location is required."
+        }
+      ],
+      "apiViolations": [
+        {
+          "field": "companyName",
+          "message": "Company name is required."
+        },
+        {
+          "field": "jobTitle",
+          "message": "Job title is required."
+        }
+      ]
+    },
+    {
+      "id": "job-title-at-max",
+      "why": "Boundary: exactly 120 units is legal, since the rule reads 'or fewer'.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "job-title-over-max",
+      "why": "Boundary: 121 units.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "jobTitle",
+          "message": "Job title must be 120 characters or fewer."
+        }
+      ]
+    },
+    {
+      "id": "company-name-at-max",
+      "why": "The same boundary on a different field, so no field can be special-cased.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "location-over-max",
+      "why": "The optional field is still length-capped when present: optionality and bounds are different rules.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "location",
+          "message": "Location must be 120 characters or fewer."
+        }
+      ]
+    },
+    {
+      "id": "job-title-at-max-emoji",
+      "why": "60 astral-plane emoji are 120 UTF-16 units and 60 code points. Both validators measure units, and this row is the only thing that would notice either switching to code points.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "job-title-over-max-emoji",
+      "why": "One more emoji: 122 units, so the failure cannot be argued away as an off-by-one in how the boundary was counted.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃🧃",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "jobTitle",
+          "message": "Job title must be 120 characters or fewer."
+        }
+      ]
+    },
+    {
+      "id": "company-name-combining-marks",
+      "why": "'e' plus U+0301 is two units and renders as one character. Both sides agree by shared implementation rather than shared intent, which is exactly the coincidence a fixture should make visible.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "notes-ten-kilobytes",
+      "why": "AC-12's 10 kB boundary. The client caps nothing here, so 'both sides agree' can only mean both accept — until the owner sets a server ceiling, at which point THIS row flips and only this row.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07",
+        "notes": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "notes-empty-string",
+      "why": "notes is optional and trimming it to '' is the client's own behaviour; the server stores what it is given after the same trim.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07",
+        "notes": ""
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      },
+      "stored": {
+        "notes": ""
+      }
+    },
+    {
+      "id": "notes-whitespace-only",
+      "why": "Trimming can turn a non-empty notes into an empty one and neither side calls that an error.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07",
+        "notes": "   "
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      },
+      "stored": {
+        "notes": ""
+      }
+    },
+    {
+      "id": "notes-control-characters",
+      "why": "U+0001 and U+0007 are legal PostgreSQL text (U+0000 is not, and cannot reach the server through JSON at all, so no row asserts it). Neither side filters control characters today; this row says so out loud instead of leaving it to be discovered via a stray bell code in a list.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-03-07",
+        "notes": "a\u0001b\u0007c"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      },
+      "stored": {
+        "notes": "a\u0001b\u0007c"
+      }
+    },
+    {
+      "id": "applied-at-ordinary",
+      "why": "A real day in the only shape the wire carries.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-02-28"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    },
+    {
+      "id": "applied-at-nonexistent-day",
+      "why": "'2026-02-30' has the right shape and no such day exists: without the round-trip check a Date rolls it to 1 March and stores a date the user never typed.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-02-30"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "appliedAt",
+          "message": "Date applied must be a real date in YYYY-MM-DD form, or left empty."
+        }
+      ]
+    },
+    {
+      "id": "applied-at-month-thirteen",
+      "why": "A different way for a well-shaped string to name no day.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026-13-01"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "appliedAt",
+          "message": "Date applied must be a real date in YYYY-MM-DD form, or left empty."
+        }
+      ]
+    },
+    {
+      "id": "applied-at-wrong-separators",
+      "why": "Slash-separated is exactly what a locale-formatted input produces, and it is the case a shape-only regex with the wrong separator would let through.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2026/03/07"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "appliedAt",
+          "message": "Date applied must be a real date in YYYY-MM-DD form, or left empty."
+        }
+      ]
+    },
+    {
+      "id": "applied-at-not-a-date",
+      "why": "Any text that is not a date.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "yesterday"
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "appliedAt",
+          "message": "Date applied must be a real date in YYYY-MM-DD form, or left empty."
+        }
+      ]
+    },
+    {
+      "id": "applied-at-empty-string",
+      "why": "'or left empty': a cleared form field is an empty string, which is not a date and must not be stored as one.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": ""
+      },
+      "expect": {
+        "client": "reject",
+        "api": "reject"
+      },
+      "violations": [
+        {
+          "field": "appliedAt",
+          "message": "Date applied must be a real date in YYYY-MM-DD form, or left empty."
+        }
+      ]
+    },
+    {
+      "id": "applied-at-future",
+      "why": "No rule forbids a future date, and recording that as a case makes the absence of a rule a decision rather than an oversight.",
+      "input": {
+        "id": "00000000-0000-0000-0000-000000000031",
+        "companyName": "Hooli",
+        "jobTitle": "Engineer",
+        "location": "New York",
+        "status": "Saved",
+        "appliedAt": "2099-12-31"
+      },
+      "expect": {
+        "client": "accept",
+        "api": "accept"
+      }
+    }
+  ]
+}

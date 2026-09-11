@@ -28,4 +28,25 @@ internal static class Problems
         type: "https://job-tracker.local/probs/conflict",
         instance: $"/api/applications/{id}",
         extensions: new Dictionary<string, object?> { ["code"] = "conflict" });
+
+    /// <summary>
+    /// §4.3's validation envelope: RFC 9457 members plus <c>code</c> and an <c>errors[]</c> list of
+    /// <c>{ pointer, detail }</c>, where the pointer names the *wire* member, not the column.
+    ///
+    /// A list rather than a single reason because a form shows every problem at once — the client's validator
+    /// already returns all of them, and an API that answered only the first would make the user retype a field,
+    /// resubmit, and be told about the second. Order comes from the validator, which the fixture pins by
+    /// comparing lists rather than sets.
+    /// </summary>
+    public static IResult Validation(IReadOnlyList<FieldError> errors, string instance) => Results.Problem(
+        title: "The application record is not valid.",
+        detail: errors.Count == 1 ? "One field failed validation." : $"{errors.Count} fields failed validation.",
+        statusCode: StatusCodes.Status400BadRequest,
+        type: "https://job-tracker.local/probs/validation",
+        instance: instance,
+        extensions: new Dictionary<string, object?>
+        {
+            ["code"] = "validation",
+            ["errors"] = errors.Select(error => new { pointer = $"#/{error.Field}", detail = error.Message }).ToList(),
+        });
 }

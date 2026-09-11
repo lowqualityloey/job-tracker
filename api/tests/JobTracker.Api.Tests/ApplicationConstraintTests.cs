@@ -16,6 +16,41 @@ namespace JobTracker.Api.Tests;
 public sealed class ApplicationConstraintTests(ApplicationsApiFixture fixture) : IClassFixture<ApplicationsApiFixture>
 {
     [Fact]
+    public async Task No_text_column_carries_an_unchosen_default()
+    {
+        // Additive to BEHAVIOR-m3-backend-api-032's file, and named as such in the register: §4.1 declares
+        // `company_name text NOT NULL`, `job_title text NOT NULL` and `status text NOT NULL` with no DEFAULT
+        // anything. What the shipped schema actually had was `DEFAULT ''` on all three — a placeholder EF wrote
+        // when adding NOT NULL columns to a populated table, which stayed behind afterwards.
+        //
+        // Why it is worth a test rather than a comment: an unchosen default turns "the client forgot to send a
+        // status" into a stored empty string instead of a violated NOT NULL, so the row that appears in the list
+        // has a blank status and nothing anywhere reported the mistake. Since 031 the API validator refuses an
+        // empty status, which makes the placeholder unreachable through the front door — and the point of a
+        // constraint test is the back door. `xmin` is excluded: a system column, with no default of its own.
+        await using var connection = fixture.OpenConnection();
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            select column_name
+            from information_schema.columns
+            where table_name = 'applications'
+              and column_name in ('company_name', 'job_title', 'status', 'applied_at', 'location', 'notes')
+              and column_default is not null
+            order by column_name
+            """;
+
+        await using var reader = await command.ExecuteReaderAsync();
+        var withDefaults = new List<string>();
+        while (await reader.ReadAsync())
+        {
+            withDefaults.Add(reader.GetString(0));
+        }
+
+        Assert.Empty(withDefaults);
+    }
+
+    [Fact]
     public async Task Status_check_constraint_rejects_sixth_value()
     {
         await fixture.ExecuteAsync("delete from applications");
