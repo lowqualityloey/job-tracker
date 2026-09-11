@@ -7,11 +7,11 @@
 ## 1. Executive Summary & Current Position
 
 - **Project Name**: Job Tracker (`job-tracker` v0.2.0)
-- **Current Milestone / Epic**: M0 **done** · M1 **MERGED** (PR #1 → `63d769d`) · **M2 Pipeline Interactivity — planning now (Level 2)**
+- **Current Milestone / Epic**: M0 **done** · M1 **MERGED** (PR #1) · M2a **MERGED** (PR #2 → `1ec8fe8`) · **M2b implemented, awaiting PR #3 review (Level 2)**
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
-- **Current Working Branch**: `main` @ `63d769d` (== `origin/main`, clean `--ff-only` pull after merge). M2 will branch `feat/m2-*` from here. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
-- **Last Updated**: 2026-09-10 23:25 UTC — M2a.5 complete: error-code sweep closed 2 gaps, AC-1…AC-11 met, 77 tests; PR #2 opened
+- **Current Working Branch**: `feat/m2b-filters-cross-tab` @ `f31a70b` (== `origin/…`, **published**). Base `main` @ `1ec8fe8`. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
+- **Last Updated**: 2026-09-11 00:41 UTC — **M2b complete**: behaviours 018–026 landed, AC-1…AC-10 met, **100 tests / 13 files**, PR #3 opened. `date -u`, measured not inferred
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -24,7 +24,8 @@
 
 - [x] **M0 — Frontend Foundation**: routing, layout shell, typed domain model, mock data, status badges, empty states, dark UI, Vitest + Testing Library wiring, WCAG AA contrast baseline
 - [x] **M1 — Engineering OS Integration**: **MERGED as PR #1 (`63d769d`, 2026-09-10)**. Submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed, lockfile tracked
-- [/] **M2 — Pipeline Interactivity**: **M2a in progress** — spec + task record landed; M2a.1 validation, M2a.2 repository seam, M2a.3 failure modes done (**6/11 ACs, 11/17 behaviours, 41 tests**). Remaining: M2a.4 CRUD UI, M2a.5 contract sweep, then PR #2. Filters = M2b
+- [x] **M2a — Persistence seam**: **MERGED as PR #2 (`1ec8fe8`)**. 17 behaviours, AC-1…AC-11, repository seam + failure modes + CRUD UI + error-code contract sweep
+- [/] **M2b — Filters, search, cross-tab reconciliation**: **implemented, PR #3 open — human review pending**. Behaviours 018–026 (9/9), AC-1…AC-10 (10/10), 77 → **100 tests**. Spec `docs/specs/2026-09-10-spec-m2b-filters-cross-tab.md`, record `docs/tasks/TASK-m2b-filters-cross-tab.md`
 - [ ] **M3 — Backend**: ASP.NET Core Web API, database, replace mock with HTTP (**Level 2**: `pk:api` + `pk:data`)
 - [ ] **M4 — Authentication** (**Level 2**: `pk:auth`)
 - [ ] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval)
@@ -40,16 +41,17 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - [x] `TASK-2026-09-10-repo-hygiene`: Fix DEBT-11 + DEBT-13 in one commit (`noEmit` in `tsconfig.node.json`; `.kilo/`, `.fallow/`, `*.tsbuildinfo` in shared `.gitignore`) — **done in `bd8a8b6`; `git add .` is now safe for build artifacts**
 - [x] `TASK-2026-09-10-rule-source`: DEBT-12 resolved: kept as a corrected Kilo mirror, commands fixed in `f128376`
 - [x] `TASK-2026-09-10-bootstrap-commit`: Landed as 4 atomic commits on PR #1, merged in `63d769d` (previously 8 pending paths, incl. `package-lock.json`)
-- [/] `TASK-M2-persistence`: Spec the persistence seam (`pk:plan` → `pk:data` → `pk:tasks`) — **active now**
+- [x] `TASK-m2-persistence-seam`: M2a.1–M2a.5, merged as PR #2
+- [x] `TASK-m2b-filters-cross-tab`: status chips + cross-field search + `StorageEvent` reconciliation + fail-closed mid-session version gate — **complete, PR #3 open**
 
 ---
 
 ## 3. Active Working Set
 
 - **Target Workspace / Package**: N/A — standalone repository, no workspaces
-- **Active RFC / Spec**: none yet (M2 will create `docs/specs/`)
-- **Active Task Spec**: none — no Level 2 Controlled Work is open
-- **Key Source Files in Flight**: none. Working tree changes are documentation + tooling only; **zero `src/` files were modified by `pk:onboard`**
+- **Active RFC / Spec**: `docs/specs/2026-09-10-spec-m2b-filters-cross-tab.md` (`PLAN-m2b-filters-cross-tab`, Level 2)
+- **Active Task Spec**: `docs/tasks/TASK-m2b-filters-cross-tab.md` — Code Work, Gated, TDD Enforcement Mode **enabled**
+- **Key Source Files in Flight**: `src/domain/filters.ts` (new: the predicate), `src/components/ApplicationFilters.tsx` (new: chips + search, controlled), `src/state/applicationsProvider.tsx` (snapshot + re-read + write gate), `src/domain/applicationRepository.ts` (contract gained `subscribe()`), `src/pages/ApplicationsPage.tsx` (criteria owner)
 - **Verification Commands (correct for this repo)**:
   - Typecheck: `npx tsc -p tsconfig.app.json --noEmit` *(verified: exit 0, emits nothing. There is **no** `typecheck` script — the previous file advertised one that does not exist. Do **not** use bare `npx tsc -b`: see DEBT-11)*
   - Tests: `npm run test:run` · Build: `npm run build` · Dev: `npm run dev`
@@ -57,34 +59,27 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### 3A. Execution-Control Projection
 
-> Synchronised projection. Canonical authority is `docs/tasks/TASK-m2-persistence-seam.md`.
+> Synchronised projection. Canonical authority is `docs/tasks/TASK-m2b-filters-cross-tab.md`.
+> M2a's projection was retired into PR #2's merge; `TASK-m2-persistence-seam` is closed.
 
-- **Local Task Source**: `docs/tasks/TASK-m2-persistence-seam.md`
-- **Task ID**: `TASK-m2-persistence-seam`
-- **Task Record**: `docs/tasks/TASK-m2-persistence-seam.md`
-- **Specification**: `docs/specs/2026-09-10-spec-m2-persistence-seam.md` (`PLAN-m2-persistence-seam`, Full)
-- **Execution Scope**: repo `job-tracker`, branch `feat/m2-persistence-seam`, paths `src/**` + `docs/**`
-- **Execution State**: `in_progress`
-- **Mapped `pk:tasks` Status**: `In Progress`
-- **Active Task Pointer**: `TASK-m2-persistence-seam`
-- **Owner / Current Actor**: Lead Engineer (accountable) · Assistant (executing)
-- **Start Time**: 2026-09-10 21:14 UTC
-- **Current Branch**: `feat/m2-persistence-seam`
-- **Current Revision**: `63d769d` at branch creation (PR #1 merge commit)
-- **Checkpoint Policy**: soft ~60 min / hard ≤90 min **estimates only — no wall-clock timer is available to
-  the agent**; enforceable triggers are event-driven (behaviour complete, scope change, handoff, human request)
-- **Blockers and Resume Condition**: None. Resume condition if interrupted: read §5 of the Task Record and
-  continue at the next unfinished `BEHAVIOR-` id
-- **Verification Status**: at `813e04b` — `npm run test:run` **41/41** in 4 files (was 2/2 at branch start);
-  typecheck exit 0; **per-commit audit of all 29 commits in a separate clone: 26 clean, 3 failing are the
-  Red commits, 0 unexpected**. Task-owned evidence lives in Task Record §6
-- **CI Evidence**: `N/A` — no CI exists in this repository (DEBT-03)
-- **Changed-File Summary**: M2a.1 domain validation · M2a.2 repository seam, seed module replacing
-  `data/mockApplications`, **`id: number → string`** through three pages · M2a.3 availability write-probe,
-  typed error mapping, envelope validation + quarantine, version fail-closed gate (17 tests in
-  `storageFaults.test.ts`). Still no UI surface: nothing is creatable from the app itself yet
-- **Latest Checkpoint**: 2026-09-10 21:53 UTC — M2a.3 failure modes complete; AC-1…AC-6 met, 41 tests · **Latest Handoff**: None
-- **Next Action**: Red for `BEHAVIOR-m2-persistence-seam-012` — the provider exposes list + create to the UI (M2a.4)
+- **Local Task Source**: `docs/tasks/TASK-m2b-filters-cross-tab.md`
+- **Task ID**: `TASK-m2b-filters-cross-tab` · **Planning**: `PLAN-m2b-filters-cross-tab`
+- **Execution Scope**: repo `job-tracker`, branch `feat/m2b-filters-cross-tab`, paths `src/**` + `docs/**`
+- **Execution State**: `handoff_ready` — implementation complete, PR #3 open, **waiting on a human decision**
+- **Mapped `pk:tasks` Status**: `In Review`
+- **Active Task Pointer**: `TASK-m2b-filters-cross-tab`
+- **Owner / Current Actor**: Lead Engineer (accountable, reviewing) · Assistant (executing, done)
+- **Current Branch / Revision**: `feat/m2b-filters-cross-tab`, published; base `main` @ `1ec8fe8`
+- **Verification Status**: at the branch tip — `npm run test:run` **100/100 in 13 files**, `tsc --noEmit` exit 0,
+  `npm run build` exit 0 with **no `vite.config.js`**, `git diff main -- package.json` empty, and a
+  **25-commit per-commit audit in a separate clone: 0 typecheck failures, the only 8 failing commits are
+  exactly the 8 Red commits**. Task-owned evidence: Task Record §6
+- **CI Evidence**: `N/A` — no CI exists (DEBT-03)
+- **Blockers and Resume Condition**: none open. **If the human requests changes**: read Task Record §7
+  (seven recorded deviations, three of them process failures) before touching the ladder, then work the
+  requested change as its own Red → Green pair on this branch. **If merged**: reconcile `main`, then start M3
+- **Next Action**: none by the agent — reviewing and merging PR #3 is the **human** step
+  (`AGENTS.md` §Branch & PR workflow). The agent starts no new phase until it is merged.
 
 ### 3B. Release-Evaluation Handoff
 
@@ -148,7 +143,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | ID | Sev | Finding | Evidence | Suggested workflow |
 | :--- | :--- | :--- | :--- | :--- |
-| DEBT-01 | — | **CLOSED by M2a.4** (`f1ae7af`) — create/edit/delete reach `localStorage` through the provider, and a second repository instance reading the same store is asserted in `storageFaults.test.ts`. Residual owed at M2a.5: a manual reload check in a real browser | — | — |
+| DEBT-01 | — | **CLOSED by M2a.4** (`f1ae7af`) — create/edit/delete reach `localStorage` through the provider, and a second repository instance reading the same store is asserted in `storageFaults.test.ts`. **Residual still owed, and M2b widened it**: every persistence and cross-tab claim is jsdom-backed (jsdom never fires `storage` by itself; the tests dispatch it). The human's check is now two tabs open at `/applications`, edit or delete in one, watch the other update without a reload | — | — |
 | DEBT-02 | P1 | Only 1 test file / 2 tests, and it covers a pure presentational leaf. Zero page, route, or derivation coverage | `src/components/StatusBadge.test.tsx` is the sole test | `pk:test` |
 | DEBT-03 | P1 | No lint/format tooling and no CI — the DoD is unenforceable on another machine or human | no ESLint/Prettier/Biome config, no `.github/workflows/` | `pk:fix` (bootstrap config) |
 | DEBT-04 | P1 | `package-lock.json` untracked → non-reproducible installs | `git status` | `pk:commit` |
@@ -161,6 +156,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | DEBT-11 | — | **[CLOSED]** ✅ **FIXED in `bd8a8b6`.** **`tsc -b` emits a `vite.config.js` that shadows the real `vite.config.ts`.** Verified by probe on 2026-09-10: with a throwing `vite.config.js` present, `npx vite build` failed with *my* error (`error during build: Error: PROBE: vite.config.js WAS LOADED`) while `npx vitest run` stayed green — Vite resolves `.js` **before** `.ts` (`DEFAULT_CONFIG_FILES`, `node_modules/vite/dist/node/constants.js:33`), Vitest prefers `.ts`. So any future edit to `vite.config.ts` is silently ignored by dev/build but obeyed by tests, and if the stale file is ever committed every clone and CI run inherits it. `npm run build` produces this file on every run, and `vite.config.d.ts` + `*.tsbuildinfo` land beside it — none gitignored. **Fix (both halves verified this session):** add `"noEmit": true` to `tsconfig.node.json` (accepted alongside `composite: true` by TS 5.5.4, `tsc -b` exits 0, emission stops) and add `*.tsbuildinfo` to `.gitignore` (still written by composite builds) | `tsconfig.node.json` (no `noEmit`), `package.json:9` build script, `node_modules/vite/dist/node/constants.js:33` | `pk:fix` (2-line Level 1 chore, do before M2) |
 | DEBT-12 | — | **[CLOSED]** ✅ **FIXED in `f128376`** (kept as a corrected mirror, per decision). **A second, git-tracked copy of the agent doctrine was missed at pass 1.** `.agents/rules/job-tracker-learning.md` (committed in `d78f663`, 51 lines) is the Kilo Code rules file. It held **9 rules that existed nowhere else** — inspect-before-changing, restate-the-goal, one follow-up practice task, behaviour-focused tests, loading/empty/error/success coverage, no unnecessary libraries, no unrelated refactors, no premature abstraction, no huge code dumps (verified: each phrase present in `.agents/`, absent from `AGENTS.md` at pass 1). Those 9 are now mirrored into `AGENTS.md`. **Remaining conflict:** line 41 tells agents to run `npm run test`, which is `"vitest"` → **watch mode, never exits** — any obeying agent or scripted step hangs. Line 40 also routes all verification through `npm run build`, i.e. through the DEBT-11 polluting command | `.agents/rules/job-tracker-learning.md:40-41`; `package.json:8` (`"test": "vitest"`) | Decide + `pk:fix`: either delete it and let Kilo read `AGENTS.md`, or keep it as the IDE mirror and change line 40-41 to `npx tsc -p tsconfig.app.json --noEmit` + `npm run test:run` |
 | DEBT-13 | — | **[CLOSED]** ✅ **FIXED in `bd8a8b6`** (shared `.gitignore` now names them; the 12 local-only `.git/info/exclude` lines are harmless leftovers). **63 MB of tool state is invisible to git.** `.kilo/` (`@kilocode/plugin` 7.4.23 + its own `node_modules`) hides behind `.kilo/.gitignore`, and `.fallow/` behind `.fallow/.gitignore` (`*`). Nothing in the **shared** `.gitignore` names either directory, so the protection lives inside the tool, not in the repo. Tree-walking tools (`find`, glob, greps, subagents) see them: pass 2's debt-marker scan returned 8 `TODO:` hits from `.kilo/node_modules/**` — pure noise. Also `.git/info/exclude` carries 12 Kilo worktree entries, which are **local-only and vanish in every other clone** | `du -sh .kilo` = 63M; `.kilo/.gitignore`; `.fallow/.gitignore`; `.git/info/exclude:9-45` | `pk:fix` — add `.kilo/`, `.fallow/`, `*.tsbuildinfo` to shared `.gitignore`; never `git add .` |
+| DEBT-15 | P2 | **Nothing in this repo validates CSS or markup structure.** `git blame` proves three orphan declarations (`margin-top: 10px; padding: 8px 12px; }`) were written into `styles.css` by the `f1ae7af` scripted patch and survived **21 commits, a typecheck, a build, and up to 100 tests** — because CSS is imported as a side effect, never parsed by `tsc`, and Vite does not error on an unparseable rule. Fixed in `f92bb74` on this branch, but the *class* is open: the same misapplication in a `.css`/`.html`/`.md` file is invisible to the current Definition of Done | `git blame -L 327,329 src/styles.css` at `f1ae7af`; `npx vite build` exit 0 with the orphan present | `pk:fix` — cheapest real gate is a `stylelint` config with `no-invalid-position-at-import-rule` + `declaration-block-no-shorthand-property-overrides`, folded into DEBT-03's CI bootstrap |
+| DEBT-16 | P3 | **`reload.test.tsx` does not unmount; it wipes the DOM.** `unmountAll()` sets `document.body.innerHTML = ''`, which the file's own comment admits is a "simple stand-in". The React root stays mounted, so the second `mount()` runs with the first tree alive — and since M2b every mounted provider subscribes to `storage`. No test in that file dispatches a storage event, so nothing is wrong today; the first person who adds one there will get two live providers answering and a confusing failure | `src/state/reload.test.tsx:71-75`; RTL exposes `unmount()` on the render result, which is unused | `pk:test` — replace with `const { unmount } = mount(); … unmount()`; pair with the `pk:test` seam plan |
 | DEBT-14 | — | **[CLOSED]** ✅ **CLOSED by merge.** `.promptkit` sits at `a1eb608` (`v1.1.1-11-ga1eb608`, clean, detached HEAD as expected) `23ceefd` landed `.gitmodules` and the `160000` gitlink for `a1eb608` in one commit; both are now on `origin/main` (verified `git ls-tree HEAD .promptkit`). The entry pins no branch — acceptable for a read-only tooling submodule, since the gitlink is the pin | `git submodule status`; `.gitmodules` | `pk:commit` → done in `23ceefd` |
 
 ---
@@ -173,25 +170,29 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 ---
 
-. Next Immediate Actions
+## 7. Next Immediate Actions
 
-0. **Done M2a.5** (`1a…7589bab`): error-code matrix built, `validation` + `storage-error` gaps closed, reload
-   proven through the component tree, debt register marking normalised (all closures now blank severity +
-   **[CLOSED]**), AC-11 met.
-
-1. ~~M2a.5 first step — **build the error-code contract matrix**: one row per `RepositoryError` code,
-   *produced by ≥1 test* × *rendered by ≥1 UI path*. Measured gaps at `0c46b42`: `validation` (0 / 0) and
-   `storage-error` (1 / 0) render no distinct message. Red tests for the uncovered cells, then the AC-11 whole-branch
-   gate: `npm run build`, the full suite, and a **manual reload check in a real browser** — the residual that keeps
-   DEBT-01's closure jsdom-only. Single next action and receiver pass V1–V10:
-   `docs/tasks/TASK-m2-persistence-seam.handoff-002.md` §2 and §4.
-2. **Agent**: at M2a close, `pk:review` then `pk:pr` → push `feat/m2-persistence-seam`, open **PR #2**, report
-   the URL and **stop**.
-3. **Agent, standing duty**: keep `feat/m2-persistence-seam` published after each slice, not only at PR time —
-   an unpublished branch plus no CI is the only way this milestone could vanish. Merging stays the human's.
-4. **HUMAN**: review and merge PR #2 when it opens. M2b (filters/search) and M3 (ASP.NET Core API) begin after.
-5. **Later, gated on merge**: `pk:test` seam plan (41 tests across 3 seam files, still no integration coverage
-   above the component leaf); `pk:design` token extraction (`DESIGN.md` §8); DEBT-01/02/04…10 remain open.
+1. **HUMAN**: review and merge **PR #3** (`feat/m2b-filters-cross-tab` → `main`). Reviewer focus is listed in
+   the PR body; the two things worth the most attention are D-2 (the `subscribe()` contract change, which
+   alters M3's interface) and D-7 (three history rebuilds, all disclosed). While reviewing, spend 30 seconds
+   on the DEBT-01 residual: two tabs, edit in one, watch the other.
+2. **Agent, on merge**: reconcile (`git checkout main && git pull --ff-only`), close M2b in §2, then start
+   **M3 — Backend (ASP.NET Core Web API)** at **Level 2**: `pk:plan` first (domain model, API envelope, the
+   four open architectural questions in §5 that M2a already answered three of), then `pk:api` + `pk:data`.
+   M3's repository swap is the payoff for `subscribe()`: an HTTP adapter implements the same interface and no
+   page changes. **Stop at PR #4.**
+3. **Agent, standing duty (honoured this session)**: keep the branch published after each slice, not only at
+   PR time. M2b was pushed slice by slice, force-pushed **twice** with `--force-with-lease` — both times to
+   repair its own history before anyone could review it (Task Record §7 D-6, D-7). Merging stays the human's.
+4. **Cheap, high-value, do before M3 if the branch is quiet**: `pk:fix` DEBT-03 (no lint, no CI). M2b produced
+   **three process failures that no tool could see** — a commit over typecheck errors, a commit whose message
+   described only one of its two Greens, and a `git commit --amend` that silently committed nothing because
+   the fix was never staged. A `tsc && stylelint && test` GitHub Action catches two of the three on every push.
+   DEBT-15's stylelint config rides along in the same change.
+5. **Later, gated**: `pk:test` seam plan (100 tests, still zero coverage above the component leaf; see
+   DEBT-16); `pk:design` token extraction (`DESIGN.md` §8 — M2b's CSS block adds **17 colour-literal
+   occurrences across 7 distinct values, all 7 already in §2's measured palette**: nothing new was invented,
+   which is right for consistency and wrong for DEBT-08, whose count grows from ~20 to ~37); DEBT-02/04/06/08/09/10/15/16 remain open.
 
 ## 8. Session Continuity Log
 
@@ -210,4 +211,5 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | 2026-09-10 22:01 UTC | Assistant (`pk:checkpoint`) | Checkpoint 001 + Handoff 001 | Level 2 checkpoint contract satisfied: `docs/tasks/TASK-m2-persistence-seam.checkpoint-001.md` (state, evidence, 9 locked invariants, one next action) and `.handoff-001.md` (receiver pass V1–V7, guard rails). Execution State deliberately left **`in_progress`**, not `handoff_ready`: nothing is blocked, the records exist so a context restart costs nothing, and a fresh session still runs V1–V7 before editing. Hygiene scan clean — 0 debug residue (the 5 `PROBE` grep hits are the production availability probe), 0 `.only`/`.skip`, 0 `.env`, 0 build artefacts. Evidence re-measured at `e5d0bbf`: **41/41 tests, tsc exit 0**. §7 rewritten because it had gone stale (still listed the M1 merge as pending). **Running my own validation pass found a bad check**: `grep " as JobApplication"` hits a comment explaining why that assertion was removed, so V5 was tightened to `JSON.parse(... as ` — a receiver's check must discriminate code from prose about code. |
 | 2026-09-10 22:25 UTC | Assistant (`pk:checkpoint` continuation) | M2a.4 — CRUD UI | Behaviours 012–017 in 11 commits: `ApplicationsProvider` + `useApplications`, `ApplicationForm` serving create and edit from one page, `data/applicationStore.ts` as the sole composition root, `domain/pipeline.summarise` (first domain module a page uses), provider-scoped details lookup with an honest loading state, and delete behind an inline `role=group` confirmation. **68 tests, 9 files; tsc 0; build 0 with no `vite.config.js`.** Closes DEBT-01/05/07 — 7 of 14 debt rows now shut. AC-1…AC-10 met; AC-11 owed at M2a.5. Five deviations disclosed as D-4…D-8 in the Task Record, of which D-4 matters most: 014 produced no Red because 013 had already wired the behaviour, so it is recorded as coverage rather than staged as a failure. Two scripted patches misapplied and the pre-commit gate caught both, which is the M1 incident finally paid off. |
 | 2026-09-10 23:00 UTC | Assistant (`pk:checkpoint`) | Checkpoint 002 + Handoff 002 | Level 2 checkpoint contract for the M2a.4 milestone: `checkpoint-002.md` (17/17 behaviours, AC-1…AC-10, evidence re-measured *in this checkpoint* rather than carried forward, 9 new invariants, gaps, one next action) and `handoff-002.md` (V1–V10, each executed before being written). Supersedes 001's next action; 001's invariants stand. Execution State stays `in_progress`. Measured here and now: 68 tests / 9 files, tsc 0, build 0, no `vite.config.js`, 0 storage references outside `src/data/`, 0 `Number(id)`, 3 of 14 debt rows countable as closed. Two findings worth more than the bookkeeping: **persistence has never been checked in a real browser** (every claim is jsdom-backed, so DEBT-01's closure carries a named residual), and the **debt register marks closures inconsistently** — DEBT-11…14 say FIXED in prose while still reading `P1`/`P2`, which is why no aggregate count appears anywhere. |
+| 2026-09-11 00:41 UTC | Assistant (M2b) | Filters, search, cross-tab reconciliation | Behaviours 018–026 in a Red → Green ladder: `domain/filters.ts` (pure predicate, `AND` over status + query, `normaliseQuery` trim/lowercase), `ApplicationFilters` (controlled chips with `aria-pressed`, `role="search"` + real `<label>`), a text-only polite count region, a zero-match state that blames the filter instead of the account, and one-action clear. Cross-tab: **`repository.subscribe()` added to the seam** so the storage key and `window` stay in `src/data/` (D-2, against spec §3's letter and for its reason — the event's `newValue` is never parsed, the subscriber re-reads through `list()` and keeps all four M2a safety mechanisms); `key: null` re-reads instead of assuming empty; a `not-found` from update/delete reconciles the snapshot (no ghost row); a newer `schemaVersion` arriving mid-session flips the tab to `error` **and refuses writes**, carrying the existing error rather than inventing an eighth code. 77 → **100 tests / 13 files**, tsc 0, build 0 with no `vite.config.js`, zero new dependencies; 25 commits audited individually — 0 typecheck failures, only the 8 Reds fail their own tests. **Three self-caught process failures, all disclosed**: a commit made over two typecheck errors (the gate ran `test:run`, which never typechecks `.test.tsx`), a commit carrying two Greens under one name, and a history rewrite that dragged a fix two commits early and silently un-Red-ed a Red commit. Also fixed two pieces of debris M2a's scripted patches left behind: three orphan CSS declarations (`f92bb74`, → DEBT-15) and commit-process comments inside the provider's `useMemo` (`2fa85d3`). New debts logged: DEBT-15, DEBT-16. |
 | 2026-09-10 23:25 UTC | Assistant (M2a.5) | Contract sweep + AC-11 | Matrix of all 7 `RepositoryError` codes on two axes (produced-by-test x rendered-in-UI) found two real gaps, not two missing assertions: `validation` carries `fieldErrors` that nothing consumed, so a per-field rejection was being flattened into a generic banner — strictly worse than no rejection; and `storage-error` had no case, reaching the default sentence while carrying a developer-facing `detail`. Both fixed in `7589bab`, with the `detail` string pinned as NOT user-visible. `reload.test.tsx` proves persistence through the real component tree with a fresh repository instance per mount (77 tests total, tsc 0, build 0, no `vite.config.js`). Debt register normalised: DEBT-11..14 were saying FIXED in prose while still reading P1/P2, which is why no closure count was quotable before. |
