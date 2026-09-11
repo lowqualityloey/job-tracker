@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 import type { ApplicationRepository } from '../domain/applicationRepository'
 import { APPLICATIONS_STORAGE_KEY } from './localStorageApplicationRepository'
@@ -23,6 +23,49 @@ import { seedApplications } from './seedApplications'
 
 const API_BASE = 'http://api.test:8080'
 
+/**
+ * The one place this file writes configuration, and the reason it is a function rather than four assignments.
+ *
+ * `src/vite-env.d.ts` declares `VITE_API_BASE_URL` **readonly**, which is the app's real rule: nothing in `src/`
+ * writes its own configuration. A test has to vary that input to reach both branches, so the write goes through an
+ * explicitly mutable view of the same object here — instead of dropping `readonly` from the type and letting
+ * production code assign it too, which is what loosening a type to satisfy a test actually costs.
+ */
+function withApiBaseUrl(url: string | undefined) {
+  const env = import.meta.env as { VITE_API_BASE_URL?: string }
+  if (url === undefined) {
+    delete env.VITE_API_BASE_URL
+    return
+  }
+
+  env.VITE_API_BASE_URL = url
+}
+
+/**
+ * The first argument `fetch` was called with, as the string it is.
+ *
+ * `String(fetchMock.mock.calls[0][0])` is what I wrote first and eslint refused for a good reason
+ * (`no-base-to-string`): that argument's type is `RequestInfo | URL`, so a `Request` object would have produced
+ * `"[object Object]"` and the assertion below would have been comparing against a string that never describes a
+ * real request. Narrowing the union explicitly means a future adapter that passes a `Request` fails with a named
+ * error instead of a misleading one.
+ */
+function requestedUrl(fetchMock: Mock): string {
+  // The annotation is load-bearing: `Mock` types `calls` as `any[]`, so without it the value below is `any` and
+  // every check after it is unchecked. Naming the real type of fetch's first argument is what makes the narrowing
+  // below mean something.
+  const target = fetchMock.mock.calls[0]?.[0] as RequestInfo | URL | undefined
+  if (typeof target === 'string') {
+    return target
+  }
+
+  if (target instanceof URL) {
+    return target.href
+  }
+
+  throw new Error(`the adapter requested with an unexpected target: ${target === undefined ? 'no call' : 'a Request object'}`)
+}
+
 function writeLocalSeed() {
   window.localStorage.setItem(
     APPLICATIONS_STORAGE_KEY,
@@ -42,12 +85,12 @@ describe('adapter selection by VITE_API_BASE_URL', () => {
   })
 
   afterEach(() => {
-    delete import.meta.env.VITE_API_BASE_URL
+    withApiBaseUrl(undefined)
     vi.unstubAllGlobals()
   })
 
   it('sends reads to the API when the base URL is set', async () => {
-    import.meta.env.VITE_API_BASE_URL = API_BASE
+    withApiBaseUrl(API_BASE)
     const fetchMock = vi.mocked(fetch)
     fetchMock.mockResolvedValue(new Response('[]', { status: 200 }))
 
@@ -56,15 +99,14 @@ describe('adapter selection by VITE_API_BASE_URL', () => {
 
     expect(result.ok).toBe(true)
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    const requested = String(fetchMock.mock.calls[0][0])
-    expect(requested).toContain(`${API_BASE}/api/applications`)
+    expect(requestedUrl(fetchMock)).toContain(`${API_BASE}/api/applications`)
   })
 
   it('does not read Web Storage once the API is configured', async () => {
     // The negative half, and the one that actually fails today: the store still returns the localStorage adapter,
     // so the test above's `list()` succeeds while quietly serving local records. A flag that changes the *label*
     // and not the *source* is worse than no flag, because it reads as if the switch happened.
-    import.meta.env.VITE_API_BASE_URL = API_BASE
+    withApiBaseUrl(API_BASE)
     writeLocalSeed()
     // Spying on Storage.prototype, not on window.localStorage: jsdom's `window.localStorage` accessor can hand
     // back a different object per read, so an instance spy observes nothing and the assertion passes because it is
@@ -94,8 +136,8 @@ describe('adapter selection by VITE_API_BASE_URL', () => {
   })
 
   it.each([
-    ['the API adapter', () => { import.meta.env.VITE_API_BASE_URL = API_BASE }],
-    ['the local adapter', () => { delete import.meta.env.VITE_API_BASE_URL }],
+    ['the API adapter', () => { withApiBaseUrl(API_BASE) }],
+    ['the local adapter', () => { withApiBaseUrl(undefined) }],
   ])('hands pages a complete ApplicationRepository from %s', async (_label, configure) => {
     configure()
     vi.mocked(fetch).mockResolvedValue(new Response('[]', { status: 200 }))
