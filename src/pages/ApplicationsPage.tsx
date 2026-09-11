@@ -33,9 +33,11 @@ export default function ApplicationsPage() {
       <EmptyState
         title="Your applications could not be loaded"
         description={
-          error?.code === 'corrupt-data'
-            ? 'The saved copy could not be read, so it was kept aside instead of being overwritten.'
-            : 'Something went wrong reading your saved data.'
+          error?.code === 'unsupported-version'
+            ? 'The saved data was written by a newer version of this app, so this version left it alone.'
+            : error?.code === 'corrupt-data'
+              ? 'The saved copy could not be read, so it was kept aside instead of being overwritten.'
+              : 'Something went wrong reading your saved data.'
         }
       />
     )

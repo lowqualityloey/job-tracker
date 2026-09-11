@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react'
 import type { ApplicationInput, ApplicationPatch, JobApplication } from '../types/application'
 import type { ApplicationRepository, RepositoryError, Result } from '../domain/applicationRepository'
+import { err } from '../domain/applicationRepository'
 
 interface ApplicationsApi {
   status: 'loading' | 'ready' | 'error'
@@ -91,8 +92,21 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
     }
   }, [repository, reload])
 
+  // BEHAVIOR-026: a read that failed means this tab cannot say what the store holds, and writing
+  // now would overwrite bytes it has not read. The refusal carries the *existing* error rather than
+  // inventing an eighth code — the UI already has an honest sentence for it.
+  //
+  // `loading` is deliberately not refused: no page reaches a write control before `ready` (the form
+  // shows "Loading…" and the details page gates on status), so refusing there would be a claim this
+  // milestone never made and a message nothing can justify.
+  const refusal = status === 'error' && error !== null ? err(error) : null
+
   const createApplication = useCallback(
     async (input: ApplicationInput) => {
+      if (refusal) {
+        return refusal
+      }
+
       const result = await repository.create(input)
 
       if (result.ok) {
@@ -101,11 +115,15 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
 
       return result
     },
-    [repository],
+    [repository, refusal],
   )
 
   const updateApplication = useCallback(
     async (id: string, patch: ApplicationPatch) => {
+      if (refusal) {
+        return refusal
+      }
+
       const result = await repository.update(id, patch)
 
       if (result.ok) {
@@ -122,11 +140,15 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
 
       return result
     },
-    [repository, reload],
+    [repository, reload, refusal],
   )
 
   const deleteApplication = useCallback(
     async (id: string) => {
+      if (refusal) {
+        return refusal
+      }
+
       const result = await repository.remove(id)
 
       if (result.ok) {
@@ -141,7 +163,7 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
 
       return result
     },
-    [repository, reload],
+    [repository, reload, refusal],
   )
 
   const api = useMemo<ApplicationsApi>(
