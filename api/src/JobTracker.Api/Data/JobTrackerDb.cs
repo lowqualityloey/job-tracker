@@ -44,6 +44,21 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
         {
             entity.ToTable("applications");
             entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CompanyName).HasColumnName("company_name");
+            entity.Property(e => e.JobTitle).HasColumnName("job_title");
+            entity.Property(e => e.Location).HasColumnName("location");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.AppliedAt).HasColumnName("applied_at");
+            entity.Property(e => e.Notes).HasColumnName("notes");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            // §4.1's second statement. Recorded honestly: this index is the one part of the approved DDL that no
+            // AC or behaviour asserts — spec guard G-6 covers the CHECK list agreeing with the validator, and
+            // AC-4 covers the CHECK being enforced by the engine, but nothing covers "the index exists". It ships
+            // because it is approved design, and the gap is an open item in the task record rather than a quiet
+            // omission or a fake test.
+            entity.HasIndex(e => e.UpdatedAt, "applications_updated_at_idx").IsDescending(true);
         });
     }
 }
