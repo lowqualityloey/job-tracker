@@ -37,7 +37,7 @@ describe('application form — rejection', () => {
     // Each message sits inside a live region, so a screen reader announces it without the
     // user having to move focus. Asserting the wrapper, not just the words.
     for (const message of ['Company name is required.', 'Job title is required.', 'Location is required.']) {
-      expect(screen.getByText(message).closest('[role=\"alert\"]')).not.toBeNull()
+      expect(screen.getByText(message).closest('[role="alert"]')).not.toBeNull()
     }
     // Stayed on the form rather than navigating: the list page's heading is absent.
     expect(screen.queryByText('Your current pipeline')).toBeNull()

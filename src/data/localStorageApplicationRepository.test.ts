@@ -80,7 +80,10 @@ describe('localStorage application repository — persistence', () => {
     expect(raw).not.toBeNull()
     if (raw === null) return
 
-    const envelope = JSON.parse(raw)
+    // The cast is the claim under test: these are **bytes on disk**, so nothing in TypeScript's
+    // type system can vouch for them and `JSON.parse` hands back `any`. Naming the expected
+    // envelope shape is the assertion; the cast only tells the checker to stop shouting.
+    const envelope = JSON.parse(raw) as { schemaVersion: number; applications: unknown[] }
     expect(envelope.schemaVersion).toBe(1)
     expect(Array.isArray(envelope.applications)).toBe(true)
   })
