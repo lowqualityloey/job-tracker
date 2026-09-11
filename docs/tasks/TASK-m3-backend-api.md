@@ -151,13 +151,13 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 12:35 UTC): `-040`, `subscribe()` over SSE** — AC-11's three clauses: a `change` event
-  fires the callback and re-lists; after a simulated disconnect and reconnect the adapter re-reads **exactly once**
-  (grill F-8's bound, asserted rather than reasoned); the returned unsubscriber closes the stream and nothing further
-  fires. The adapter's current `subscribe()` is an honest no-op written in `-036`, and `-039`'s `notify()` decorator is
-  the seam that test has been waiting behind. **Then `-041`** (unicode and long-string fidelity through JSON), which is
-  where the `location` asymmetry finally bites. Still open for the owner: **gap 5** (`conflict`'s user-facing sentence)
-  and the `notes` ceiling.
+- **Next Action (2026-09-11 13:10 UTC): `-040`, the client's half of SSE.** `-046` gave it a server, so
+  `subscribe()` now has something to speak to instead of a 404. AC-11's three clauses: a `change` event fires the
+  callback and **one** re-list; after a simulated disconnect and reconnect the adapter re-reads **exactly once**
+  (grill F-8's bound, asserted rather than reasoned — and `-039`'s `notify()` decorator is the seam that test has been
+  waiting behind); the returned unsubscriber closes the stream and nothing further fires. **Then `-041`**, where the
+  `location` asymmetry finally bites. Still open for the owner: **gap 5** (`conflict`'s user-facing sentence — being
+  taken as "M3 ships generic" unless told otherwise) and the `notes` ceiling.
   (Preceding text read: "**Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared
   fixture.** Author `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules …
   Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and `job_title` (deferred
@@ -607,6 +607,7 @@ Phase-2 sizing rule applied: each row is one unit inside the **1–4 hour** band
 | `…-039` | 3 | out-of-order re-read guard (**P2-2 closed**) | 2.5h | p1 | `area:data` `type:test` | `…  -t "ignores an older response that lands late"` |
 | `…-040` | 3 | SSE callback + unsubscribe + **at most one re-list per `open`, incl. three rapid reconnects** *(grill F-8: bounded was reasoned, now it is asserted)* | 3h | p1 | `area:data` `type:test` | `…  -t "subscribe"` |
 | `…-041` | 3 | unicode/long-string fidelity through JSON | 1h | p2 | `area:data` `type:test` | `…  -t "survives unicode"` |
+| `…-046` | 3 | **`GET /api/applications/events` serves `text/event-stream` and broadcasts one `event: change` per committed write** *(added 2026-09-11: DECISION-005 and §4.3 both name this endpoint; the ladder had only the client half, `-040`)* | 2h | **p0** | `area:backend` `type:feature` | `dotnet test --filter "FullyQualifiedName~EventStreamTests"` |
 | `…-042` | 4 | real browser, real Chromium, HTTP-backed build | 2h | p0 | `area:frontend` `type:test` | the CDP harness in `docs/spikes/…/crosstab.mjs` against `VITE_API_BASE_URL` |
 | `…-043` | 4 | survives browser restart; `psql` confirms | 1h | p1 | `area:data` `type:test` | harness + quoted `psql` output |
 | `…-044` | 2 | **delete carrying a stale revision is refused and the row still exists** *(grill F-3 — `If-Match` now required on `DELETE`)* | 1h | p0 | `area:backend` `type:test` | `…~Delete_with_stale_revision_is_refused` |

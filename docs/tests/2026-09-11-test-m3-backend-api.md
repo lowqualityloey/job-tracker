@@ -351,3 +351,29 @@ specs are. The remaining consequence is named rather than left implicit: because
 on *any* error state, no behaviour observable through the UI distinguishes `unavailable` from `storage-error` for a
 transport failure. `-038` is therefore the test that can be wrong about it, which is the only kind of test that can
 be right.
+
+## §15 — Gap 7: the milestone could have shipped a subscription to a 404 (2026-09-11 13:15 UTC, `-046`)
+
+**The finding.** `DECISION-m3-backend-api-005` (owner-approved) specifies SSE at `GET /api/applications/events`, and
+§4.3's contract table carries the row — `200`, `event: change` + `data: {"id":"…"}`, one message per committed write.
+The behaviour ladder for M3 contains exactly one SSE row: `-040`, `area:data`, which is the **client**. Nothing asked
+the API to serve the endpoint, and it did not: `EventStreamTests` opened with four 404s.
+
+**Why that survives review.** `-040` is writable and passable entirely against a fake `EventSource`; AC-11's first
+clause ("a write from another client triggers the callback and one re-list") reads like a client-side assertion, and a
+test that stubs the browser API never notices the server end is missing. So the ladder could have closed with all
+sixteen Slice-3 behaviours green and cross-client sync *worse* than M2's, because the `StorageEvent` path at least
+worked inside one browser profile. The register's §7 and the spec agreed with each other; both were wrong about the
+same thing, and the only artefact that caught it was the contract table read as normative text.
+
+**Disposition.** `-046` registered at p0 with its provenance marked as an addition, implemented before `-040` so the
+client has a server to speak to. AC-11 is now claimable in two parts: `-046` (server, `WebApplicationFactory`, real
+bytes) + `-040` (client, faked `EventSource`), with `-042` as the place they finally meet in Chromium. **AC-11 stays
+open until both are green** — checking it after `-040` alone would repeat the mistake in the opposite direction.
+
+**Process note, same day.** Three `-046` commits landed on local `main` because the branch was never created after the
+previous reconciliation — each bash call starts a fresh shell, and the turn that made the branch had ended with the
+merge. Caught by `git log --oneline main..HEAD | wc -l` printing `0` where it should have printed `3`, and reversed by
+branching at `f553e4e` and resetting `main` to `origin/main` **behind a count assertion**, so a `reset --hard` could not
+fire on a history that wasn't what was expected. Nothing reached the remote; the rule that caught it is in AGENTS.md
+under "Read the ref before you write to it", and this is the second time that rule has paid for itself in this repo.
