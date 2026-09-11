@@ -164,7 +164,12 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     0 errors**, and `dotnet test` → `Passed: 4, Failed: 0`.
   - **`TreatWarningsAsErrors` earned its place on its first run**: it failed a build my own machine passed.
     Slice 0's whole purpose was to surface exactly this kind of gap while nothing depends on it.
-  - Second run of this job (post-fix) quoted in the PR comments. AC-13's other half (a docs-only push → job
+  - **Second run (post-fix), on the runner**: `2026-09-11 06:15 UTC`, commit `bf8095a` — `Build succeeded.` /
+    **`0 Warning(s)` / `0 Error(s)`** / `Passed! - Failed: 0, Passed: 4, Skipped: 0, Total: 4`.
+    So `UNCERTAINTY-m3-backend-api-008-001` (Docker reachable from a .NET process on CI runners) is **resolved
+    on the provider that will actually execute it**, not inferred from my machine: the job pulled
+    `postgres:18.6`, started it through Testcontainers, connected, and the freshness assertions held there too.
+    AC-13's first half (an `api/**` change runs the .NET steps) is now demonstrated on a real PR. AC-13's other half (a docs-only push → job
     reports success with steps skipped) is asserted on the next docs PR. Disclosed honestly: my first local test
     of the detection pattern was **vacuous** — `git diff main...HEAD` on an uncommitted tree is empty, and an
     empty diff and an untriggered gate look identical. Near-miss paths (`api-notes.md`, `global.json.bak`,
