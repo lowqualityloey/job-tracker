@@ -67,14 +67,20 @@ Mirrored from `AGENTS.md` (canonical) — every rule below came from a failure o
 - Put store/global resets at **file** scope in tests; a `beforeEach` in one `describe` does not
   apply to its siblings, which makes the suite order-dependent.
 - Keep Red, Green, and Refactor in separate commits so history still shows the test drove the code.
+- `set -e` does not cover a **pipeline**: `verify | head` exits with `head`'s status, so a failing check
+  inside the pipe never stops what follows. Use `set -o pipefail`, or `&&`.
 
-No lint and no CI exist here, so these are enforced only by the agent's own commands.
+CI (`.github/workflows/ci.yml`) enforces the code half of this list via `npm run verify` on every PR —
+typecheck, eslint, stylelint, tests, build, plus a guard that the build emitted no `vite.config.js`
+shadow. The history half is still unenforced: no runner can notice a commit message describing two
+behaviours whose diff carries one, or an `--amend` that staged nothing.
 
 ## Avoid
 
 - Blind vibe coding.
 - Huge code dumps.
-- Unnecessary libraries.
+- Unnecessary libraries (runtime dependencies have stayed at 3 since M0; the 9 tooling packages added by
+  DEBT-03 are each justified where they are configured).
 - Unrelated refactors.
 - Premature complex abstractions.
 
