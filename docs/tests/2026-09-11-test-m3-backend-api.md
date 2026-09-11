@@ -207,3 +207,28 @@ wrong and is corrected here. This is the **fourth time this session that narrati
 first inside a document whose subject was scrutiny, which is worth more than the embarrassment: the fix was
 AGENTS.md step 2 (*inspect the relevant files before changing anything*), applied one step later than it should
 have been.
+
+---
+
+## 11. Correction added by Slice 1 (2026-09-11, executed)
+
+Register rows are commands, so they have to run. Three of the four Slice 1 Red commands name test methods that do
+not exist; the code won, and the intent behind each row is unchanged. Reconciled here rather than by editing rows
+above, so the drift is visible:
+
+| Intent | Registered filter | **Runnable filter** | Registered failure mode | Landed as |
+| :--- | :--- | :--- | :--- | :--- |
+| `-026` | `~ApplicationsQueryTests.Empty_list_returns_200_empty_array` | `~Empty_catalog_returns_200_with_an_empty_array` | field/status absent | `Assert.Equal: Expected OK / Actual NotFound` ✓ as predicted |
+| `-027` | `~RoundTripsEveryField` | `~A_persisted_row_is_returned_with_every_field_the_client_already_models` | round-trip mismatch | `42703 column "company_name" does not exist` — arrangement, not assertion; **weaker Red than registered**, so the behaviour got four mutation checks instead |
+| `-028` | `~UnknownId_returns_404_problem` | `~An_unknown_id_answers_404_with_a_problem_document` (theory) + `~A_known_id_answers_200_with_that_record_and_nothing_else` | wrong status/body | `KeyNotFoundException` on `code`: the framework **already** sends `application/problem+json` with `status`, so the registered "wrong body" became "body without the discriminator" — measured, see §TDD-EXEC-028 |
+| `-029` | `~Revision_changes_after_update` | unchanged ✓ | field absent | exactly as registered ✓ |
+
+Two additions the register did not anticipate, both kept because they are assertions a reviewer cannot get from the
+rows above: 027 checks **no response field starts uppercase and none contains an underscore** (per-field
+assertions can only catch the fields someone remembered to list), and 028 answers a **malformed** id as well as an
+unknown one, because the tempting `{id:guid}` route constraint would satisfy the registered case and break the
+envelope rule for the input the client cannot construct.
+
+AC-5's "client whose machine is UTC+13" is now a command, not an adjective: `TZ=Etc/GMT-13 dotnet test
+api/tests/JobTracker.Api.Tests` → `Passed: 10, Failed: 0`. Note for anyone re-running it: this host is **NZST+12**,
+so `Pacific/Auckland` in September measures +12, not +13.

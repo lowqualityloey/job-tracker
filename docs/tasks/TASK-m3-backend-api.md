@@ -54,8 +54,12 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   - **Result**: Pending · **Evidence**: `git diff main --name-only -- src/pages src/components src/state` → empty · `npx tsc -p tsconfig.app.json --noEmit` → 0
 - [ ] **AC-2** — **Flag off changes nothing.** `npm run verify` green with `VITE_API_BASE_URL` unset, exactly as on `main` today. **Result**: Pending · **Evidence**: `npm run verify` exit 0
 - [ ] **AC-3** — **Durability outside the client process.** *Given* a record created in the browser, *When* the browser is closed and reopened, *Then* the record is present **and** `psql -c 'select id from applications'` shows it. **Result**: Pending · **Evidence**: `BEHAVIOR-…-043` + quoted `psql` output
-- [ ] **AC-4** — **Constraints are real, not advisory.** A status outside the five is rejected **by the database** even when the API validator is bypassed (direct SQL). **Result**: Pending · **Evidence**: `BEHAVIOR-…-032`; the Red runs `INSERT … status='Escalated'` and asserts violation
-- [ ] **AC-5** — **No timezone drift on a date-only field.** `applied_at = 2026-08-10` round-trips as `"2026-08-10"` for a client whose machine is UTC+13. **Result**: Pending · **Evidence**: `BEHAVIOR-…-027` with `TZ=Pacific/Auckland`
+- [ ] **AC-4** — **Constraints are real, not advisory.** *(database half verified; validator half pending Slice 2)* A status outside the five is rejected **by the database** even when the API validator is bypassed (direct SQL). **Result**: Pending · **Evidence**: `BEHAVIOR-…-032`; the Red runs `INSERT … status='Escalated'` and asserts violation. **Half-verified in Slice 0**: the harness asserts `SqlState 23514` for exactly that insert against the real server; what remains is the API validator rejecting it *before* the database and G-6's agreement of the two lists
+- [x] **AC-5** — **No timezone drift on a date-only field.** `applied_at = 2026-08-10` round-trips as `"2026-08-10"` for a client whose machine is UTC+13. **Result**: **Verified** (2026-09-11 07:15 UTC) · **Evidence**: `BEHAVIOR-…-027`,
+    `TZ=Etc/GMT-13 dotnet test api/tests/JobTracker.Api.Tests` → `Passed: 10, Failed: 0`. The assertion is exact text,
+    and its teeth were proven by mutation (a converter writing `yyyy/MM/dd` made it fail with `Strings differ`). Note
+    that the host machine is itself **NZST+12**, so `TZ=Pacific/Auckland` is *not* a UTC+13 run in September — I
+    measured `date +'%:z'` under it before correcting to `Etc/GMT-13`, which is +13 with no DST ambiguity. **Result**: Pending · **Evidence**: `BEHAVIOR-…-027` with `TZ=Pacific/Auckland`
 - [ ] **AC-6** — **Conflict detection, with the row untouched.** *Given* two tabs hold the same revision, *When* the second saves, *Then* the API answers `409` with `code:"conflict"` **and the stored row is still the first save's content**. **The "row unchanged" half is the assertion; a 409 that also wrote is the worst bug available in this milestone.** **Result**: Pending · **Evidence**: `BEHAVIOR-…-033`
 - [ ] **AC-7** — **Create is idempotent under retry.** A retried `POST` with the same client-minted id yields `409`, the adapter re-reads and treats it as success, and the table holds **exactly one** row. **Result**: Pending · **Evidence**: `BEHAVIOR-…-034`
 - [ ] **AC-8** — **The error table is total.** Every documented `HTTP × code` pair maps to its stated `RepositoryError` variant, and an **unrecognised** code maps to `corrupt-data` — no silent default, no throw. **Result**: Pending · **Evidence**: `BEHAVIOR-…-037` table-driven, one case per row of spec §4.3
@@ -86,15 +90,22 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (Slice 0 complete)**: **`BEHAVIOR-m3-backend-api-026`** — write the failing test that
-  `GET /api/applications` returns `200 []`, then the `DbSet`, the entity, the endpoint and the **first real
-  migration** its Green requires. (Preceding text read "**start Slice 0** — install SDK **10.0.401** and scaffold `api/` + `docker-compose.yml` + the path-gated CI job, under §1.3's exception-verification path (no Red test: there is no behaviour yet). Slices 0–1 are unblocked; **Slice 2 is not** (F-1's fixture must exist first). Gates now closed: `pk:grill` ran at 2026-09-11 03:50 UTC → [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
+- **Next Action (Slice 1 complete)**: **Slice 2** — `BEHAVIOR-…-030` first (create persists and is visible to a
+  second client), and it needs two things this slice left deliberately on the table: `defaultValueSql: "now()"` on
+  `created_at`/`updated_at`, and the **second problem-document factory**, which is the trigger to extract
+  `ApplicationCatalog` (spec §4.1). Slice 2 also remains **blocked on F-1's fixture** for AC-12.
+  (Preceding text read: "**Next Action (Slice 0 complete)**: `BEHAVIOR-m3-backend-api-026` — write the failing test
+  that `GET /api/applications` returns `200 []`, then the `DbSet`, the entity, the endpoint and the first real
+  migration" — delivered exactly, and the "first real migration" turned out to be three.)  migration** its Green requires. (Preceding text read "**start Slice 0** — install SDK **10.0.401** and scaffold `api/` + `docker-compose.yml` + the path-gated CI job, under §1.3's exception-verification path (no Red test: there is no behaviour yet). Slices 0–1 are unblocked; **Slice 2 is not** (F-1's fixture must exist first). Gates now closed: `pk:grill` ran at 2026-09-11 03:50 UTC → [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
 
 ### Transition History
 
 | Previous State | New State | Timestamp | Actor | Reason | Supporting Evidence |
 |---|---|---|---|---|---|
 | — (none) | `planned` | 2026-09-11 03:32 UTC | Assistant (`pk:tasks`) | Decomposed from an approved Full Planning Record; readiness deliberately **not** claimed because `pk:test`'s plan and `pk:grill` have not run | [PR #7 merge (`84bf560`)](https://github.com/lowqualityloey/job-tracker/commit/84bf560) |
+| `in_progress` | `in_progress` | 2026-09-11 07:17 UTC | Assistant (Slice 1) | **Slice 1 executed**: four behaviours (026–029), eight
+  commits, Red and Green separated every time, and the register's predicted failure modes confirmed. AC-5 verified
+  at UTC+13 by command. State unchanged — the task is not complete until Slices 2–4 land |
 | `planned` | `in_progress` | 2026-09-11 06:00 UTC | Assistant (Slice 0) | Owner merged PR #10, whose focus item asked for exactly this promotion. Slice 0 ran the exception-verification path: SDK 10.0.401 installed, projects scaffolded, container harness proven, migration applied |
 | `planned` | `planned` | 2026-09-11 05:03 UTC | Assistant (`pk:test`) | Test strategy and the **TDD intent register** produced: 20 intents, all `ready`, mode **reconciled** with §4 (`Matches Task Record`). State still not promoted by the workflow that prepared it — **readiness is the owner's call on this PR**, and it is now unblocked in substance | [`docs/tests/2026-09-11-test-m3-backend-api.md`](../tests/2026-09-11-test-m3-backend-api.md) |
 | `planned` | `planned` | 2026-09-11 03:50 UTC | Assistant (`pk:grill`) | Design gate executed, **state deliberately unchanged** — a grill that automatically promotes readiness is a grill with no teeth. Slice 2 now carries a blocking condition (F-1: AC-12 had no cross-language mechanism) and two contract amendments await the owner (F-3 `If-Match` on `DELETE`, F-4 JSON-only bodies) | [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md) · PR #8 merged (`e58da50`) |
@@ -107,6 +118,23 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   `api/src/JobTracker.Api/{Program.cs,*.csproj,appsettings*.json,Properties/launchSettings.json,Data/JobTrackerDb.cs,
   Data/JobTrackerDbFactory.cs,Migrations/*}`; `api/tests/JobTracker.Api.Tests/{*.csproj,PostgresHarness.cs}`;
   `.gitignore`; `.github/workflows/ci.yml`. **`src/**`: untouched** (verified by `git diff main --name-only -- src/` → empty)
+- **Changed Files (Slice 1)**: new `api/tests/JobTracker.Api.Tests/{ApplicationsQueryTests.cs,
+  Infrastructure/ApplicationsApiFixture.cs}`; new `api/src/JobTracker.Api/Data/Application.cs`; modified
+  `Program.cs` and `Data/JobTrackerDb.cs`; three new migrations (`CreateApplicationsTable`,
+  `AddApplicationFields`, `AddRevisionConcurrencyToken`) with their designers and the model snapshot.
+  **`src/**` still untouched**, `npm run verify` green at the slice boundary, runtime deps still **3**.
+- **Deliberately deferred, each with the behaviour that will force it** — recorded so "not done yet" is never
+  mistaken for "not needed":
+  1. `defaultValueSql: "now()"` on `created_at` / `updated_at` → **BEHAVIOR-…-030**, the first server-side write.
+  2. `ETag` responses and `If-Match` handling → **BEHAVIOR-…-033** and **-044**. `revision` is on the wire now,
+     which is all 029 registered; an `ETag` nothing sends yet would be untested code.
+  3. Extracting `ApplicationCatalog` (spec §4.1's deep module) out of `Program.cs` → the **second**
+     problem-document factory, i.e. Slice 2's `validation` envelope. Premature abstraction is on the Avoid list.
+  4. `location` NULL on the wire vs `location: string` in the client type → **Slice 3's HTTP adapter**, where the
+     mapping belongs. 028 asserts the server sends `null` honestly instead of inventing `""`.
+  5. **`applications_updated_at_idx` has no AC or behaviour asserting it** — the only statement in §4.1's DDL with
+     no guard (G-6 covers the CHECK, AC-4 covers enforcement). Either a schema-fidelity test appears in Slice 4 or
+     this line remains as the reason it does not.
 - **Scope Change Records**: `None`
 - **Checkpoint Records**: `None` (a `TASK-m3-backend-api.checkpoint-00N.md` is written at any hard checkpoint)
 - **Handoff Records**: `None`
@@ -147,7 +175,56 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   slice boundary and is green.
 - **Behavior IDs [Required when enabled]**: `BEHAVIOR-m3-backend-api-026` … `-043` — see the ladder in §7
 - **TDD Intent Register [Required when enabled]**: [`docs/tests/2026-09-11-test-m3-backend-api.md`](../tests/2026-09-11-test-m3-backend-api.md) — 20 `TDD-INTENT-m3-backend-api-<nnn>` rows, one per behaviour, each `ready` with a concrete Red command and expected failing assertion. **Mode reconciliation: `Matches Task Record`** (both say `enabled`), so readiness is no longer blocked on this field. *Filename follows `pk:test`'s template (`YYYY-MM-DD-test-<feature>.md`); the earlier `TEST-m3-backend-api.md` name in this record was mine and is superseded.*
-- **TDD Execution Evidence [Required when enabled]**: `None yet` — one `TDD-EXEC-m3-backend-api-<seq>` block per behaviour, recorded in §7's evidence column as execution proceeds, each retaining its behaviour identity and re-running the same Red command
+- **TDD Execution Evidence [Required when enabled]** — one block per behaviour, **Red and Green in separate commits**
+  (the fifth rule), each re-runnable by the command shown. Slice 1 is the first code in this repository written that
+  way, so the evidence is quoted rather than summarised.
+
+  **`TDD-EXEC-m3-backend-api-026`** · `BEHAVIOR-…-026` · Red `9db7827` → Green `2861282`
+  - Red: `dotnet test api/tests/JobTracker.Api.Tests --filter "FullyQualifiedName~Empty_catalog_returns_200_with_an_empty_array"` →
+    `Assert.Equal() Failure: Expected: OK / Actual: NotFound` at line 31 — an assertion failure, not a build failure.
+    The first attempt died on `CS8852` in my *own fixture*, which is not a Red: a test that cannot compile is
+    forbidden from reaching a conclusion, and it only surfaced because the Red was run alone.
+  - Green: same command → whole suite `Passed: 5, Failed: 0`, no warnings in the output.
+  - Refactor: none needed — three lines and one column. Recorded as a decision, not an omission: inventing a cleanup
+    to demonstrate a cycle teaches the wrong lesson.
+
+  **`TDD-EXEC-m3-backend-api-027`** · `BEHAVIOR-…-027` · Red `b6520ac` → Green `1f3e286`
+  - Red: `--filter "~A_persisted_row_is_returned"` → `42703: column "company_name" of relation "applications"
+    does not exist`. Weaker than 026's: it fails in *arrangement*, so it proves the columns are absent and says
+    nothing about my assertions. That is exactly why 027 got mutation-checked rather than trusted.
+  - Green: same command → `Passed: 1, Failed: 0`; whole suite `Passed: 6`.
+  - **Mutation checks** (applied → run → reverted, `git status --porcelain` back to 0):
+    drop `notes` from the projection → `The response carries no 'notes' field. Fields present: appliedAt,
+    companyName, …` ✓; disable the camelCase policy → `Fields present: AppliedAt, CompanyName, …` ✓ (how a real leak
+    happens; per-field assertions would not have caught it); a `JsonConverter<DateOnly>` writing `yyyy/MM/dd` →
+    `Strings differ / Expected: "2026-03-07" / Actual: "2026/03/07"` ✓; changing the property to `DateTime` never
+    reached my assertion at all — **EF's `PendingModelChangesWarning` threw first**, so a forgotten migration is
+    caught by the host rather than by me.
+  - Refactor: none. `defaultValueSql: "now()"` deliberately not added — Slice 2's POST will ask for it.
+
+  **`TDD-EXEC-m3-backend-api-028`** · `BEHAVIOR-…-028` · Red `a780d27` → Green `5394d51`
+  - Red: `--filter "~An_unknown_id|~A_known_id"` → `KeyNotFoundException` ×2 and `Expected: OK / Actual: NotFound`,
+    `Failed: 3`. The content-type assertion **passed** on the Red, contradicting my expectation that an unmatched
+    route has no body; a throwaway probe (deleted once read) printed the truth —
+    `CT=[application/problem+json] BODY=[{"type":"…rfc9110#section-15.5.5","title":"Not Found","status":404,…}]`.
+    Slice 0's envelope claim is therefore real; what is missing is the `code` member, and that matters because the
+    client maps an unrecognised code to `corrupt-data` and fails closed. 028 is "return the 404 the adapter can
+    read", not "return a 404".
+  - Green: whole suite `Passed: 9, Failed: 0`. Two self-inflicted syntax errors en route (a lambda return-type
+    annotation that is not C#, then my `sed` eating a closing paren), and route constraint `{id:guid}` rejected as an
+    implementation because it answers a malformed id with the framework envelope — the handler parses the guid.
+
+  **`TDD-EXEC-m3-backend-api-029`** · `BEHAVIOR-…-029` · Red `bce2d4c` → Green `7db87df`
+  - Red: `--filter "~Revision_changes_after_update"` → `the list response carries no 'revision' field; fields
+    present: appliedAt, companyName, createdAt, id, jobTitle, location, notes, status, updatedAt` — the register's
+    predicted failure ("field absent"), and the method name is the register's, so this row's command runs as written.
+  - Green: whole suite `Passed: 10, Failed: 0`. `revision` is `xmin` via `IsRowVersion()`. EF's generated `Up()` reads
+    `AddColumn<uint>("xmin", type: "xid", rowVersion: true)`, which looks like it must fail against a system column;
+    it does not, and the measurement that settled it was `dotnet ef migrations script`, whose entire SQL is the
+    `__EFMigrationsHistory` INSERT — Npgsql emits no DDL for an xmin rowversion. `pg_attribute` confirms exactly one
+    `xmin` with `attnum = -2` (system column), no user column shadowing it.
+  - Refactor: none; the named trigger for extracting `ApplicationCatalog` is **the second problem-document
+    factory**, which Slice 2 needs for `validation` and `conflict` anyway.
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — the first `api` job run FAILED, and why it was right**: provider GitHub Actions, workflow
   `ci.yml`, job `verify-api`, commit `47501b6`, 2026-09-11 06:07 UTC:
@@ -213,6 +290,15 @@ Phase-2 sizing rule applied: each row is one unit inside the **1–4 hour** band
 | `…-043` | 4 | survives browser restart; `psql` confirms | 1h | p1 | `area:data` `type:test` | harness + quoted `psql` output |
 | `…-044` | 2 | **delete carrying a stale revision is refused and the row still exists** *(grill F-3 — `If-Match` now required on `DELETE`)* | 1h | p0 | `area:backend` `type:test` | `…~Delete_with_stale_revision_is_refused` |
 | `…-045` | 2 | **`text/plain` body → `415`, no row created** *(grill F-4 — makes the preflight the real cross-origin write guard)* | 1h | p1 | `area:backend` `type:test` | `…~Non_json_body_rejected` |
+
+**Names drifted between this ladder and the code, and the code is the artefact.** The ladder's Red commands for
+026/027/028 named `Empty_list_returns_200_empty_array`, `RoundTripsEveryField`, `UnknownId_returns_404_problem`; the
+methods as written are `Empty_catalog_returns_200_with_an_empty_array`,
+`A_persisted_row_is_returned_with_every_field_the_client_already_models`, and
+`An_unknown_id_answers_404_with_a_problem_document` (plus its `A_known_id_answers_200…` sibling and a `not-a-uuid`
+theory case). 029 matches exactly. **A plan whose commands do not run is a document, not a gate**, so the runnable
+filters live in each `TDD-EXEC` block in §6 and the register carries §11 (`Correction added by Slice 1`). Not
+silently rewritten: the drift, its direction, and the fact that no registered intent changed are all visible.
 
 **Refactor milestones** are not separate rows: each behaviour's Refactor step re-runs its own Red command and is recorded in the `TDD-EXEC` block with either a passing result or an explicit `no-refactor reason` (the template's allowance — an empty Refactor cell is a lie waiting to be read as skipped).
 
