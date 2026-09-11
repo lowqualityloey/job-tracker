@@ -125,6 +125,22 @@ describe('when nothing matches', () => {
   })
 })
 
+// AC-10's live-region half. A polite region announces whatever it contains, so a button inside
+// the count sentence is read to the user as part of the result — and screen-reader users get a
+// control they cannot reliably reach from a live region.
+describe('the result count region', () => {
+  it('announces text only, with the clear control outside the region', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rejected' }))
+
+    const region = screen.getByRole('status')
+    expect(region).toHaveTextContent('1 of 5 applications')
+    expect(region.querySelector('button')).toBeNull()
+  })
+})
+
 // BEHAVIOR-m2b-filters-cross-tab-021 — clearing restores the full list and leaves exactly one
 // active control. A "clear" that resets the chips but leaves the query in the box is the worst
 // outcome: the list stays short and the reason for it is invisible.
