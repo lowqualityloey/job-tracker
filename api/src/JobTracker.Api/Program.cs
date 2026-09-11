@@ -39,7 +39,36 @@ app.UseStatusCodePages();
 app.MapGet("/api/applications", async (JobTrackerDb db, CancellationToken ct) =>
     await db.Applications.AsNoTracking().ToListAsync(ct));
 
+// BEHAVIOR-m3-backend-api-028. The lambda's inferred return type is Task<IResult>: both arms are results rather
+// than values, and letting the compiler arrive at that is clearer than annotating a union type by hand.
+app.MapGet("/api/applications/{id}", async (string id, JobTrackerDb db, CancellationToken ct) =>
+{
+    // Guid.TryParse rather than a {id:guid} route constraint: a malformed id is the same fact to the client
+    // ("there is no such record") and must not leave the endpoint answering with a framework envelope that has
+    // no `code` in it. See 028's Red commit for the measured body of that default.
+    if (!Guid.TryParse(id, out var guid))
+    {
+        return NotFound(id);
+    }
+
+    var application = await db.Applications.AsNoTracking().FirstOrDefaultAsync(a => a.Id == guid, ct);
+    return application is null ? NotFound(id) : Results.Ok(application);
+});
+
 app.Run();
+
+/// <summary>
+/// The 404 the client's adapter can read. RFC 9457 with `code` as an extension member
+/// (DECISION-m3-backend-api-004): ASP.NET's own problem document already carries type/title/status, so what this
+/// adds is the machine-readable discriminator and a `type` URI that names *this* problem rather than the HTTP
+/// status section. `instance` records the request path the client actually used.
+/// </summary>
+static IResult NotFound(string id) => Results.Problem(
+    title: "No application record exists with that id.",
+    statusCode: StatusCodes.Status404NotFound,
+    type: "https://job-tracker.local/probs/not-found",
+    instance: $"/api/applications/{id}",
+    extensions: new Dictionary<string, object?> { ["code"] = "not-found" });
 
 /// <summary>
 /// Exposes the entry point to <c>WebApplicationFactory&lt;Program&gt;</c>. Minimal APIs compile
