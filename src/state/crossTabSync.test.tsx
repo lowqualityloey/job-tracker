@@ -8,6 +8,7 @@ import {
   APPLICATIONS_STORAGE_KEY,
   createLocalStorageRepository,
 } from '../data/localStorageApplicationRepository'
+import { seedApplications } from '../data/seedApplications'
 import type { ApplicationRepository } from '../domain/applicationRepository'
 import { ApplicationsProvider, useApplications } from './applicationsProvider'
 
@@ -195,6 +196,35 @@ describe('reconciling a write from another tab', () => {
 
     // The newer bytes are untouched — not quarantined, not rewritten (invariant 13).
     expect(JSON.parse(String(localStorage.getItem(APPLICATIONS_STORAGE_KEY))).schemaVersion).toBe(999)
+  })
+
+  // Fail-closed must not be a trap. Note what this does *not* claim: this build cannot write its
+  // way out of a newer envelope (invariant 13 refuses it, which is why the same tab's create is
+  // refused above). Recovery is a readable envelope arriving from outside — a newer build writing,
+  // or the user replacing the data — after which the same subscription re-reads and the tab is
+  // usable again without a reload.
+  it('returns to ready when a readable envelope arrives after a version error', async () => {
+    const repository = createLocalStorageRepository({ storage: localStorage })
+    mount(repository)
+    await screen.findByText('Datacom')
+
+    localStorage.setItem(APPLICATIONS_STORAGE_KEY, JSON.stringify({ schemaVersion: 999, applications: [] }))
+    externalWrite()
+    await screen.findByText(/newer version of this app/i)
+    expect(screen.getByTestId('write-outcome')).toHaveTextContent('provider:error write:idle')
+
+    localStorage.setItem(
+      APPLICATIONS_STORAGE_KEY,
+      JSON.stringify({ schemaVersion: 1, applications: [seedApplications[0]] }),
+    )
+    externalWrite()
+
+    expect(await screen.findByText('Xero')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('write-outcome')).toHaveTextContent('provider:ready write:idle'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attempt a write' }))
+    await waitFor(() => expect(screen.getByTestId('write-outcome')).toHaveTextContent('write:saved'))
+    expect(screen.getByRole('status')).toHaveTextContent('2 of 2 applications')
   })
 
   it('detaches the listener on unmount (spec B-1)', async () => {
