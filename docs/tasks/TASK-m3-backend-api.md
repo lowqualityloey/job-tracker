@@ -62,9 +62,9 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - [ ] **AC-9** — **Server unreachable degrades like storage blocked.** A `fetch` rejection maps to `unavailable`, and the provider's existing refusal gate behaves exactly as M2a's tests describe. **Result**: Pending · **Evidence**: `BEHAVIOR-…-038`
 - [ ] **AC-10** — **Out-of-order re-reads cannot repaint stale data** (closes M2b's handed-over **P2-2**). *Given* request 1 is delayed and request 2 resolves first, *When* request 1 lands, *Then* the list still shows request 2's data. **Result**: Pending · **Evidence**: `BEHAVIOR-…-039`
 - [ ] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040`
-- [ ] **AC-12** — **Two validators, one truth.** Boundary values (empty, max, max+1, whitespace-only, unicode, control chars, 10 kB notes, all five statuses + a sixth) produce the **same verdict** from `src/domain/validation.ts` and the API validator. **Result**: Pending · **Evidence**: `BEHAVIOR-…-031` + the contract test named in §8
-- [ ] **AC-13** — **CI jobs are independent.** A `api/**`-only change leaves the frontend job uncalled and vice versa; and the API job's failure cannot be masked by the frontend's success. **Result**: Pending · **Evidence**: two PR pushes, both run lists quoted
-- [ ] **AC-14** — **Locked invariants I-1…I-6 still hold** (spec §3), checked by command rather than by re-reading code: no `fetch`/`EventSource` outside `src/data/`, no `Number(id)` anywhere, **runtime dependency count still 3**, no `.only`/`.skip`, no `vite.config.js` in the tree. **Result**: Pending · **Evidence**: §8's invariant scan block, output quoted verbatim
+- [ ] **AC-12** — **Two validators, one truth — by one fixture, not by coincidence** (grill F-1). A single checked-in `api/tests/fixtures/validation-cases.json` is consumed by **both** suites: the xUnit theory and a vitest case read the same `{ input, expect }` rows, so the C# validator cannot pass its own opinion. Boundary values: empty, max, max+1, whitespace-only, unicode, control chars, 10 kB notes, all five statuses + a sixth. **The grill also caught that the client has no length ceiling at all** (invariant 3 is optional-or-non-empty), so any server limit is a deliberate server-only rule and must appear as its own explicit case — otherwise a record saveable locally becomes unsaveable over HTTP. **Result**: Pending · **Evidence**: `BEHAVIOR-…-031` + the contract test named in §8
+- [ ] **AC-13** — **CI jobs are independent.** The API job is gated by an **internal `if:` on changed paths, not by `on.pull_request.paths`** (grill F-10: an excluded job reports *no status*, which is indistinguishable from a check that never ran the day branch protection requires all checks). So the job always reports and only its steps skip. **Result**: Pending · **Evidence**: two PR pushes — a docs-only push showing job *success / steps skipped* and an `api/**` push showing steps executed, both run lists quoted
+- [ ] **AC-14** — **Locked invariants I-1…I-6 still hold** (spec §3), checked by command rather than by re-reading code: no `fetch`/`EventSource` outside `src/data/`, no `Number(id)` anywhere, **runtime dependency count still 3**, no `.only`/`.skip`, no `vite.config.js` in the tree, **and `revision` referenced nowhere outside `src/data/` + its declaration** (grill F-5: the field's isolation was a comment; it is now a grep). **Result**: Pending · **Evidence**: §8's invariant scan block, output quoted verbatim
 
 ## 4. Execution Policy
 
@@ -84,13 +84,14 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Active Task Pointer**: `None` (claimed only when this record moves to `in_progress`, and exactly one record may hold it in this scope)
 - **Start Time**: `N/A` — not started
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action**: **`pk:grill` against `PLAN-m3-backend-api`'s §7 attack list — before any C# is written.** Exactly one action; Slice 0 does not start until that has run.
+- **Next Action**: **run `pk:test`** to produce `docs/tests/TEST-m3-backend-api.md` with `TDD-INTENT-m3-backend-api-<nnn>` entries that agree with §4's `enabled` mode. `pk:grill` ran at 2026-09-11 03:50 UTC → [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
 
 ### Transition History
 
 | Previous State | New State | Timestamp | Actor | Reason | Supporting Evidence |
 |---|---|---|---|---|---|
 | — (none) | `planned` | 2026-09-11 03:32 UTC | Assistant (`pk:tasks`) | Decomposed from an approved Full Planning Record; readiness deliberately **not** claimed because `pk:test`'s plan and `pk:grill` have not run | [PR #7 merge (`84bf560`)](https://github.com/lowqualityloey/job-tracker/commit/84bf560) |
+| `planned` | `planned` | 2026-09-11 03:50 UTC | Assistant (`pk:grill`) | Design gate executed, **state deliberately unchanged** — a grill that automatically promotes readiness is a grill with no teeth. Slice 2 now carries a blocking condition (F-1: AC-12 had no cross-language mechanism) and two contract amendments await the owner (F-3 `If-Match` on `DELETE`, F-4 JSON-only bodies) | [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md) · PR #8 merged (`e58da50`) |
 
 ## 6. Evidence and Completion Gate
 
@@ -106,11 +107,11 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **TDD Execution Evidence [Required when enabled]**: `None yet` — one `TDD-EXEC-m3-backend-api-<seq>` block per behaviour, recorded in §7's evidence column as execution proceeds, each retaining its behaviour identity and re-running the same Red command
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence**: `Pending` (first run = this PR; provider GitHub Actions, workflow `ci.yml`, job `verify`)
-- **Review Evidence**: `Pending` — `REVIEW-m3-backend-api` at `docs/reviews/`, two-axis, at PR time
+- **Review Evidence**: **design gate**: [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md) (12 findings; F-7 = `pk:grill` has **no workflow definition** in `.promptkit/workflows/`, so the gate ran from its advertised two-line contract and its self-assessment weakness is stated in the record's head). **Code review**: `Pending` — `REVIEW-m3-backend-api` at `docs/reviews/`, two-axis, at PR time
 - **Commit Evidence**: `Pending`
 - **Pull Request Evidence**: this PR (#8), then one PR per slice
 - **Release Evidence**: `N/A` — no release before M5
-- **Blocker and Resume Condition**: `None` blocking. **To start**: run `pk:grill`; then `pk:test` to produce the intent register; then Slice 0.
+- **Blocker and Resume Condition**: **Slice 2 is blocked** on F-1 (shared `api/tests/fixtures/validation-cases.json` consumed by both xUnit and vitest — without it AC-12 is two test files encoding two opinions). **Slices 0–1 are unblocked.** Owner attention awaited on F-3 and F-4, which change the §4.3 contract, and on F-7's remedy. **To proceed**: `pk:test` → Slice 0.
 
 ## 7. Behaviour Ladder (decomposition, sizing, priorities)
 
@@ -133,10 +134,12 @@ Phase-2 sizing rule applied: each row is one unit inside the **1–4 hour** band
 | `…-037` | 3 | total HTTP → `RepositoryError` mapping table | 3h | p0 | `area:data` `type:test` | `npx vitest run src/data/httpApplicationRepository.test.ts -t "error mapping"` |
 | `…-038` | 3 | transport failure → `unavailable` + refusal gate | 1.5h | p0 | `area:data` `type:test` | `…  -t "server unreachable"` |
 | `…-039` | 3 | out-of-order re-read guard (**P2-2 closed**) | 2.5h | p1 | `area:data` `type:test` | `…  -t "ignores an older response that lands late"` |
-| `…-040` | 3 | SSE callback + one re-read on reconnect + unsubscribe | 3h | p1 | `area:data` `type:test` | `…  -t "subscribe"` |
+| `…-040` | 3 | SSE callback + unsubscribe + **at most one re-list per `open`, incl. three rapid reconnects** *(grill F-8: bounded was reasoned, now it is asserted)* | 3h | p1 | `area:data` `type:test` | `…  -t "subscribe"` |
 | `…-041` | 3 | unicode/long-string fidelity through JSON | 1h | p2 | `area:data` `type:test` | `…  -t "survives unicode"` |
 | `…-042` | 4 | real browser, real Chromium, HTTP-backed build | 2h | p0 | `area:frontend` `type:test` | the CDP harness in `docs/spikes/…/crosstab.mjs` against `VITE_API_BASE_URL` |
 | `…-043` | 4 | survives browser restart; `psql` confirms | 1h | p1 | `area:data` `type:test` | harness + quoted `psql` output |
+| `…-044` | 2 | **delete carrying a stale revision is refused and the row still exists** *(grill F-3 — `If-Match` now required on `DELETE`)* | 1h | p0 | `area:backend` `type:test` | `…~Delete_with_stale_revision_is_refused` |
+| `…-045` | 2 | **`text/plain` body → `415`, no row created** *(grill F-4 — makes the preflight the real cross-origin write guard)* | 1h | p1 | `area:backend` `type:test` | `…~Non_json_body_rejected` |
 
 **Refactor milestones** are not separate rows: each behaviour's Refactor step re-runs its own Red command and is recorded in the `TDD-EXEC` block with either a passing result or an explicit `no-refactor reason` (the template's allowance — an empty Refactor cell is a lie waiting to be read as skipped).
 
