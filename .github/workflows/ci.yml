@@ -101,9 +101,28 @@ jobs:
           if printf '%s\n' "$changed" | grep -qE '^(api/|global\.json$|\.github/workflows/ci\.yml$)'; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             echo "✓ API surface changed — running the .NET gate"
+            # The symmetric case: when it does run, say so in the same place, so the summary is informative in both
+            # states instead of only advertising the skip.
+            {
+              echo "### verify-api: running"
+              echo
+              echo "API surface changed — build with warnings-as-errors and the full xUnit suite against a real PostgreSQL."
+            } >> "$GITHUB_STEP_SUMMARY"
           else
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             echo "✓ no API surface change — steps below skip, job still reports success"
+            # Say the same thing where a reviewer will actually see it. A job whose real steps all skipped still
+            # reports `success` — that is by design (grill F-10: an excluded *job* reports no status, which breaks
+            # branch protection) — but "success" is read as "the .NET suite passed", and it happened to a session
+            # that then filed a bug report against a gate that was working correctly. The step log has the line
+            # above; nobody opens the log to decide whether a green check means anything.
+            {
+              echo "### verify-api: skipped"
+              echo
+              echo "No \`api/\`, \`global.json\`, or workflow path changed, so the .NET build and tests **did not run** on this commit."
+              echo
+              echo "The job reports \`success\` rather than \`skipped\` on purpose — see grill F-10 — so read this note, not the check mark."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - uses: actions/setup-dotnet@v4

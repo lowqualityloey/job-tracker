@@ -142,7 +142,28 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   (`company-name-line-separator-only`) was added as the control, proving the disagreement is exactly one code point
   (U+FEFF) rather than a class of them.
 
-- [ ] **AC-13** — **CI jobs are independent.** The API job is gated by an **internal `if:` on changed paths, not by `on.pull_request.paths`** (grill F-10: an excluded job reports *no status*, which is indistinguishable from a check that never ran the day branch protection requires all checks). So the job always reports and only its steps skip. **Result**: Pending · **Evidence**: two PR pushes — a docs-only push showing job *success / steps skipped* and an `api/**` push showing steps executed, both run lists quoted
+- [x] **AC-13** — **CI jobs are independent.** The API job is gated by an **internal `if:` on changed paths, not by `on.pull_request.paths`** (grill F-10: an excluded job reports *no status*, which is indistinguishable from a check that never ran the day branch protection requires all checks). So the job always reports and only its steps skip. **Result**: **Verified** (2026-09-11 16:05 UTC) — both run lists below are `gh run view --json jobs` output quoted
+  verbatim, which is the evidence form this AC asked for and the reason it could not be closed by reading `ci.yml`.
+
+  **Docs-only push — PR #22 @ `9db31b7`, run `34622071963`:** `verify-api => success`, and its steps:
+  `checkout => success` · `Detect whether the API surface changed => success` · **`setup-dotnet => skipped`** ·
+  **`Verify (build with warnings as errors → test against a real PostgreSQL) => skipped`**
+
+  **`api/` push — PR #21 @ `dcd3747`, run `34618700018`:** `verify-api => success`, and its steps:
+  `Detect whether the API surface changed => success` · **`setup-dotnet => success`** ·
+  **`Verify (build with warnings as errors → test against a real PostgreSQL) => success`**
+
+  The job **reports a status in both cases** and **only its steps skip** — exactly the F-10 design, and exactly what
+  `on.pull_request.paths` would have broken: an excluded job posts no status, so branch protection requiring all
+  checks becomes permanently unmergeable.
+
+  **Hardening that came out of closing it.** A job whose real steps all skipped reports `success`, and a reader going
+  down a check list takes that as "the .NET suite passed" — **which this session did, and then reported a working
+  gate as broken and AC-13 as unverifiable.** Both branches of the detection step now write a `$GITHUB_STEP_SUMMARY`
+  note (`verify-api: skipped` / `verify-api: running`), because the log line that already said so is not something
+  anyone opens to decide whether a green check means something. First observation of the skip note is the *next*
+  docs-only PR: this one edits `ci.yml`, which the detector counts as API surface, so it takes the `running` branch
+  by design — a nice demonstration that the toolchain re-proves itself when CI changes.
 - [ ] **AC-14** — **Locked invariants I-1…I-6 still hold** (spec §3), checked by command rather than by re-reading code: no `fetch`/`EventSource` outside `src/data/`, no `Number(id)` anywhere, **runtime dependency count still 3**, no `.only`/`.skip`, no `vite.config.js` in the tree, **and `revision` referenced nowhere outside `src/data/` + its declaration** (grill F-5: the field's isolation was a comment; it is now a grep). **Result**: Pending · **Evidence**: §8's invariant scan block, output quoted verbatim
 
 ## 4. Execution Policy
