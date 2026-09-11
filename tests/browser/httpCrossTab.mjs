@@ -54,7 +54,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // SIGKILL to `docker run` can leave the container behind, and a stale container still holding :9222 makes the next
 // run fail for a reason that has nothing to do with the code under test. Remove it by name; ignore "no such container".
-function stopChrome() {
+function stopChrome(chrome) {
+  // Both, in this order: SIGKILL to the `docker` CLI does not reliably reach the container, and `docker rm -f`
+  // works without the handle. Doing only one leaves a browser holding :9222 for the next run.
+  try {
+    chrome.kill('SIGKILL')
+  } catch {
+    /* already exited */
+  }
   spawn('docker', ['rm', '-f', CONTAINER], { stdio: 'ignore' })
 }
 
@@ -177,7 +184,7 @@ async function main() {
     call = makeClient(await connect())
   } catch (err) {
     record('Chromium is reachable over CDP', false, String(err))
-    stopChrome()
+    stopChrome(chrome)
     process.exit(1)
   }
 
@@ -264,7 +271,7 @@ async function main() {
     for (const t of tabs) {
       try { await call('Target.closeTarget', { targetId: t.targetId }) } catch { /* already gone */ }
     }
-    stopChrome()
+    stopChrome(chrome)
   }
 
   const failed = results.filter((r) => !r.pass)
