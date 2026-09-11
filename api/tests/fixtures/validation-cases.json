@@ -689,6 +689,50 @@
         "client": "accept",
         "api": "accept"
       }
-    }
+    },
+    {
+        "id": "company-name-bom-only",
+        "why": "U+FEFF is the single character JavaScript's trim() removes and .NET's char.IsWhiteSpace refuses. A company name of nothing but a BOM is empty to the client and non-empty to the API, which is how a record with an invisible name gets stored and then refused by the form that displays it for editing.",
+        "input": {
+          "id": "00000000-0000-0000-0000-000000000031",
+          "companyName": "﻿",
+          "jobTitle": "Engineer",
+          "location": "New York",
+          "status": "Saved",
+          "appliedAt": "2026-03-07"
+        },
+        "expect": {
+          "client": "reject",
+          "api": "reject"
+        },
+        "violations": [
+          {
+            "field": "companyName",
+            "message": "Company name is required."
+          }
+        ]
+      },
+      {
+        "id": "company-name-line-separator-only",
+        "why": "U+2028 is a line terminator to ECMAScript and category Zl to .NET, so both sides trim it. This is the control for the BOM row: if it passes on both sides, the disagreement is exactly one code point and not a whole class of characters.",
+        "input": {
+          "id": "00000000-0000-0000-0000-000000000031",
+          "companyName": " ",
+          "jobTitle": "Engineer",
+          "location": "New York",
+          "status": "Saved",
+          "appliedAt": "2026-03-07"
+        },
+        "expect": {
+          "client": "reject",
+          "api": "reject"
+        },
+        "violations": [
+          {
+            "field": "companyName",
+            "message": "Company name is required."
+          }
+        ]
+      }
   ]
 }
