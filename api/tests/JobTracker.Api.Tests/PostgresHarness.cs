@@ -83,9 +83,13 @@ public sealed class PostgresHarnessTests(PostgresFixture fixture)
         await connection.OpenAsync();
 
         await using var command = new NpgsqlCommand("select pg_postmaster_start_time()", connection);
-        var started = (DateTime)await command.ExecuteScalarAsync();
+        // `ExecuteScalarAsync` returns `object?`; the old cast unboxed it blindly, which is CS8605 and — far
+        // worse for a test — would throw NullReferenceException instead of failing if the server ever
+        // answered null, reporting an infrastructure accident as if it were the assertion.
+        var started = (DateTime?)await command.ExecuteScalarAsync();
 
-        Assert.InRange(started, fixture.FixtureConstructedUtc.AddSeconds(-10), DateTime.UtcNow);
+        Assert.NotNull(started);
+        Assert.InRange(started.Value, fixture.FixtureConstructedUtc.AddSeconds(-10), DateTime.UtcNow);
     }
 
     [Fact]
