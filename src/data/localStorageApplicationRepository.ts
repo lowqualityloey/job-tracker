@@ -240,6 +240,34 @@ function defaultStorage(): StorageLike {
  * deliberately absent: quota, corrupt-payload and unknown-version handling. Those are the
  * Red tests of BEHAVIOR-009..011; writing them now would be untested code.
  */
+/**
+ * Cross-tab signal for this medium (M2b.2).
+ *
+ * A `StorageEvent` fires only in the *other* tabs, never in the writer, so this is the entire
+ * mechanism — and `newValue` is deliberately ignored: the subscriber re-reads through the
+ * repository, which is what keeps corrupt payloads quarantined and newer schemas refused.
+ *
+ * Lives here rather than in the provider so the key name and `window` stay inside `src/data/`
+ * (invariant 16). The `subscribe` contract is medium-agnostic; this is the localStorage answer.
+ */
+function subscribeToStorage(onExternalChange: () => void): () => void {
+  const onStorage = (event: StorageEvent) => {
+    // A null key is `storage.clear()`: the browser says something changed and refuses to say what.
+    // Treating that as "the store is now empty" would render a confident lie — the rows may have
+    // been rewritten by the same tick. Re-reading is both safer and the same code path as any
+    // other change (spec §4, BEHAVIOR-024).
+    if (event.key !== null && event.key !== APPLICATIONS_STORAGE_KEY) {
+      return
+    }
+
+    onExternalChange()
+  }
+
+  window.addEventListener('storage', onStorage)
+
+  return () => window.removeEventListener('storage', onStorage)
+}
+
 export function createLocalStorageRepository(
   options: { storage?: StorageLike } = {},
 ): ApplicationRepository {
@@ -252,6 +280,7 @@ export function createLocalStorageRepository(
   // show the notice; this is the backstop for anyone who wires it up wrong.
   if (!isStorageAvailable(storage)) {
     return {
+      subscribe: () => () => {},
       async list() {
         return unavailable
       },
@@ -271,6 +300,8 @@ export function createLocalStorageRepository(
   }
 
   return {
+    subscribe: subscribeToStorage,
+
     async list() {
       return attempt(storage, () => readRecords(storage))
     },
@@ -391,5 +422,9 @@ export function createInMemoryRepository(initial: readonly JobApplication[] = []
 
       return ok({ id })
     },
+
+    // A store that dies with the tab has no other tab to hear about, so the honest implementation
+    // is a no-op that still returns a working unsubscribe.
+    subscribe: () => () => {},
   }
 }

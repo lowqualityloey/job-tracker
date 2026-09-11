@@ -39,6 +39,18 @@ export const err = <E>(error: E): Result<never, E> => ({ ok: false, error })
  * one implementation file and no call site.
  */
 export interface ApplicationRepository {
+  /**
+   * Register a callback for data that changed **outside** this tab, and get back the function that
+   * unregisters it. The repository owns the mechanism because the mechanism is a property of the
+   * medium: `localStorage` answers with a `StorageEvent` filtered on its own key, an in-memory
+   * store has nothing to report, and M3's HTTP client will answer with polling or a pushed event.
+   *
+   * The callback carries no payload on purpose. Whoever hears about a change is expected to
+   * re-read through `list()`, so the same envelope validation, field-by-field rebuild, quarantine
+   * path, and version gate run on every path into the UI — a `StorageEvent.newValue` shortcut
+   * would bypass all four (M2b spec §4).
+   */
+  subscribe(onExternalChange: () => void): () => void
   list(): Promise<Result<JobApplication[]>>
   get(id: string): Promise<Result<JobApplication>>
   create(input: ApplicationInput): Promise<Result<JobApplication>>
