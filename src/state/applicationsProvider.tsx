@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ApplicationInput, ApplicationPatch, JobApplication } from '../types/application'
 import type { ApplicationRepository, RepositoryError, Result } from '../domain/applicationRepository'
@@ -58,32 +58,38 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
     setStatus('error')
   }, [])
 
-  useEffect(() => {
-    let active = true
+  // A ref, not the effect's closure flag, because `reload` is now called from three places: the
+  // first read, the external-change subscription, and a write the store refused. Each of them
+  // resolves after an await, and every one of them has to be able to discover that this tab's
+  // tree is gone. The effect body sets it back to true so React 18's double-invoke stays correct.
+  const mounted = useRef(true)
 
-    const refresh = async () => {
-      const result = await repository.list()
+  const reload = useCallback(async () => {
+    const result = await repository.list()
 
-      if (active) {
-        applyListResult(result)
-      }
+    if (mounted.current) {
+      applyListResult(result)
     }
+  }, [repository, applyListResult])
 
-    void refresh()
+  useEffect(() => {
+    mounted.current = true
+
+    void reload()
 
     // The provider asks *whether* its data changed, never *how*. `repository.subscribe` is the
     // seam: the localStorage adapter answers with a key-filtered StorageEvent, an in-memory store
     // has nothing to report, and M3's HTTP client can answer with polling or a pushed event
     // without a line of this file changing. Unsubscribing here is spec B-1's mitigation.
     const unsubscribe = repository.subscribe(() => {
-      void refresh()
+      void reload()
     })
 
     return () => {
-      active = false
+      mounted.current = false
       unsubscribe()
     }
-  }, [repository, applyListResult])
+  }, [repository, reload])
 
   const createApplication = useCallback(
     async (input: ApplicationInput) => {
@@ -104,25 +110,38 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
 
       if (result.ok) {
         setApplications((current) => current.map((record) => (record.id === id ? result.value : record)))
+        return result
+      }
+
+      // `not-found` is not a mystery here: it means the row this tab was showing is gone. Waiting
+      // for a StorageEvent that will never arrive (this tab is the one that spoke) would leave a
+      // ghost the user can click into, so the refused write is itself the invalidation signal.
+      if (result.error.code === 'not-found') {
+        await reload()
       }
 
       return result
     },
-    [repository],
+    [repository, reload],
   )
 
-  // The snapshot only drops a record once the store has agreed to the removal.
   const deleteApplication = useCallback(
     async (id: string) => {
       const result = await repository.remove(id)
 
       if (result.ok) {
+        // The snapshot only drops a record once the store has agreed to the removal.
         setApplications((current) => current.filter((record) => record.id !== id))
+        return result
+      }
+
+      if (result.error.code === 'not-found') {
+        await reload()
       }
 
       return result
     },
-    [repository],
+    [repository, reload],
   )
 
   const api = useMemo<ApplicationsApi>(
