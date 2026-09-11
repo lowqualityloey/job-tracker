@@ -86,7 +86,7 @@ Do not claim success without reporting what was verified.
 
 ### Commit discipline
 
-Six rules, each earned by a failure that actually happened on this repository:
+Seven rules, each earned by a failure that actually happened on this repository:
 
 - **Gate commits on verification.** Never chain `verify && commit` on one shell line without
   `set -e` — a failing `tsc` does not stop the commit that follows it. A commit was once made
@@ -107,6 +107,14 @@ Six rules, each earned by a failure that actually happened on this repository:
   check inside the pipe sails on and commits anyway. Use `set -o pipefail` (or `&&`) whenever a scripted
   probe's result matters. Hit twice on 2026-09-11: once masking a bad `git status --cached` flag, once
   masking a stylelint run whose exit code was the only assertion being made.
+- **Read the ref before you write to it.** Each bash call starts a fresh shell, so a branch created in an
+  earlier turn is **not** the branch you are on in the next one. On 2026-09-11 a commit ladder ran on `main`
+  because the branch it assumed had been created in a turn that had already ended — two commits landed on
+  local `main`, and `docs/STATE.md` described a branch that had never existed, because the document was
+  written from *intent* rather than from measurement. Nothing reached the remote only because
+  `git push origin <branch>` failed loudly on a nonexistent refspec. `git rev-parse --abbrev-ref HEAD` costs
+  one call; the assumption costs the whole "phases advance through pull requests" rule. **Same reflex for
+  documentation**: state a branch or SHA after reading it, never before.
 
 CI (`.github/workflows/ci.yml`) now enforces the **code** half of this list — a commit made over typecheck
 errors can no longer reach `main` unflagged, and neither can a focused test or an orphaned CSS declaration.
