@@ -252,7 +252,11 @@ function defaultStorage(): StorageLike {
  */
 function subscribeToStorage(onExternalChange: () => void): () => void {
   const onStorage = (event: StorageEvent) => {
-    if (event.key !== APPLICATIONS_STORAGE_KEY) {
+    // A null key is `storage.clear()`: the browser says something changed and refuses to say what.
+    // Treating that as "the store is now empty" would render a confident lie — the rows may have
+    // been rewritten by the same tick. Re-reading is both safer and the same code path as any
+    // other change (spec §4, BEHAVIOR-024).
+    if (event.key !== null && event.key !== APPLICATIONS_STORAGE_KEY) {
       return
     }
 
