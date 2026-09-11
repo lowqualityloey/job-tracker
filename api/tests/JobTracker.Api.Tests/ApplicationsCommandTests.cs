@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json;
 using JobTracker.Api.Tests.Infrastructure;
 using Xunit;
 
@@ -15,6 +16,51 @@ namespace JobTracker.Api.Tests;
 /// </summary>
 public sealed class ApplicationsCommandTests(ApplicationsApiFixture fixture) : IClassFixture<ApplicationsApiFixture>
 {
+    [Fact]
+    public async Task Retry_of_create_is_idempotent()
+    {
+        // BEHAVIOR-m3-backend-api-034 (p1). Registered: "Retried POST with the same client id → 409; adapter
+        // treats it as success; count(*) == 1".
+        //
+        // The count is the assertion that makes the status code mean something. A 409 emitted *after* the row was
+        // already duplicated, or a retry that half-wrote a second row, would both look fine from the HTTP side and
+        // would show up as a phantom duplicate in the list — the exact class of thing DECISION-m3-backend-api-007
+        // (client-minted ids) buys with its one real cost: a retry is indistinguishable from a conflict unless the
+        // primary key says so.
+        await fixture.ExecuteAsync("delete from applications");
+        var id = Guid.NewGuid();
+        var payload = new
+        {
+            id = id.ToString(),
+            companyName = "Pied Piper",
+            jobTitle = "Engineer",
+            location = "San Francisco",
+            status = "Saved",
+        };
+
+        Assert.Equal(HttpStatusCode.Created, (await fixture.Http.PostAsJsonAsync("/api/applications", payload)).StatusCode);
+
+        var retry = await fixture.Http.PostAsJsonAsync("/api/applications", payload);
+
+        Assert.Equal(HttpStatusCode.Conflict, retry.StatusCode);
+        Assert.Equal("application/problem+json", retry.Content.Headers.ContentType?.MediaType);
+        using (var problem = JsonDocument.Parse(await retry.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal("conflict", problem.RootElement.GetProperty("code").GetString());
+        }
+
+        await using var connection = fixture.OpenConnection();
+        await connection.OpenAsync();
+        await using var count = connection.CreateCommand();
+        count.CommandText = "select count(*) from applications";
+        Assert.Equal(1L, (long)(await count.ExecuteScalarAsync())!);
+
+        // The record the first request wrote is still the one on the server, byte for byte: a 409 that also
+        // silently overwrote the row would satisfy every assertion above and break AC-6 in a way nobody could
+        // reproduce from the response.
+        using var stored = JsonDocument.Parse(await fixture.Http.GetStringAsync($"/api/applications/{id}"));
+        Assert.Equal("Pied Piper", stored.RootElement.GetProperty("companyName").GetString());
+    }
     [Fact]
     public async Task Create_visible_to_second_client()
     {
