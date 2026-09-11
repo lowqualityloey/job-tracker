@@ -280,7 +280,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
 - **Next Action (2026-09-11 20:00 UTC): M3's evidence and spec-truth work is done — gap 10a and 10b are resolved, §6 is
-  complete, 14/14 ACs verified.** Two things remain, in order. **(1) The owner's:** spec §7's four approval boxes (they
+  complete, 14/14 ACs verified.** Two things remain, in order. **(1) The owner's:** spec §7's boxes — **four are the owner's; a fifth (the `pk:grill` item) is an AGENT item that is genuinely unsatisfied**, and my own check of a sixth ("§2's targets are falsifiable") is **retracted** (they
   read `agent left unchecked`), M3's `[/]`→`[x]` flip, and the five carried decisions — gap 5, the `notes` ceiling, the
   `location` null-map, `status` runtime validation at the seam, gap 7's §4.3-vs-ladder sweep. **(2) Mine, once §7 is
   signed:** open **M4 — Authentication** (`pk:plan`, Level 2), which spec §7 makes a **hard ordering constraint on any
@@ -388,7 +388,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   0–25-row, and meaningless as a production claim** — §2.8's own framing says the dataset is "deliberately modest so a
   number is never unfalsifiable", so read them as *falsification tests that did not fire*, not as capacity figures.
 
-- **Completion claim, stated as a gate rather than a feeling**: behaviour ladder **`-026` … `-046` all executed**;
+- **Completion claim, stated as a gate rather than a feeling**: behaviour ladder **`-026` … `-046` all executed** — with one record defect found at this boundary: **21 behaviours, 20 `TDD-EXEC` blocks; `-046` (`EventStreamTests`, 4 tests, re-run green at this boundary) has no evidence block of its own**, its result living in AC-11's line and the intent register instead;
   acceptance criteria **14 of 14 verified** with commands quoted against each; `dotnet test` **65 / 0 failed / 0
   warnings**, `npm run verify` **197 tests / 20 files exit 0**, browser harnesses **7/7** and **6/6**; runtime deps
   **3** (unchanged since M0); **`src/pages|components|state` untouched**. **What is NOT done: spec §7's owner sign-off

@@ -605,3 +605,34 @@ gap 10a — and `revision` is a real `xmin` counter, not `1`). Verified: `count(
 3. **Report warm-up rather than deleting it.** Samples 1–2 (114 ms, 88 ms) are the p95; the tail settles at 26–33 ms.
    Discarding them would have produced a cleaner number and repeated gap 10b exactly — publishing a claim that cannot
    fail.
+
+## §20 — **Retraction of gap 10b** (2026-09-11 20:40 UTC) — the false charge, not the measurement
+
+**Gap 10b as filed in §18 is withdrawn.** It asserted that spec §2.8's SSE clause "sat inside a list of *measurable
+targets*" while naming **no threshold at all, so it could not fail**, and proposed `p95 < 250 ms` in its place. The
+ratified clause reads **"`SSE` notification observed in the second tab **in < 500 ms**"** — a real, falsifiable
+threshold, roughly 5× looser than the numbers I then measured. **Everything measured in §19 and PR #30 stands. The
+premise did not.**
+
+**Mechanism, stated because it is the same failure with a new costume.** I read the line through `cut -c1-230`, which
+truncated it *before* the threshold, and then asserted an absence about text I had not seen. AGENTS.md already has this
+rule, earned on a build log — *"filtering a command's output can destroy the only evidence that matters"* — and I
+applied it to a spec line without noticing. Two aggravating details:
+- **The counter-evidence was in a document I had written myself**: grill **Q2** opens by quoting "`SSE` observed `< 500 ms`".
+- **My scripted edit is what finally showed me the text.** `old_string` matched only the clause's first half, so the
+  replacement **severed the sentence** and left `" in < 500 ms;"` dangling in main. The corruption is how I found the
+  error I had already shipped — **a careless read, caught by a second careless act rather than by care.**
+
+**The part that is not mine to fix: PR #29's approval was obtained on a misstatement.** I put the false charge in that
+PR's headline, its body, and STATE §3A; the owner merged it, and by this repo's convention a merge of a body that asks
+for decisions is the approval. **Here the decision was framed by a claim I had not verified, so the approval of *that
+specific change* is not informed and the box is un-checked in §7.** The measurement work was not contingent on it, which
+is why I have re-anchored the numbers to the owner's `500 ms` rather than deleting them.
+
+**What the two-span measurement means now that it is not a correction:** it is precision on a target that was always
+testable, and it is *still* the only reason anyone knows the render half is fast — `in < 500 ms` had sat unrun since the
+spec was approved, exactly as the `p50/p95` figures had. **The lesson survives the retraction: the clause was falsifiable
+and unmeasured, not unmeasurable.** Two of §2.8's six targets are still in that state — `0 unhandled exceptions` has no
+instrument, and the **`< 2 kB` bundle delta cannot be computed at all**, because §2 sent it to Slice 3 to "record the
+actual number from the build output" and **Slice 3 never captured a pre-M3 baseline**. Current gzipped JS is 60,136
+bytes, which answers nothing: **a level is not a delta.** Filed as **gap 11**, not glossed.
