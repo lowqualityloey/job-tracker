@@ -522,7 +522,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     pushed: `1ce8425` → `cbfaa2f`, and the amended message carries the miss. This is rule #1 of the commit-discipline
     list failing on the same day it was cited twice, which is the honest summary of how these rules stay true.
 
-  **`TDD-EXEC-m3-backend-api-039`** · `BEHAVIOR-…-039` · Red `3f0d1c9` → Green `7c37490` · p1 · Slice 3c
+  **`TDD-EXEC-m3-backend-api-039`** · `BEHAVIOR-…-039` · Red `e9976d1` → Green `7c37490` · p1 · Slice 3c
   - `src/data/orderingFaults.test.tsx`. A gated `fetch` (every response held until the scenario releases it, in the
     interleaving the test describes) with real timers and real promises: the delay belongs in the transport, which is
     the only place this bug can exist.
