@@ -1,4 +1,5 @@
 using JobTracker.Api.Data;
+using Npgsql;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -75,7 +76,18 @@ app.MapPost("/api/applications", async (NewApplicationRequest request, JobTracke
     };
 
     db.Applications.Add(entity);
-    await db.SaveChangesAsync(ct);
+    try
+    {
+        await db.SaveChangesAsync(ct);
+    }
+    catch (DbUpdateException exception) when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+    {
+        // BEHAVIOR-m3-backend-api-034. The id is client-minted (DECISION-m3-backend-api-007), so the only thing
+        // that distinguishes "create this" from "I already sent you this" is the primary key. Letting it reach the
+        // exception handler would surface a duplicate as `storage-error` — the client's mapping has no other word
+        // for a 500 — and the user would be told storage failed about a record that saved fine on the first try.
+        return Conflict(request.Id);
+    }
 
     // Results.Created rather than Ok: the 201 is what the client's adapter distinguishes a fresh create from, and
     // the Location header is the canonical path 033/044 will address with If-Match.
@@ -98,6 +110,14 @@ static IResult NotFound(string id) => Results.Problem(
     type: "https://job-tracker.local/probs/not-found",
     instance: $"/api/applications/{id}",
     extensions: new Dictionary<string, object?> { ["code"] = "not-found" });
+
+/// <summary>The 409 every write path can hit: same id (034) or stale `If-Match` (033/044), one shape for both.</summary>
+static IResult Conflict(Guid id) => Results.Problem(
+    title: "Another request already wrote that record, or this one is based on a stale version.",
+    statusCode: StatusCodes.Status409Conflict,
+    type: "https://job-tracker.local/probs/conflict",
+    instance: $"/api/applications/{id}",
+    extensions: new Dictionary<string, object?> { ["code"] = "conflict" });
 
 /// <summary>
 /// Exposes the entry point to <c>WebApplicationFactory&lt;Program&gt;</c>. Minimal APIs compile
