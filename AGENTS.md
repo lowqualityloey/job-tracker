@@ -44,11 +44,13 @@ planned stages (see `README.md`).
 - Blind vibe coding, and huge code dumps.
 - Unnecessary libraries — the app is 22 non-test TS/TSX files with **3 runtime dependencies**, a number
   that has not moved since M0; justify each addition. Tooling was added once (DEBT-03, 2026-09-11):
-  **9 packages, `devDependencies` 9 → 18, runtime dependencies unchanged at 3** — `eslint`, `@eslint/js`,
-  `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-testing-library`,
-  `@vitest/eslint-plugin`, `globals`, `stylelint`, `stylelint-config-standard`. Each is named and justified
-  where it is configured, in `eslint.config.js` / `stylelint.config.js`. No formatter was added: it would
-  rewrite all 35 TS/TSX files in a commit unrelated to any feature.
+  **10 packages, `devDependencies` 9 → 19, runtime dependencies unchanged at 3** — `eslint` (pinned **9**,
+  not 10: `eslint-plugin-jsx-a11y`'s peer range stops at 9, and the a11y gate is worth more than a major
+  version), `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y`,
+  `eslint-plugin-testing-library`, `@vitest/eslint-plugin`, `globals`, `stylelint`,
+  `stylelint-config-standard`. Each is named and justified where it is configured, in `eslint.config.js` /
+  `stylelint.config.js`. No formatter was added: it would rewrite all 35 TS/TSX files in a commit
+  unrelated to any feature.
 - Unrelated refactors bundled with a feature or fix.
 - Premature complex abstractions — the 5-record mock dataset does not need a framework.
 

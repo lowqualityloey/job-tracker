@@ -79,7 +79,7 @@ behaviours whose diff carries one, or an `--amend` that staged nothing.
 
 - Blind vibe coding.
 - Huge code dumps.
-- Unnecessary libraries (runtime dependencies have stayed at 3 since M0; the 9 tooling packages added by
+- Unnecessary libraries (runtime dependencies have stayed at 3 since M0; the 10 tooling packages added by
   DEBT-03 are each justified where they are configured).
 - Unrelated refactors.
 - Premature complex abstractions.

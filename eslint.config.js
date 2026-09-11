@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import globals from 'globals'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
 import reactHooks from 'eslint-plugin-react-hooks'
 import testingLibrary from 'eslint-plugin-testing-library'
 import tseslint from 'typescript-eslint'
@@ -73,6 +74,39 @@ export default tseslint.config(
       // class instances. Silencing it costs nothing; "fixing" the findings would mean rewriting every
       // consumer to call `api.deleteApplication(...)` for zero behavioural gain.
       '@typescript-eslint/unbound-method': 'off',
+    },
+  },
+
+  // ---- JSX: the accessibility rules this repository otherwise checks by hand ------------------------
+  // AC-10 asked for `aria-pressed`, a real `<label for>`, and a named landmark, and M2b satisfied it with
+  // three hand-written tests plus a human reading `styles.css`. Those tests prove the *behaviour*; they
+  // cannot see an authoring mistake made in a component nobody has a test for yet — `<div role="button">`
+  // with no key handler, an `aria-labelledby` pointing at an id that does not exist.
+  //
+  // Registered by hand rather than spread from a flat export, because `eslint-plugin-jsx-a11y@6.10.2`
+  // ships only legacy-shaped configs (`configs.recommended` / `configs.strict` — no `flat/*`), which is
+  // also why its peer range stops at ESLint 9. Taking its `rules` map and scoping it to `.tsx` is the
+  // same rule set, applied where JSX exists, without an ad-hoc translator.
+  {
+    files: ['src/**/*.tsx'],
+    plugins: { 'jsx-a11y': jsxA11y },
+    rules: {
+      ...jsxA11y.configs.recommended.rules,
+      // `onClick` on a non-interactive element is a real a11y bug, but the plugin's fix is "use a
+      // button", and this repository has exactly one pattern it wants: a `<div class="application-card">`
+      // whose *title* is the link. Revisit with `pk:design` when the card becomes keyboard-navigable.
+      'jsx-a11y/click-events-have-key-events': 'warn',
+      'jsx-a11y/no-static-element-interactions': 'warn',
+    },
+  },
+  {
+    files: ['src/**/*.tsx'],
+    rules: {
+      // `onClick` on a non-interactive element is a real a11y bug, but the plugin's fix is "use a
+      // button", and this repository has exactly one pattern it wants: a `<div class="application-card">`
+      // whose *title* is the link. Revisit with `pk:design` when the card becomes keyboard-navigable.
+      'jsx-a11y/click-events-have-key-events': 'warn',
+      'jsx-a11y/no-static-element-interactions': 'warn',
     },
   },
 
