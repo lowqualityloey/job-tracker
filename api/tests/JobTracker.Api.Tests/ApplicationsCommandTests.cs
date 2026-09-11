@@ -105,6 +105,25 @@ public sealed class ApplicationsCommandTests(ApplicationsApiFixture fixture) : I
         Assert.Equal("VP of Partnerships", after.RootElement.GetProperty("jobTitle").GetString());
         Assert.Equal("Applied", after.RootElement.GetProperty("status").GetString());
         Assert.Equal(current, after.RootElement.GetProperty("revision").GetUInt32());
+
+        // Additive to -033's registered row, and disclosed as such in §11 of the register: §4.1 indexes
+        // `applications_updated_at_idx (updated_at DESC)` and §5's risk table promises "server-generated timestamps
+        // only; `updated_at` set in the DB, never sent by the client". `DEFAULT now()` fires on INSERT and nothing
+        // else, so unless something maintains the column every row's updated_at equals its created_at forever and
+        // the index orders a list that can never reorder. Asserted in the one behaviour that performs the write
+        // capable of moving it.
+        //
+        // `::int` and an `(int)` cast, not `(bool)`: a bool unbox of ExecuteScalar is the CS8605 shape that failed a
+        // runner in Slice 0. Npgsql maps the PostgreSQL types by name, so this returns Int32 while `count(*)` above
+        // returns Int64 — a `(long)` cast here throws InvalidCastException and *looks* like a schema failure. First
+        // run of this assertion did exactly that, which is the difference between a test that fails and a test that
+        // fails for the reason you think.
+        await using var stampCheck = fixture.OpenConnection();
+        await stampCheck.OpenAsync();
+        await using var stamps = stampCheck.CreateCommand();
+        stamps.CommandText = "select (updated_at > created_at)::int from applications where id = @id";
+        stamps.Parameters.AddWithValue("@id", id);
+        Assert.Equal(1, (int)(await stamps.ExecuteScalarAsync())!);
     }
 
     /// <summary>One place that spells the §4.3 update contract: full replacement, quoted <c>If-Match</c>.</summary>
