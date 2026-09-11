@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Npgsql;
 using JobTracker.Api.Tests.Infrastructure;
@@ -135,6 +136,52 @@ public sealed class ApplicationsCommandTests(ApplicationsApiFixture fixture) : I
         };
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{revision}\"");
         return fixture.Http.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task Non_json_body_rejected()
+    {
+        // BEHAVIOR-m3-backend-api-045 (p1, grill F-4): "Body sent as `text/plain` → 415, and count(*) is unchanged".
+        //
+        // F-4's reason is not tidiness. A `simple` CORS request (text/plain among others) is sent *without* a
+        // preflight, so a cross-origin page could POST a write body to this API from a browser and read nothing
+        // back but could still change data. Refusing anything that is not application/json is what makes the
+        // Content-Type the guard, and the only way to know the guard exists is to send the wrong one.
+        await fixture.ExecuteAsync("delete from applications");
+        var id = Guid.NewGuid();
+        var payload = $$"""
+            {"id":"{{id}}","companyName":"Vandelay","jobTitle":"Importer","location":"New York","status":"Saved"}
+            """;
+
+        // PostAsJsonAsync always sends application/json, which is why this test cannot use it: the request being
+        // described is precisely the one the helper refuses to build.
+        var response = await fixture.Http.PostAsync("/api/applications",
+            new StringContent(payload, Encoding.UTF8, "text/plain"));
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
+
+        // The half that separates a real guard from a handler that read the body anyway and answered politely:
+        // nothing was written. Vandelay's import business must not exist in the catalog because a test wondered
+        // what the server does with mislabelled JSON.
+        await using var connection = fixture.OpenConnection();
+        await connection.OpenAsync();
+        await using var count = connection.CreateCommand();
+        count.CommandText = "select count(*) from applications";
+        Assert.Equal(0L, (long)(await count.ExecuteScalarAsync())!);
+
+        // Positive control, added because this behaviour produced no Red to drive it (the framework's JSON binder
+        // refuses a non-JSON Content-Type before the handler runs, so the test was green the first time it ran).
+        // A test that cannot be made to fail is not verifying anything — so the same bytes, one header apart, must
+        // be *accepted*. Without this half, a 415 caused by a malformed body, a missing route, or the test
+        // accidentally hitting an endpoint that never existed would look identical from the assertion's point of
+        // view and prove nothing about content types at all.
+        var accepted = await fixture.Http.PostAsync("/api/applications",
+            new StringContent(payload, Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+
+        await using var recheck = connection.CreateCommand();
+        recheck.CommandText = "select count(*) from applications";
+        Assert.Equal(1L, (long)(await recheck.ExecuteScalarAsync())!);
     }
 
     [Theory]
