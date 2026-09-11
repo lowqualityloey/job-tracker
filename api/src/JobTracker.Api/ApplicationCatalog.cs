@@ -80,6 +80,46 @@ public static class ApplicationCatalog
             // the Location header is the canonical path 033/044 will address with If-Match.
             return Results.Created($"/api/applications/{entity.Id}", entity);
         });
+        // BEHAVIOR-m3-backend-api-033. §4.3 spells PUT as a *full replacement* with If-Match required, and the
+        // 428 it names for a missing precondition is mapped to 409 by that same table — which falls out for free
+        // here, because IsCurrent refuses an absent header exactly as it refuses a stale one. No branch of its own
+        // to write, and no branch that could rot untested.
+        endpoints.MapPut("/api/applications/{id}", async (string id, NewApplicationRequest request, JobTrackerDb db,
+            CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
+        {
+            // The path is authoritative for identity and the body's id is ignored. Nothing in the register covers
+            // a mismatch between the two; a fourth §4.3 statement with no behaviour. Documented rather than
+            // invented into a 400 nobody has asked for.
+            if (!Guid.TryParse(id, out var guid))
+            {
+                return Problems.NotFound(id);
+            }
+
+            var entity = await db.Applications.FirstOrDefaultAsync(a => a.Id == guid, ct);
+            if (entity is null)
+            {
+                return Problems.NotFound(id);
+            }
+
+            if (!IsCurrent(ifMatch, entity.Revision))
+            {
+                return Problems.Conflict(guid);
+            }
+
+            // Assigned field by field rather than attaching a detached entity, because an update that overwrote
+            // id, revision, created_at or updated_at from a client payload would be a silent data-loss bug in the
+            // one operation whose whole purpose is editing a record.
+            entity.CompanyName = request.CompanyName;
+            entity.JobTitle = request.JobTitle;
+            entity.Location = request.Location;
+            entity.Status = request.Status;
+            entity.AppliedAt = request.AppliedAt;
+            entity.Notes = request.Notes;
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(entity);
+        });
+
         // BEHAVIOR-m3-backend-api-035. Tracks the entity (no AsNoTracking) because it is being removed, and
         // returns the same 404 as the read path: "no such record" is one fact whether it surfaces on GET or DELETE.
         //
