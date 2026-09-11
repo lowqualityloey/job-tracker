@@ -55,7 +55,36 @@ app.MapGet("/api/applications/{id}", async (string id, JobTrackerDb db, Cancella
     return application is null ? NotFound(id) : Results.Ok(application);
 });
 
+// BEHAVIOR-m3-backend-api-030. Deliberately permissive about *values*: the status CHECK is enforced by the
+// database (032), and the field-by-field validator is 031's registered subject, which brings the shared fixture
+// with it. What this handler must do is refuse nothing the schema would accept, and return the row the client
+// needs — including `revision`, which EF populates on save because xmin is a store-generated concurrency token.
+app.MapPost("/api/applications", async (NewApplicationRequest request, JobTrackerDb db, CancellationToken ct) =>
+{
+    var entity = new Application
+    {
+        Id = request.Id,
+        CompanyName = request.CompanyName,
+        JobTitle = request.JobTitle,
+        Location = request.Location,
+        Status = request.Status,
+        AppliedAt = request.AppliedAt,
+        Notes = request.Notes,
+        // Left at default on purpose: created_at/updated_at are the database's now(), and a client-supplied
+        // creation time would let a retry claim the record is older than it is.
+    };
+
+    db.Applications.Add(entity);
+    await db.SaveChangesAsync(ct);
+
+    // Results.Created rather than Ok: the 201 is what the client's adapter distinguishes a fresh create from, and
+    // the Location header is the canonical path 033/044 will address with If-Match.
+    return Results.Created($"/api/applications/{entity.Id}", entity);
+});
+
 app.Run();
+
+
 
 /// <summary>
 /// The 404 the client's adapter can read. RFC 9457 with `code` as an extension member
@@ -76,3 +105,18 @@ static IResult NotFound(string id) => Results.Problem(
 /// host the app in-process and would have to shell out to a live server.
 /// </summary>
 public partial class Program;
+
+/// <summary>
+/// The write contract of §4.3 — the fields a user supplies, which is exactly <c>ApplicationInput</c> plus the
+/// client-minted <c>id</c> (DECISION-m3-backend-api-007). Record and not class: it is a boundary shape with no
+/// behaviour, and `required` members mean a payload missing company_name fails during binding rather than as a
+/// null-ref somewhere downstream.
+/// </summary>
+public sealed record NewApplicationRequest(
+    Guid Id,
+    string CompanyName,
+    string JobTitle,
+    string? Location,
+    string Status,
+    DateOnly? AppliedAt,
+    string? Notes);
