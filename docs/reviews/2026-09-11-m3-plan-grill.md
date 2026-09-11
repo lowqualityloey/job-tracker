@@ -225,3 +225,96 @@ the Task Record), and one more reason the fixture must be explicit about *which 
 artefact, and the first one inside a document whose subject was scrutiny itself. The correct step was reading the
 file *before* writing the claim; it happened one step late. That is not a reason to soften the grill — it is the
 reason the grill's findings are required to be falsifiable by a command, which is how this was caught.
+
+---
+
+## 5. Supplementary pass — the four challenges §7 required and §1–§4 never took
+*(2026-09-11 21:10 UTC, agent-owned. §7 lists six required challenges; `grep -ci` over the original pass gives `ENUM` 0,
+`timestamptz` 0, `fan` 0, `instance` 0. **This pass is the reason to run a grill you think you already did: it found a
+live 500.**)*
+
+### Q13 — "`text + CHECK` for `status`. You have a five-value product concept and you stored it as a string with a
+###       guardrail. `ENUM` is the type the database *is*. Why the weaker one?"
+
+**Defence.** `status` is not a domain enum, it is a **product workflow stage**, and those change for different reasons.
+`ENUM` makes the value set a *schema* fact: adding `"Interview"` becomes `ALTER TYPE … ADD VALUE`, which **cannot run in a
+transaction that also uses the new value** — so a status addition is a two-phase migration with a window where app and
+type disagree, on a project whose migration story is one `dotnet ef database update`. With `text + CHECK` the set is
+reachable from **one fixture** both validators read, so `-032` proves the constraint is real while the client's list stays
+the single source. `CHECK` also fails better: a constraint violation maps to `validation`, whereas an `ENUM` violation
+arrives as a cast error whose text is a type name.
+
+**Conceded.** Two costs accepted without saying so: **(1)** `text` permits a value valid in the database and unknown to the
+app *if the fixture and the `CHECK` drift* — the guardrail is **two lists, not one**, and nothing asserts they match;
+**(2)** ordering: `Saved → Applied → …` has meaning and neither type encodes it, so a future "sort by stage" is a third
+list. **Action: a test that the `CHECK`'s values and the fixture's five are the same set** — the same two-sources-of-truth
+shape as gap 10a, found by the same kind of question.
+
+### Q14 — "Client-minted ids. You let an untrusted caller choose the primary key of a row."
+
+**Defence.** It is what makes offline create and retry-identity possible at all: the client's id **is** the idempotency
+key, which is why `DECISION-007` could promise a retried `POST` cannot create a second row. With a server-generated id the
+retry has nothing to deduplicate on. It also drops a round trip from the create path and makes `Location` meaningful
+before the body is parsed.
+
+**And here the challenge found a defect, not a nuance.** The id is attacker-controlled input that becomes a PK, so the
+question was "is it validated *before* Npgsql sees it?" — and the answer, measured against the running API, is **no**:
+
+```
+POST /api/applications  {"id":"not-a-guid", …}   →   HTTP 500
+{"type":"…/rfc9110#section-15.6.1","title":"An error occurred while processing your request.","status":500,"traceId":"…"}
+```
+
+Server log: `System.Text.Json.JsonException: The JSON value could not be converted to
+JobTracker.Api.NewApplicationRequest. Path: $.id` → `---> System.FormatException: The JSON value is not in a supported
+Guid format.`
+
+**Mechanism: the type is the validator.** `NewApplicationRequest` declares `Guid Id`, so **deserialization throws before
+`ApplicationValidation.Validate` is ever reached** — the request never enters the pipeline that produces
+`400` + `errors[].pointer`, and the exception handler faithfully converts a *client's* mistake into a *server's* 500.
+Note the asymmetry that makes this easy to miss: **`ApplicationCatalog` does call `Guid.TryParse` on the route `{id}`**
+(lines 34–42, 151, with a comment explaining why that beats a `{id:guid}` constraint). The read paths are guarded; the
+write path's body is not. **Filed as gap 12.**
+
+**Two further costs, named.** Enumeration is replaced by **collision**: a client can try to write over a row it does not
+own, which is harmless today *only because M3 has no authentication* and catastrophic the moment it does — **client-minted
+ids are a single-user design, which is precisely why §7 makes M4 precede any public exposure.** And a UUIDv4/v7 mix is
+invisible here but real at scale (index locality).
+
+### Q15 — "`appliedAt` is a `date`. An application happens at an *instant*. You threw away half the fact."
+
+**Defence.** The user is asked *"when did you apply?"* and answers with a **calendar day**, from memory, often days later.
+Storing an instant implies a precision the input never had and, worse, **silently chooses a time zone for them**:
+`2026-03-14T00:00:00Z` is the evening of 2026-03-13 in Auckland, so a date typed late at night renders as the day before —
+the most likely reason it was typed late at night. `date` + `yyyy-MM-dd` on the wire keeps the stored fact equal to the
+entered fact. `created_at`/`updated_at` **are** `timestamptz` and server-generated, and that split is the actual rule:
+**machine facts get instants, human facts get days.**
+
+**Conceded.** No time-of-day means "applied at 3pm, callback at 4" is unrepresentable, and any future sort across a mixed
+`date`/`timestamptz` set needs a rule for what a bare date means at midnight in whose zone. **The honest version is "we
+chose day precision because the input is day precision," not "because `date` is simpler."**
+
+### Q16 — "Single-instance SSE fan-out. `ApplicationEventBus` is an in-memory `Channel`. Two instances behind a balancer
+###       and half your users never see a change. Why is this not a bug?"
+
+**It is a bug with a documented boundary, and the boundary is the decision.** Broadcast is per-process, so with N instances
+a write reaches only subscribers on the instance that handled it. **Sticky sessions do not fix it** — stickiness pins a
+*reader* to an instance; it does not move a *write* to where the readers are. The failure is also **silent and partial**,
+the worst shape: a tab that misses an event stays stale until an unrelated write happens to land on its instance, and
+**`-042`'s cross-tab proof is same-process, so the harness cannot see this at all.**
+
+**Why acceptable for M3, not for later.** `ASSUMPTION-m3-backend-api-002` says single instance through M5, and the client's
+recovery path is already the cheap one: an SSE event is only a **nudge to re-read**, so a missed event costs staleness and
+never corruption — and the store re-reads on mount and on focus regardless. **The mitigation is built; the delivery is
+not.** When it matters the fix is not Redis: **we already run PostgreSQL, and `NOTIFY` on a transaction-scoped channel
+gives cross-instance fan-out with no new dependency** — the same reason `xmin` was free. **Action: M5's deployment spec
+carries this as a gate, not a nice-to-have**, because "add a second replica" is exactly the move that turns a documented
+limit into an outage.
+
+### What this pass changed, in one line each
+
+**Q14 → gap 12, a live 500 on malformed input, and the first concrete counterexample to §2.8's `0 unhandled exceptions`
+target.** Q13 → a named two-sources risk (fixture vs `CHECK`) needing one test. Q15 → the decision restated as
+*precision*, not convenience. Q16 → M5 gains a gate, and `-042` gains a documented blind spot.
+**Methodological finding: three of the four challenges I had skipped were the ones that mattered, and I had marked the
+grilling "done" on a record that grep shows never mentioned `ENUM`, `timestamptz`, fan-out or instances.**

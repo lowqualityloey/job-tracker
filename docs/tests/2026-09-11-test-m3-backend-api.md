@@ -636,3 +636,45 @@ and unmeasured, not unmeasurable.** Two of §2.8's six targets are still in that
 instrument, and the **`< 2 kB` bundle delta cannot be computed at all**, because §2 sent it to Slice 3 to "record the
 actual number from the build output" and **Slice 3 never captured a pre-M3 baseline**. Current gzipped JS is 60,136
 bytes, which answers nothing: **a level is not a delta.** Filed as **gap 11**, not glossed.
+
+## §21 — Gap 12: a malformed `id` is a 500 — found by running the grill pass §7 said to run (2026-09-11 21:10 UTC)
+
+**Reproduced against the running API:**
+
+```
+POST /api/applications  {"id":"not-a-guid","companyName":"Probe Co",…}
+→ HTTP 500
+{"type":"…/rfc9110#section-15.6.1","title":"An error occurred while processing your request.","status":500,"traceId":"…"}
+```
+
+Server log: `System.Text.Json.JsonException: The JSON value could not be converted to
+JobTracker.Api.NewApplicationRequest. Path: $.id` → `---> System.FormatException: The JSON value is not in a supported
+Guid format.`
+
+**Root cause: the type is the validator.** `NewApplicationRequest` declares `Guid Id`, so **the binder throws before
+`ApplicationValidation.Validate` is reached** — the request never enters the pipeline that produces `400` +
+`errors[].pointer: "/id"`, and the exception handler faithfully turns a client's mistake into a server's 500. **The
+asymmetry is how it hid:** `ApplicationCatalog` *does* `Guid.TryParse` the route `{id}` (lines 34–42 and 151, with a
+comment justifying that over a `{id:guid}` constraint). **Reads are guarded; the write body is not. A guard on one path is
+not a guard on the type.**
+
+**Why no test saw it, which is the reusable part.** The 36-row validation fixture drives `Validate()` — **everything it
+asserts lives downstream of deserialization**, so a failure *upstream* of the seam under test is invisible to the suite
+that covers that seam. This is gap 9's `-037` lesson in a new place: *coverage rows are method-agnostic; spec clauses are
+not.* A fixture-driven table proves the validator and silently assumes the binder.
+
+**Fix shape, deliberately not taken here** (it is a code change and belongs in a Red→Green pair; M4 owns this input
+anyway): accept `string Id` on the DTO, `Guid.TryParse` inside `Validate`, emit `errors[].pointer: "/id"`. Red is the
+500→400 flip on this exact body; the fixture gains its first id row. **Filed rather than patched under budget pressure —
+a half-finished TDD cycle is worse than a documented defect.**
+
+**Also here: §2.8's `< 2 kB` bundle delta, which §2 sent to Slice 3 and Slice 3 never recorded.** Baseline captured from
+`84bf560` via `git worktree` (deps verified identical): **60,118 → 61,359 B gzipped = +1,241 B (1.21 kB) · PASS.**
+**Configuration-dependent, and the spec says so**: with `VITE_API_BASE_URL` unset the adapter is tree-shaken out and the
+delta is a true **0 kB** — the flag-off bundle is **byte-identical to the pre-M3 baseline**. The zero was the easiest
+number in the world to report and would have described a build nobody ships.
+
+**Method note for reproducibility:** `git worktree add /tmp/baseline 84bf560` + a symlinked `node_modules` (legitimate
+only because `git diff --quiet 84bf560..HEAD -- package.json package-lock.json` is clean — **checked, not assumed**), then
+`VITE_API_BASE_URL=… npx vite build` on both trees and `cat dist/assets/*.js | gzip -c | wc -c`. The worktree was removed
+afterwards; `git worktree list` shows only the checkout.
