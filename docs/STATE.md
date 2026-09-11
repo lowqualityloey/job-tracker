@@ -62,39 +62,37 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 > Synchronised projection of the canonical records, **regenerated whole at each slice boundary rather than bullet by
 > bullet** — an earlier version asserted `Active Task Pointer: None` three lines beneath a bullet saying the pointer is
-> held. A projection is worth one thing: that it matches its source. Rewritten below from `TASK-m3-backend-api.md`,
-> `git log`, `gh pr list --json mergeCommit` and `gh run view --json jobs`, all measured at this boundary.
+> held. Rewritten below from `TASK-m3-backend-api.md`, `git log`, `gh pr view --json mergeCommit`,
+> `gh run view --json jobs` and a live `psql`, all measured at this boundary.
 
 - **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution
-  **`in_progress`**, mapped status `In Progress`, **this record holds the Active Task Pointer**. **Slice 3 complete**
-  (`-036`…`-041` + `-046`). **`-042` is now complete too** — the real-browser harness passes 7/7 — leaving **`-043`**
-  (survives a browser restart, `psql` confirms) as the last behaviour in M3.
-- **In flight**: **PR #24** `feat/m3-slice4b-cdp` — `-042`'s browser proof: the CDP harness promoted out of the spike,
-  7 checks over a production bundle in real Chromium against the real API. **Closes AC-1 and AC-11.**
-- **Merged since M3 opened**: **#23** `650cbd3` (legible CI skip + AC-13) · **#22** `baf4397` (environment traps) ·
-  **#21** `ad100d3` (**CORS**) · **#20** `10db7ad` (`-041`) · **#19** `d989f28` (`-040`) · **#18** `58b7d02` (`-046`) ·
-  **#17** `0749bb8` · **#16** `fc77b2e` · **#15** `cda2fd1` · **#14** `b6ea9bd` · **#13** `a80af4d` · **#12** · **#11**.
-  **`main` is at `650cbd3`.**
-- **AC tally: 9 of 14 checked** (AC-1, AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13 — note AC-1 and AC-11
-  were *annotated as half-verified for four slices* and closed only by the browser) · **5 open**: AC-2, AC-3, AC-7,
-  AC-14 and AC-13's docs-only-skip half remains observable-only. **AC-3 closes with `-043`.** AC-2, AC-7 and AC-14 are
-  check-by-command items: run them, quote them, check them.
-- **Measured at this boundary**: browser harness **7/7** (`POST` 201, list `GET` 200, `localStorage` keys `[]`, tab B
-  **1 navigation entry**, cleanup `DELETE` 204) · API **65 passed** · frontend **197 tests / 20 files** ·
-  `tsc --noEmit` exit **0** · AC-1 structural diff **0 files** · runtime deps **3** · fixture **36 rows**.
-- **How to run the browser proof** (it cannot be CI, so this is the only reproducible recipe): API bound to
-  `0.0.0.0:5080` **with `ASPNETCORE_ENVIRONMENT=Development`** (else the dev CORS origins do not load and the harness
-  fails closed — that trap cost a session); `vite preview` on `0.0.0.0:4173`; bundle built with
-  `VITE_API_BASE_URL=http://<sandbox-ip>:5080`; then `docker run -d --name jt-bridge --shm-size=1g -p 9222:9222
-  --entrypoint /ms-playwright/chromium-1129/chrome-linux/chrome mcr.microsoft.com/playwright:latest --headless=new
-  --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222
-  --remote-allow-origins='*' about:blank`, then `docker cp dist`/`static.mjs`/harness into `/srv` and
-  `docker exec -e E2E_NO_SPAWN=1 -e E2E_APP=http://127.0.0.1:4173 -e E2E_API=http://<sandbox-ip>:5080 jt-bridge
-  node --experimental-websocket /srv/harness.mjs`.
-- **Open for the owner** (none blocking): the `location` null-mapping in `toDomain` is an **interpretation, not a
-  ratified decision**; gap 5 (`conflict`'s §4.3 sentence, taken as "M3 ships generic"); the `notes` ceiling; `status`
-  has no runtime validation at the seam; gap 7's precedent — sweep §4.3's table against the ladder for server-side
-  obligations a client-half behaviour made look complete.
+  **`in_progress`**, **this record holds the Active Task Pointer**. **The behaviour ladder is COMPLETE: `-026` … `-046`
+  all executed** (`-042` real Chromium cross-tab, `-043` browser-restart + `psql` were the last two). What remains is an
+  **AC sweep, not features**: AC-2, AC-7, AC-14 — each a check-and-quote, evidence for AC-2 already measured.
+- **In flight**: **PR #25** `feat/m3-slice5-persistence` — `-043`: `tests/browser/persistenceAfterRestart.mjs` +
+  `run-043.sh`. **Closes AC-3.**
+- **Merged since M3 opened**: **#24** `b51d621` (`-042`, real browser) · **#23** `650cbd3` (legible CI skip + AC-13) ·
+  **#22** `baf4397` · **#21** `ad100d3` (CORS) · **#20** `10db7ad` · **#19** `d989f28` · **#18** `58b7d02` · **#17** ·
+  **#16** · **#15** · **#14** · **#13** · **#12** · **#11**. **`main` is at `b51d621`.**
+- **AC tally: 10 of 14 checked** — AC-1, AC-3, AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13 (11 IDs, AC-13
+  and AC-1 counted once each; see §4 of the task record) · **4 open: AC-2, AC-7, AC-14** and the task record's own
+  §10 close-out. **AC-1, AC-3 and AC-11 are the three that only a browser could close**, and all three waited.
+- **Measured at this boundary**: `-043` **6/6 checks** (`POST` 201 · `localStorage` `""` · marker present after
+  `docker restart` · `navigation entries: 1` · `psql` row `1` then `remaining = 0` · **negative control absent**) ·
+  API `dotnet test` **65 passed / 0 failed / 0 warnings / exit 0**, full log kept · frontend `npm run verify` **exit 0**,
+  **197 tests / 20 files**, build ✓ · runtime deps **3** · fixture **36 rows** · AC-1 structural diff **0 files**.
+- **`-043` recipe** (extends `-042`'s; both live in the task record's §8 too): bundle built with
+  `VITE_API_BASE_URL=http://<host-ip>:5080`, `docker cp` the harness to `/srv/harness043.mjs`, the static server and
+  Chromium inside one container (the shell **cannot** route into the Docker network; the container **can** route out),
+  then `HOST_IP=<host-ip> bash tests/browser/run-043.sh`. Phases 2 and 4 run from the shell because a container cannot
+  restart its own entrypoint and `psql` is in a different container.
+- **Known-open honesty item**: one `dotnet test` run earlier today reported **1 failed / 64 passed** and cannot be named
+  (my grep discarded the evidence — see the §8 row). Four later runs were 65/65. Disclosed, not dropped; if it recurs,
+  `dotnet test > /tmp/dt.log 2>&1` **first**, then read the file.
+- **Open for the owner** (none blocking): `location` null-mapping is an **interpretation, not ratified**; gap 5
+  (`conflict`'s §4.3 sentence, taken as "M3 ships generic"); the `notes` ceiling; `status` has no runtime validation at
+  the seam; gap 7's precedent — sweep spec §4.3's table against the ladder for server-side obligations a client-half
+  behaviour made look complete.
 ## 4. Locked Technical Invariants (Do Not Undo)
 
 Agreed decisions that survive any refactor. Deviating requires a new ADR.
@@ -217,6 +215,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-11 18:05 UTC | Assistant (M3 Slice 4 close) | **`-043` passes — the behaviour ladder is complete** | A record created **through the real form in Chromium** survived **a real browser restart** (`docker restart` of the container that *is* Chromium's entrypoint: new process, new CDP id), reappeared in a fresh tab with **1 navigation entry**, and `psql` in the database container showed the row — `JT043-… ✅ café`, confirming `-041`'s fidelity claim **at rest**, not just across a wire. **`localStorage` was `` throughout**, so nothing was remembered client-side. **The negative control is the part that makes it evidence:** the row was then deleted over HTTP (`If-Match: "785"` → 204), re-queried (`remaining = 0`), and a fresh tab had to show it **gone** — otherwise "still there after restart" cannot distinguish durability from a cache. Two authoring bugs caught rather than papered over: a `DELETE` without `If-Match` returns **409** (the revision is a `xmin` counter, `785`, not a guessable `1`), and `curl -f` converted that into exit 22 which under `set -e` aborted *after* the row existed, **orphaning the marker in the dev database** — the exact hazard `-042` had just documented. **AC-3 closed; 10 of 14 ACs checked; AC-2/AC-7/AC-14 remain, all check-and-quote.** |
 | 2026-09-11 17:40 UTC | Assistant | **Unreproduced API test failure, disclosed rather than dropped** | One `dotnet test` run in this session reported **1 failed / 64 passed**. Three subsequent runs reported **65/65, exit 0** and I cannot name the failing test, because my first command to find it grepped for `^\s+(Failed|X) `, which is not the shape of the line that `dotnet test` actually prints, so the run's full output was already discarded by `tail -3`. **This is AGENTS.md's own rule applied to me: filtering a command's output can destroy the only evidence that matters** — I quoted that rule earlier in the session and then lost a failure to it. Not written off as a flake: it is one unattributed failure in four runs, with no reproduction. **If it recurs, save the whole log to a file before reading any of it** — `dotnet test > /tmp/dt.log 2>&1`, then search the file — because the second occurrence is the one that will be diagnosable. Candidate causes deliberately not guessed at, since guessing is how false root causes get recorded. |
 | 2026-09-11 17:25 UTC | Assistant (M3 Slice 4) | **`-042` passes: real Chromium, real API, the other tab learns without reloading** | The CDP harness (promoted from the spike) runs **7/7**: production bundle served over HTTP, list `GET` 200 with **`localStorage` keys `[]`**, `POST` through the real form **201**, and a second tab that displays the new record with **1 navigation entry** — never reloaded, never touched. **Closes AC-1 and AC-11**, the two ACs deliberately held open as half-verified for four slices. **Four independent failures stood between 257 green tests and a working browser:** no CORS at all (fixed in #21 — a preflight returned 405 while every test passed); a **stale pre-CORS API process**, which made a correct fix look broken (the startup banner said `Hosting environment: Production`, so `appsettings.Development.json` never loaded and the fail-closed default did its job); Chromium's DevTools unreachable *from the shell* because **the sandbox cannot route into the Docker network** (container→host works, host→container does not — the spike's "everything runs inside one container" was a constraint I read as a convenience); and the harness opening `/` while waiting for `.application-card`, which lives on `/applications` — a test bug dressed as an app bug. **9 of 14 ACs checked; `-043` is the only behaviour left.** |
 | 2026-09-11 16:05 UTC | Assistant | **AC-13 verified — after I had wrongly reported its gate broken** | `gh run view 34622071963` (PR #22, docs-only) and `34618700018` (PR #21, `api/`) give the two run lists AC-13 demanded: on the docs-only push `Detect whether the API surface changed` succeeded and **`setup-dotnet` + `Verify (build with warnings as errors → test against a real PostgreSQL)` were `skipped`**, while the job reported `success`; on the `api/` push both steps `success`. The gate worked exactly as grill F-10 designed it — a job always reports, only its steps skip. **My previous turn's claim that it 'isn't doing its job' was read off the check-name bucket without opening the run**, and it is the second documentation-integrity failure of the session; the correction is in §3A and in AC-13's evidence line, not a silent edit. Hardening follows: both detector branches now write a `$GITHUB_STEP_SUMMARY` note (`verify-api: skipped` / `: running`), because the log already said it and nobody opens a log to decide whether a green check means something. First sighting of the skip note is the next docs-only PR — this one edits `ci.yml`, which the detector counts as API surface. **8 of 14 ACs checked, 65 API tests, 197 frontend.** |
