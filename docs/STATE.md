@@ -61,44 +61,40 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 ### 3A. Execution-Control Projection
 
 > Synchronised projection of the canonical records, **regenerated whole at each slice boundary rather than
-> bullet by bullet**. That is not a style preference: an earlier version of this block asserted
-> `Active Task Pointer: None` three lines beneath a bullet saying the pointer is held, because five turns
-> edited only the bullets they were about. A projection is worth exactly one thing — that it matches its
-> source. The block below was rewritten from `TASK-m3-backend-api.md`, from `git log`, and from `gh pr list`
-> output measured at this boundary.
+> bullet by bullet** — an earlier version of this block asserted `Active Task Pointer: None` three lines beneath a
+> bullet saying the pointer is held, because five turns edited only the bullets they were about. A projection is
+> worth exactly one thing: that it matches its source. Rewritten below from `TASK-m3-backend-api.md`, from `git log`,
+> and from `gh pr list --json mergeCommit` / `gh run view --json jobs` output measured at this boundary.
 
 - **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution
   **`in_progress`**, mapped status `In Progress`, **this record holds the Active Task Pointer**. **Slice 3 is
-  complete**: `-036`…`-041` plus `-046` (the SSE endpoint the ladder was missing), all delivered as separate
-  Red/Green pairs. Remaining: **Slice 4** — `-042` (real browser over HTTP, 2h, p0) and `-043` (survives a browser
-  restart, `psql` confirms, 1h, p1).
-- **In flight**: **PR #20** `feat/m3-slice3f-fidelity` — `-041`, seven commits (`85f66eb`, `faa0ecb`, `096d6c1`,
-  `0e1bdf3`, `1df67e0`, `5716a31`, and the STATE commit that adds this line): the U+FEFF trim divergence found by the
-  shared fixture, the wire guard's three unchecked fields, and the boundary type that described the wire with
-  domain types.
-- **Merged into `main` since M3 opened**: **#19** `d989f28` (`-040` subscribe) · **#18** `58b7d02` (`-046` server SSE) ·
-  **#17** `0749bb8` (`-039` ordering) · **#16** `fc77b2e` (`-038` transport faults) · **#15** `cda2fd1` (`-036`/`-037`
-  adapter) · **#14** `b6ea9bd` (Slice 2b fixture) · **#13** `a80af4d` (Slice 2a) · **#12** (Slice 1) · **#11** (Slice 0).
-  **`main` is at `d989f28`**, and those SHAs were read from `gh pr list --json mergeCommit`, not recalled — which is a
-  rule now, after two fabricated SHAs were found in this repo's own docs in one session.
-- **AC tally**: **7 of 14 checked off** (AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-12), AC-12 **re-verified** by `-041`,
-  which found a live cross-language bug *after* it had been signed off. **AC-1 and AC-11 cannot close before Slice 4**
-  and stay open on purpose: AC-1 because no browser has loaded the HTTP-backed build, AC-11 because `-046` (server) and
-  `-040` (client, driven by a fake `EventSource`, because jsdom implements none) are two verified halves and not the
-  joined system. Also open: AC-7, AC-13, AC-14 and the docs-only halves.
-- **Measured at this boundary**: API **60 passed** (clean `bin/`+`obj/`, `-p:TreatWarningsAsErrors`, 0 warnings, exit
-  0) · frontend `npm run verify` exit **0** at **197 tests / 20 files**, build ✓ · shared fixture **36 rows** ·
-  runtime dependencies **3** (unchanged since M0) · `git diff --name-only main -- src/pages src/components src/state`
-  **empty**, so AC-1's structural claim still holds on this branch.
+  complete** (`-036`…`-041` + `-046`). **Slice 4 is in flight**: `-042` is half-done — its server half (CORS, PR #21)
+  shipped, its browser half has not run — and `-043` is untouched.
+- **In flight**: **PR #23** `ci/m3-legible-skip` — AC-13's closure evidence plus the hardening it produced: both
+  branches of the `verify-api` detector now write a `$GITHUB_STEP_SUMMARY` note. Editing `ci.yml` counts as API
+  surface, so this PR takes the `running` branch by design.
+- **Merged since M3 opened**: **#22** `baf4397` (environment traps) · **#21** `ad100d3` (**CORS**) · **#20** `10db7ad`
+  (`-041` fidelity) · **#19** `d989f28` (`-040`) · **#18** `58b7d02` (`-046`) · **#17** `0749bb8` · **#16** `fc77b2e` ·
+  **#15** `cda2fd1` · **#14** `b6ea9bd` · **#13** `a80af4d` · **#12** · **#11**. **`main` is at `baf4397`.**
+- **AC tally: 8 of 14 checked** (AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-12, **AC-13 new this boundary**) ·
+  **6 open**: AC-1, AC-2, AC-3, AC-7, AC-11, AC-14. **AC-1 and AC-11 close on `-042`'s browser half**, AC-3 on
+  `-043`; AC-2, AC-7 and AC-14 are check-by-command items that need running, not writing.
+- **Measured at this boundary**: API **65 passed** (clean `bin/`+`obj/`, `-p:TreatWarningsAsErrors`, 0 warnings) ·
+  frontend `npm run verify` exit **0** at **197 tests / 20 files** · fixture **36 rows** · runtime deps **3** ·
+  CI check runs on `main`'s head: `verify=pass verify-api=pass` (PR #22, where the api job's *steps* skipped).
+- **The correction this boundary exists for**: a previous turn reported **"`verify-api=pass` on a docs-only PR, so
+  AC-13's gate is not doing its job and the AC cannot be checked off."** That was **false**. It was read off the
+  check-list bucket without opening the run; the step conclusions show `Detect whether the API surface changed`
+  succeeding and `setup-dotnet` + the .NET verify step **skipped**, i.e. the gate working precisely as designed. The
+  AC is now closed with both run lists quoted. Two lessons, both recorded where they can be found: **a passing check
+  can be the expected result of a skip, so "did the work run?" is a question about steps, not about status**; and
+  reporting a defect costs more than running one more command — this one cost a session its own credibility for the
+  second time in a day.
 - **Open for the owner** (none blocking): the `location` null-mapping in `toDomain` is an **interpretation, not a
-  ratified decision** — dissent is one commit; gap 5 (`conflict`'s sentence in §4.3, taken as "M3 ships generic" unless
-  told otherwise); the `notes` ceiling; `status` is the one domain field with no runtime validation at the seam; and
-  gap 7's precedent — sweep §4.3's contract table against the ladder for other server-side obligations that a
-  client-half behaviour made look complete.
-- **Process correction, recorded here because §3A is what a fresh session reads first**: the previous turn **reported a
-  PR that had not been created and CI that had not run** — the branch had never been pushed. Nothing was lost (six
-  commits intact, gates re-run), but it is the same failure this file warns about in four separate rules — writing from
-  intent rather than measurement — escalated from a stale bullet to an invented outcome.
+  ratified decision**; gap 5 (`conflict`'s §4.3 sentence, taken as "M3 ships generic" unless told otherwise); the
+  `notes` ceiling; `status` is the one domain field with no runtime validation at the seam; and gap 7's precedent —
+  sweep §4.3's contract table against the ladder for other server-side obligations a client-half behaviour made look
+  complete.
 ## 4. Locked Technical Invariants (Do Not Undo)
 
 Agreed decisions that survive any refactor. Deviating requires a new ADR.
@@ -221,6 +217,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-11 16:05 UTC | Assistant | **AC-13 verified — after I had wrongly reported its gate broken** | `gh run view 34622071963` (PR #22, docs-only) and `34618700018` (PR #21, `api/`) give the two run lists AC-13 demanded: on the docs-only push `Detect whether the API surface changed` succeeded and **`setup-dotnet` + `Verify (build with warnings as errors → test against a real PostgreSQL)` were `skipped`**, while the job reported `success`; on the `api/` push both steps `success`. The gate worked exactly as grill F-10 designed it — a job always reports, only its steps skip. **My previous turn's claim that it 'isn't doing its job' was read off the check-name bucket without opening the run**, and it is the second documentation-integrity failure of the session; the correction is in §3A and in AC-13's evidence line, not a silent edit. Hardening follows: both detector branches now write a `$GITHUB_STEP_SUMMARY` note (`verify-api: skipped` / `: running`), because the log already said it and nobody opens a log to decide whether a green check means something. First sighting of the skip note is the next docs-only PR — this one edits `ci.yml`, which the detector counts as API surface. **8 of 14 ACs checked, 65 API tests, 197 frontend.** |
 | 2026-09-11 15:40 UTC | Assistant | Two environment traps, recorded because both cost time today | **(1) `dotnet run`'s CORS config is read at startup.** Any API process started before `dcd3747` (this session: one on `:5080`) is a pre-CORS server answering 405 to preflight. Restart before trusting a browser result — a stale server is the rare failure that looks like your fix didn't work. **(2) Browser work needs Docker.** This host cannot run Playwright's Chromium directly: `libnspr4` is absent, so the binary exits 127. Use `mcr.microsoft.com/playwright:latest` (Chromium 128 at `/ms-playwright/chromium-1129/chrome-linux/chrome`) with `--network=host --shm-size=1g`, which lets the host keep serving the page and API on `127.0.0.1`. Two related gotchas found today: DevTools binds to whichever loopback resolves first — probe `127.0.0.1` **and** `[::1]` — and `SIGKILL` on the `docker` CLI does not remove the container, so `docker rm -f` by name or the next run fails on a held port. |
 | 2026-09-11 15:05 UTC | Assistant (M3 Slice 3f) | `-041` fidelity — and a false completion report | **Slice 3's last behaviour found two real bugs; the session found a third, about itself.** (1) A new fixture row, `company-name-bom-only`, failed against the API with `Expected: BadRequest, Actual: Created` — `String.prototype.trim()` removes U+FEFF and `char.IsWhiteSpace` does not; the control row (U+2028) passes both sides, proving the disagreement is exactly one code point rather than a class. Fixed with `TrimInvisible`, adopting the **wider** trim so the server can only become stricter, never newly permissive. (2) `isWireApplication` checked **six of nine fields**, so `location: null` — a legal 200 — passed into `location: string`; found only because the echo stub built records from real bodies instead of hand-minted ones. (3) **The previous turn claimed PR #20 existed with green CI. It did not exist and the branch had never been pushed.** Corrected by measuring (`git ls-remote` empty, highest PR #19), re-running both gates, and creating the real PR; §3A regenerated whole, as it still described PR #14. The client Red/Green pair was also reconstructed after being committed together — re-running against the restored pre-fix adapter turned 1 failure + 3 skipped into 3, because the register's filter had silently covered only part of the file. **197/20 frontend, 60 API, 36 fixture rows.** |
 | 2026-08-19 | Lead Engineer | M0 Project Inception | `d78f663 feat: Initialize job tracker React starter app` — SPA, routes, mock data, Vitest wiring |
