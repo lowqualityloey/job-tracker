@@ -36,7 +36,15 @@ public sealed class ApplicationsCommandTests(ApplicationsApiFixture fixture) : I
         });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
 
-        var deleted = await fixture.Http.DeleteAsync($"/api/applications/{id}");
+        // The precondition is read back from the server rather than assumed, which is also what a client does after
+        // a reload. F-3 (grill) made If-Match *required* on DELETE after this behaviour was registered, so 035's
+        // "DELETE → 204" now means "DELETE carrying a current version → 204"; 044's Green is what proved the
+        // reading, by breaking this test. Reconciled in §11 of the test register.
+        using var stored = JsonDocument.Parse(await fixture.Http.GetStringAsync($"/api/applications/{id}"));
+        var current = stored.RootElement.GetProperty("revision").GetUInt32();
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/applications/{id}");
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{current}\"");
+        var deleted = await fixture.Http.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
         // 204 must not lie about having a body: an empty-body response with a Content-Length of 0 is correct, and

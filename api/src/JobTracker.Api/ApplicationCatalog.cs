@@ -1,4 +1,5 @@
 using JobTracker.Api.Data;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Npgsql.EntityFrameworkCore.PostgreSQL;
@@ -84,7 +85,7 @@ public static class ApplicationCatalog
         //
         // If-Match is ignored here, which is a known defect and not an oversight — 044's Red turns it into a
         // failing test first. See that commit's message for why a minimal 035 Green was written blind to it.
-        endpoints.MapDelete("/api/applications/{id}", async (string id, JobTrackerDb db, CancellationToken ct) =>
+        endpoints.MapDelete("/api/applications/{id}", async (string id, JobTrackerDb db, CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
         {
             if (!Guid.TryParse(id, out var guid))
             {
@@ -95,6 +96,14 @@ public static class ApplicationCatalog
             if (entity is null)
             {
                 return Problems.NotFound(id);
+            }
+
+            // BEHAVIOR-m3-backend-api-044 (grill F-3: If-Match is required on DELETE). Absent, unparseable or
+            // mismatched all refuse the write, because none of them *proves* the caller is looking at the current
+            // row — and a delete is the one operation in this API whose damage a retry cannot undo.
+            if (!IsCurrent(ifMatch, entity.Revision))
+            {
+                return Problems.Conflict(guid);
             }
 
             db.Applications.Remove(entity);
@@ -111,6 +120,33 @@ public static class ApplicationCatalog
     /// behaviour, and `required` members mean a payload missing company_name fails during binding rather than as a
     /// null-ref somewhere downstream.
     /// </summary>
+    /// <summary>
+    /// Does this <c>If-Match</c> value name the row's current version?
+    ///
+    /// Quoted, because §4.3 spells the token as `ETag: "&lt;xmin&gt;"` and a client that echoes a header verbatim sends
+    /// the quotes; an implementation that compared raw digits would pass a test written in the same file and fail
+    /// against a browser. <c>W/</c> (weak) is deliberately *not* accepted: a weak validator explicitly does not
+    /// guarantee byte-equivalence, which is the entire reason a precondition on a destroy exists. <c>*</c> ("any
+    /// version") is likewise refused rather than honoured — no behaviour in M3 asks for it, and silently accepting
+    /// it would be a hole a future client could fall into without a failing test first.
+    /// </summary>
+    private static bool IsCurrent(string? ifMatch, uint revision)
+    {
+        if (ifMatch is null)
+        {
+            return false;
+        }
+
+        var candidate = ifMatch.Trim();
+        if (candidate.StartsWith("W/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        candidate = candidate.Trim('"');
+        return uint.TryParse(candidate, out var value) && value == revision;
+    }
+
     public sealed record NewApplicationRequest(
         Guid Id,
         string CompanyName,
