@@ -131,13 +131,13 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Gates now closed**: `pk:grill` ran at 2026-09-11 03:50 UTC →
   [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan
   amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
-  <!-- Reconstructed 2026-09-11 08:36 UTC from text found mangled in the file. An earlier scripted edit had spliced an orphan
-  fragment (" … migration** its Green requires. (Preceding text read …") into the middle of this bullet and absorbed
-  the record's separate "Gates now closed" bullet into its closing parenthesis, leaving one damaged bullet where
-  there had always been two. Found by re-reading the source before regenerating the projection — the point of
-  rule 7 — and the second time this session that a scripted edit damaged a document in a way no test could observe.
-  The fragment is described rather than preserved: keeping two copies of a sentence in one file only moves the
-  confusion to the next reader. -->
+  <!-- Repaired 2026-09-11 08:36 UTC (the bullet above). An earlier scripted edit had spliced a superseded clause
+  into the middle of the Next Action bullet — an orphan beginning with the word "migration" and ending in a stray
+  closing brace — and drawn this "Gates now closed" bullet down into the parenthesis that had been closing the other
+  one, leaving a single damaged bullet where the record had always held two. Found by re-reading the source before
+  regenerating the projection, which is the point of rule 7, and the second time this session that a scripted edit
+  damaged a document in a way no test could observe. The clause is paraphrased here rather than quoted: a file that
+  contains two copies of a sentence, one of them labelled debris, is how the next reader ends up choosing wrong. -->
 
 ### Transition History
 
