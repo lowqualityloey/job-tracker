@@ -42,7 +42,13 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
     {
         modelBuilder.Entity<Application>(entity =>
         {
-            entity.ToTable("applications");
+            // §4.1's CHECK, declared in the model so the migration carries it. It was missing entirely until
+            // BEHAVIOR-…-032's Red inserted 'Escalated' into the real table and watched the database take it — see
+            // that commit for how a Slice 0 test that asserted the same violation on a *temporary probe table*
+            // nearly let AC-4 be recorded as half-verified.
+            entity.ToTable("applications", table => table.HasCheckConstraint(
+                "applications_status_check",
+                "status in ('Saved', 'Applied', 'Interview', 'Rejected', 'Offer')"));
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CompanyName).HasColumnName("company_name");
             entity.Property(e => e.JobTitle).HasColumnName("job_title");
@@ -50,8 +56,18 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
             entity.Property(e => e.Status).HasColumnName("status");
             entity.Property(e => e.AppliedAt).HasColumnName("applied_at");
             entity.Property(e => e.Notes).HasColumnName("notes");
-            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            // HasDefaultValueSql("now()") is here because the schema had something worse: adding a NOT NULL
+            // column to an existing table made EF write `DEFAULT TIMESTAMPTZ '-infinity'` into the DDL, a
+            // placeholder nobody chose that §4.1 does not specify. A missing created_at should either mean
+            // "this instant" or be an error — never -infinity, which sorts beautifully and means nothing.
+                        entity.Property(e => e.CreatedAt).HasColumnName("created_at")
+                .HasDefaultValueSql("now()");
+            // HasDefaultValueSql("now()") is here because the schema had something worse: adding a NOT NULL
+            // column to an existing table made EF write `DEFAULT TIMESTAMPTZ '-infinity'` into the DDL, a
+            // placeholder nobody chose that §4.1 does not specify. A missing created_at should either mean
+            // "this instant" or be an error — never -infinity, which sorts beautifully and means nothing.
+                        entity.Property(e => e.UpdatedAt).HasColumnName("updated_at")
+                .HasDefaultValueSql("now()");
 
             // §4.1's second statement. Recorded honestly: this index is the one part of the approved DDL that no
             // AC or behaviour asserts — spec guard G-6 covers the CHECK list agreeing with the validator, and
