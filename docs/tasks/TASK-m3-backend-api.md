@@ -93,7 +93,14 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   table in one place and tests **status before body**, because a `502`/`504` arrives from an intermediary whose body
   is in whichever vocabulary the proxy speaks. Not covered, because nothing in the ladder covers it: the *sentence* a
   `conflict` should render as — see the register's §14 gap 5.
-- [ ] **AC-9** — **Server unreachable degrades like storage blocked.** A `fetch` rejection maps to `unavailable`, and the provider's existing refusal gate behaves exactly as M2a's tests describe. **Result**: Pending · **Evidence**: `BEHAVIOR-…-038`
+- [x] **AC-9** — **Server unreachable degrades like storage blocked.** A `fetch` rejection maps to `unavailable`, and the provider's existing refusal gate behaves exactly as M2a's tests describe. **Result**: Pending · **Evidence**: `BEHAVIOR-…-038`
+  **Result**: **Verified** (2026-09-11 11:40 UTC) · **Evidence**: `BEHAVIOR-…-038` (`cbfaa2f`, **no Red phase** —
+  both halves were already true of `-037`'s mapping and M2b's gate, and the commit says so). 9 tests: five adapter
+  cases (`list`/`get`/`create`/`update`/`remove` under a rejecting `fetch` → `storage-error`, asserted *also* as
+  `not.toBe('unavailable')`), one request-count case, two provider cases through the real `ApplicationsProvider`.
+  **Mutation-proven** rather than assumed: reporting transport failure as `unavailable` → 6 of 9 red; deleting the
+  provider's refusal gate → initially only 1 of 2 provider cases red, which exposed that the second asserted a string
+  its probe built, not a refusal it could see. Fixed by counting requests; then 2 of 2 red.
   **Wording corrected before it was executed** (2026-09-11 11:26 UTC, register §14 gap 6): §4.3's table maps a `fetch` rejection to
   **`storage-error`** — "deliberately *not* `unavailable`: 'we could not learn anything' is not 'the server said it is
   busy'" — while this AC and the spec's own ladder row both say `unavailable`. PR #15 put both readings in front of
@@ -139,13 +146,18 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 11:26 UTC): `-038`, transport failure** — PR #15 merged as `cda2fdf` (verified: `4e5bfdf` is an
-  ancestor of `main`), so gap 6 is settled as above and the behaviour is unblocked. Two of its three claims were
-  already true of `-037`'s Green, so a no-Red outcome is expected and will be reported as one, with a mutation check
-  run *before* the claim rather than after it (`55e981c` is the cautionary commit). **Then `-039`**, which opens a
-  scope question rather than a code question: out-of-order re-read is provider behaviour, and the provider lives
-  under `src/state/`, which AC-1's own diff check forbids this milestone from touching — even to add a test file.
-  That arrives with `-039`, not before.
+- **Next Action (2026-09-11 11:40 UTC): `-039`, the out-of-order re-read guard** — which turned out to be a design
+  question with a better answer than the one it looked like. Its obvious home is the provider's `reload()`
+  (`src/state/applicationsProvider.tsx`), and editing that file fails AC-1's own evidence command
+  (`git diff --name-only main -- src/pages src/components src/state` → must be empty). Assuming that conflict was the
+  mistake; the ordering fact lives where the reordering is observable — **inside the adapter**, which knows that a
+  second `list()` overtook a first one. So `-039` is attempted there: a lost race resolves with the payload that won
+  it, rather than with the bytes it personally received, which is the same user-visible guarantee ("a stale response
+  cannot repaint the list") from a file this milestone is allowed to change. If the resulting tests cannot
+  distinguish that from a provider-level guard — specifically, if a caller that ignores resolution order still paints
+  stale data — the provider edit and an AC-1 amendment come back as an owner question, not a silent scope widening.
+  **Then `-040`** (SSE, one re-list per `open`) and **`-041`** (unicode fidelity), both unambiguously `src/data/`.
+  Gap 5 from §14 is still open either way: `conflict` has no registered user-facing sentence.
   (Preceding text read: "**Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared
   fixture.** Author `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules …
   Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and `job_title` (deferred
@@ -493,6 +505,22 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     user never pointed. Such a code arriving on an id-less request (a list) is `corrupt-data`.
   - The register's filter `-t "error mapping"` matches the `describe`, so the command reports 14 rather than 12 — the
     block's two non-table guards share the name. Recorded so nobody "fixes" the count later.
+
+  **`TDD-EXEC-m3-backend-api-038`** · `BEHAVIOR-…-038` · `cbfaa2f` · **no Red phase** · p0 · Slice 3b
+  - `src/data/networkFaults.test.tsx`, named for `storageFaults.test.ts`: a fault-injection scenario file in
+    `src/data/`, which is what lets the provider half import `src/state/applicationsProvider` **without editing it**
+    — AC-1's diff check is about changed files, and importing is not changing.
+  - The mutation that mattered is the one that nearly passed: with `refusal = null` in the provider, the case titled
+    "hands back the load failure itself" stayed green, because the repository returns the same code the refusal
+    would have and the probe's own `refused:` prefix made the outcome text identical. A test whose expected string is
+    assembled by the test's own harness asserts the harness. Request counting is what makes it a claim about the app.
+  - Asserted without being asked: exactly one `fetch` per call when nothing answers. A retry loop would double every
+    write on a connection blip, and client-minted ids make *deliberate* retries safe — not machinery the user never
+    initiated.
+  - **Its own commit was made over `verify` exit 1** (an unused `codeOf` helper) with a test count derived by
+    arithmetic instead of read from a log. Amended rather than corrected in a second commit because nothing was
+    pushed: `1ce8425` → `cbfaa2f`, and the amended message carries the miss. This is rule #1 of the commit-discipline
+    list failing on the same day it was cited twice, which is the honest summary of how these rules stay true.
 
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — the first `api` job run FAILED, and why it was right**: provider GitHub Actions, workflow
