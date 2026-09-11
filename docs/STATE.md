@@ -7,11 +7,11 @@
 ## 1. Executive Summary & Current Position
 
 - **Project Name**: Job Tracker (`job-tracker` v0.2.0)
-- **Current Milestone / Epic**: **M2 complete** — M1 (PR #1) · M2a (PR #2 → `1ec8fe8`) · M2b (PR #3 → `489cdb9`) · **DEBT-03 lint+CI (PR #4 → `68db873`)** all merged. `npm run verify` now gates every PR **and `main` itself**. **DEBT-01's residual is closed by observation, not deferred**: the cross-tab behaviour and AC-10's unmeasured halves ran in real Chromium 128 — **13/13**, the first time this app was rendered by anything other than jsdom (`docs/spikes/2026-09-11-real-browser-cross-tab-check.md`). That check also exposed a crash-level defect in the new lint config, fixed in `72f2b68`. **M3 — Backend API approved (PR #7 → `84bf560`) and decomposed**: `docs/specs/2026-09-11-spec-m3-backend-api.md` `docs/specs/2026-09-11-spec-m3-backend-api.md` (476 lines, 8 decision records with verified citations, 3 owned assumptions, 10 FMEA rows) and `docs/tasks/TASK-m3-backend-api.md` (14 ACs, behaviour ladder `BEHAVIOR-m3-backend-api-026…043`, TDD mode `enabled`, execution state `planned`). **No code and no `dotnet` install yet**: the record's single next action is `pk:grill`, then `pk:test`. Decomposition was PR #8. **`pk:grill` has now run** (`docs/reviews/2026-09-11-m3-plan-grill.md`, 12 findings, F-1 blocking Slice 2) — still no code, and execution state remains `planned`.
+- **Current Milestone / Epic**: **M2 complete** — M1 (PR #1) · M2a (PR #2 → `1ec8fe8`) · M2b (PR #3 → `489cdb9`) · **DEBT-03 lint+CI (PR #4 → `68db873`)** all merged. `npm run verify` now gates every PR **and `main` itself**. **DEBT-01's residual is closed by observation, not deferred**: the cross-tab behaviour and AC-10's unmeasured halves ran in real Chromium 128 — **13/13**, the first time this app was rendered by anything other than jsdom (`docs/spikes/2026-09-11-real-browser-cross-tab-check.md`). That check also exposed a crash-level defect in the new lint config, fixed in `72f2b68`. **M3 — Backend API approved (PR #7 → `84bf560`) and decomposed**: `docs/specs/2026-09-11-spec-m3-backend-api.md` `docs/specs/2026-09-11-spec-m3-backend-api.md` (476 lines, 8 decision records with verified citations, 3 owned assumptions, 10 FMEA rows) and `docs/tasks/TASK-m3-backend-api.md` (14 ACs, behaviour ladder `BEHAVIOR-m3-backend-api-026…043`, TDD mode `enabled`, execution state `planned`). **No code and no `dotnet` install yet**: the record's single next action is `pk:grill`, then `pk:test`. Decomposition was PR #8. **`pk:grill` has now run** (`docs/reviews/2026-09-11-m3-plan-grill.md`, 12 findings, F-1 blocking Slice 2), and `pk:test` has produced the 20-row TDD intent register (`docs/tests/2026-09-11-test-m3-backend-api.md`) with mode **reconciled**. **Still no code**, and execution state remains `planned` for the owner to promote.
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
-- **Current Working Branch**: `docs/m3-plan-grill` on `main` @ `e58da50` = merged PR #8 (branch base and PR head both *read*, not assumed — the rule earned on this branch). **PR #9** carries the design grill; `headRefOid` re-checked against the local tip at creation. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
-- **Last Updated**: 2026-09-11 03:50 UTC — PR #8 merged (`e58da50`); `headRefOid` matched the tip, `npm run verify` re-run green on merged `main` (100 tests · build ✓ · clean tree), and the seventh commit-discipline rule **plus its Kilo mirror** verified present on `main` by grep (the mirror's wording differs — "before writing" vs "before you write" — so the first grep looked like a sync violation and was wrong; the rule is synced). Then `pk:grill` interrogated the approved M3 plan. Timestamps from `date -u`, measured not inferred
+- **Current Working Branch**: `tests/m3-test-plan` on `main` @ `4f06927` = merged PR #9 (base read with `git rev-parse --short main` and `git rev-parse --abbrev-ref HEAD` **before** the first `git add`, per the rule earned last branch). **PR #10** carries the test plan; `headRefOid` re-checked against the local tip. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
+- **Last Updated**: 2026-09-11 05:03 UTC — PR #9 merged (`4f06927`); verify re-run green on merged `main` (100 tests). Then `pk:test` wrote the M3 test plan. It also **falsified part of my own grill record**: reading `src/domain/validation.ts` shows `MAX_TEXT_LENGTH = 120` *is* enforced on three fields, so F-1's "no ceiling at all" was wrong, and `status` has no runtime client validation at all — which made AC-12's "sixth status to both validators" impossible as written. Corrected additively in the grill record (§4), in the Task Record's AC-12, and in the plan's fixture design. Timestamps from `date -u`, measured not inferred
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -26,7 +26,7 @@
 - [x] **M1 — Engineering OS Integration**: **MERGED as PR #1 (`63d769d`, 2026-09-10)**. Submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed, lockfile tracked
 - [x] **M2a — Persistence seam**: **MERGED as PR #2 (`1ec8fe8`)**. 17 behaviours, AC-1…AC-11, repository seam + failure modes + CRUD UI + error-code contract sweep
 - [x] **M2b — Filters, search, cross-tab reconciliation**: **MERGED as PR #3 (`489cdb9`)**; verified green on `main` the same day. Behaviours 018–026 (9/9), AC-1…AC-10 (10/10), 77 → **100 tests**. Spec `docs/specs/2026-09-10-spec-m2b-filters-cross-tab.md`, record `docs/tasks/TASK-m2b-filters-cross-tab.md`
-- [ ] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · next: `pk:test` → Slice 0
+- [ ] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · `pk:test` **done** (20 intents, mode reconciled, PR #10) · next: **Slice 0** (SDK 10.0.401 + scaffold), Slice 2 gated on F-1's fixture
 - [ ] **M4 — Authentication** (**Level 2**: `pk:auth`)
 - [ ] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval)
 
@@ -68,8 +68,9 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   **`planned`**, mapped status `To Do`, **Active Task Pointer: `None`** (claimed only on `in_progress`). Planning
   Record [`PLAN-m3-backend-api`](../specs/2026-09-11-spec-m3-backend-api.md#PLAN-m3-backend-api) is `Full`, approved
   by merging PR #7
-- **In flight**: **PR #9** `docs/m3-plan-grill` — the design grill record + its consequences in the Task Record
-  and here. Docs-only as ever: no `src/`, no `api/`, no dependency change, **`dotnet` still not installed**
+- **In flight**: **PR #10** `tests/m3-test-plan` — the M3 test plan + intent register, the grill correction, and
+  the Task Record's consequence edits. Docs-only as ever: no `src/`, no `api/`, no dependency change, **`dotnet`
+  still not installed**
 - **Approval state**: the owner approved the design by merging PR #7, which carried §7's checklist — the eighth
   `RepositoryError` variant, the PostgreSQL **18.6** / .NET **10, SDK 10.0.401** pins, and three assumptions.
   Recorded as approved-by-merge in §1 of the record, with an explicit invitation to dissent before Slice 1,
@@ -89,13 +90,16 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Per-commit audit of DEBT-03's branch** (historical, kept where it was filed): `tsc` green at all 9 commits,
   100 tests at all 9, stylelint green at its introducing commit, eslint red at exactly `04e04d5` — the commit that
   installs the config one step before the commit that clears the 17 findings it reports
-- **Blockers and Resume Condition**: **one internal blocker** — Slice 2 may not start on AC-12 as written
-  (F-1: two validators, two stacks, no shared mechanism; the grill also found the client has no length ceiling, so
-  the AC's "max+1" boundaries tested a rule that does not exist). **Sequence fixed by the Task Record**: `pk:test`
+- **Blockers and Resume Condition**: **one internal blocker** — Slice 2 may not start until F-1's fixture exists
+  (unchanged; the correction below narrows *why*, not whether):
+  (F-1: two validators, two stacks, no shared mechanism. Corrected by reading `validation.ts`: the client **does** cap
+  three fields at 120 chars, **`notes` does not**, and **`status` has no runtime client validation** — so AC-12's
+  "sixth status to both validators" was impossible as written and the fixture now carries per-side expectations). **Sequence fixed by the Task Record**: `pk:test`
   → Slice 0 installs the pinned SDK and scaffolds `api/` → PR #10. If the owner rejects `DECISION-006`, the documented fallback is no optimistic
   concurrency in M3 — which returns M2b's silent last-write-wins and drops `BEHAVIOR-…-033`
-- **Next Action**: **run `pk:test`** → `docs/tests/TEST-m3-backend-api.md` with intents matching §4's mode.
-  Slice 2 additionally blocked on grill finding **F-1** (AC-12's cross-language fixture); Slices 0–1 unblocked
+- **Next Action**: **promote the Task Record to `in_progress` and start Slice 0** (SDK **10.0.401** + `api/`
+  scaffold + compose + path-gated CI), which is the only step that installs anything. Slice 2 stays blocked on
+  **F-1** (the shared validation fixture); Slices 0–1 are unblocked
 
 ### 3B. Release-Evaluation Handoff
 
