@@ -62,65 +62,43 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 > Synchronised projection of the canonical records, **regenerated whole at each slice boundary rather than
 > bullet by bullet**. That is not a style preference: an earlier version of this block asserted
-> `Active Task Pointer: None` three lines beneath a bullet saying the pointer is held, because five turns had each
-> edited only the bullets they were about. A projection is worth exactly one thing — that it matches its source.
-> The source is `TASK-m3-backend-api.md`; the block below was rewritten from it, from `git log`, and from command
+> `Active Task Pointer: None` three lines beneath a bullet saying the pointer is held, because five turns
+> edited only the bullets they were about. A projection is worth exactly one thing — that it matches its
+> source. The block below was rewritten from `TASK-m3-backend-api.md`, from `git log`, and from `gh pr list`
 > output measured at this boundary.
 
-- **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution state
-  **`in_progress`**, mapped status `In Progress`, **this record holds the Active Task Pointer**. **Slice 2 is
-  complete**: all seven of its behaviours (`-030`, `-033`, `-034`, `-035`, `-044`, `-045`, `-031`) plus `-032`
-  executed early, out of ladder order. Planning Record `PLAN-m3-backend-api` is `Full`, approved by the owner
-  merging PR #7.
-- **In flight**: **PR #14** `feat/m3-slice2b-validation-fixture` (head `affb6a0`, verified equal to the local tip) —
-  Slice 2b: the shared fixture, the server validator, the client contract test, and `DropPlaceholderTextDefaults`.
-- **Merged into `main` since M3 opened**: **PR #13** (`a80af4d`) Slice 2a's write paths · **PR #12** (`bdcd4b6`)
-  Slice 1's read paths · **PR #11** (`e77604f`) Slice 0's harness. `main` is at `a80af4d`.
-- **Approval state**: approved-by-merge on PRs #7, #11, #12, #13, with an explicit invitation to dissent recorded on
-  each. Stated as a fact rather than a problem: nothing built so far is marked expensive-to-reverse by `pk:grill`.
-  The expensive calls — SSE for `subscribe()`, no CORS configuration, no authentication in M3 — arrive with Slice 3.
-- **Execution Scope**: `api/**`, `.github/workflows/ci.yml`, `docs/**`, and **one new file under `src/domain/` that
-  is a test**. `git diff main --name-only -- src/ | grep -v test` → **0 files**, re-measured at this boundary:
-  AC-1's "no file under `src/pages|components|state`" is intact and M3 has not yet touched `src/data/`. No new npm
-  package has been installed since Slice 1 declined `EFCore.NamingConventions`; runtime dependencies **3**.
-- **Verification Status** (clean tree: `bin/` and `obj/` deleted from both API projects, CI's own flags):
-  `dotnet build api/JobTracker.slnx -p:TreatWarningsAsErrors=true` → exit **0**, `0 Error(s)`, and
-  `grep -cE "warning|error"` over the whole log → **0**; `dotnet test` → exit **0**, **Passed: 54, Failed: 0**
-  (19 at the start of Slice 2). `npm run verify` → exit **0**, **135 tests / 14 files**, build ✓ (was 100/13).
-  Acceptance criteria now **Verified**: **AC-4** (`-032`), **AC-5** (`-027`, run under `TZ=Etc/GMT-13`),
-  **AC-6** (`-033` + `-044`, both asserting the stored row after the refusal), **AC-12** (`-031`, 34 shared cases
-  with two consumers). **AC-7 stays open at two of three clauses**: the adapter re-read on `409` is Slice 3's
-  `-036`/`-037`. AC-1, AC-2, AC-3 and AC-8…AC-14 remain `Pending` with no pre-filled evidence.
-- **CI Evidence**: `main` green on every push since the gate existed. `verify-api` failed its **first** run
-  (Slice 0, `CS8605` plus an unobserved `MSB3277`) and has been green on every run since, through PRs #12 and #13.
-  AC-13's **docs-only-skip half still has no evidence**: every PR so far touched `api/**`, so only the executed
-  branch of the `if:` gate has ever been observed.
-- **Blockers and Resume Condition**: **none — F-1 is cleared, not narrowed.** The blocking condition Slice 2 opened
-  with was AC-12's missing cross-language mechanism; `api/tests/fixtures/validation-cases.json` is now consumed by
-  both suites, and the two rules that cannot be shared (client-required `location` vs wire-optional, and no `status`
-  runtime check in the client) are per-side rows naming the document that grants the difference. **Slice 3 has no
-  prerequisite.** Owner attention is still awaited on F-7's remedy, F-11's adapter-removal gate, migrate-on-startup
-  (owner, M5), and the four register gaps below.
-- **Open register gaps — four, every one a statement §4.1 or §4.3 makes that nobody guards**
-  (`docs/tests/…-test-m3-backend-api.md` §13): no behaviour asserts `applications_updated_at_idx` exists; no
-  behaviour covers a **successful `PUT`** (`-033` uses one as arrangement) — recommend `-046`; **`PUT`'s
-  `400 validation` became possible in this slice and is unasserted**, because both verbs now share one validator;
-  and **`ETag` is documented and emitted by nothing** — retiring the line is recommended over maintaining a second
-  copy of a token the client already reads from the body. Each has two fixes: register a behaviour, or amend the
-  spec's statement to match what is guarded.
-- **Next Action**: **Slice 3 — `BEHAVIOR-…-036` through `-041`, the client's HTTP adapter** (`src/data/`, the first
-  `src/` code this milestone): adapter selection by `VITE_API_BASE_URL`, the total `HTTP × code → RepositoryError`
-  table, transport failure → `unavailable`, the out-of-order re-read guard that closes M2b's **P2-2**, SSE bounded
-  at one re-list per `open`, and unicode fidelity through JSON. Then Slice 4 (`-042`/`-043`, real browser + `psql`).
-  Slice 3 also carries AC-7's third clause, the `notes` ceiling question, and the `location` asymmetry decision.
-
-### 3B. Release-Evaluation Handoff
-
-**N/A.** No release evaluation, candidate, or tag work exists in this repository. (The PromptKit
-release-evidence overlay applies to Better-PromptKit itself, not to this consumer repo.)
-
----
-
+- **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution
+  **`in_progress`**, mapped status `In Progress`, **this record holds the Active Task Pointer**. **Slice 3 is
+  complete**: `-036`…`-041` plus `-046` (the SSE endpoint the ladder was missing), all delivered as separate
+  Red/Green pairs. Remaining: **Slice 4** — `-042` (real browser over HTTP, 2h, p0) and `-043` (survives a browser
+  restart, `psql` confirms, 1h, p1).
+- **In flight**: **PR #20** `feat/m3-slice3f-fidelity` — `-041`, seven commits (`85f66eb`, `faa0ecb`, `096d6c1`,
+  `0e1bdf3`, `1df67e0`, `5716a31`, and the STATE commit that adds this line): the U+FEFF trim divergence found by the
+  shared fixture, the wire guard's three unchecked fields, and the boundary type that described the wire with
+  domain types.
+- **Merged into `main` since M3 opened**: **#19** `d989f28` (`-040` subscribe) · **#18** `58b7d02` (`-046` server SSE) ·
+  **#17** `0749bb8` (`-039` ordering) · **#16** `fc77b2e` (`-038` transport faults) · **#15** `cda2fd1` (`-036`/`-037`
+  adapter) · **#14** `b6ea9bd` (Slice 2b fixture) · **#13** `a80af4d` (Slice 2a) · **#12** (Slice 1) · **#11** (Slice 0).
+  **`main` is at `d989f28`**, and those SHAs were read from `gh pr list --json mergeCommit`, not recalled — which is a
+  rule now, after two fabricated SHAs were found in this repo's own docs in one session.
+- **AC tally**: **7 of 14 checked off** (AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-12), AC-12 **re-verified** by `-041`,
+  which found a live cross-language bug *after* it had been signed off. **AC-1 and AC-11 cannot close before Slice 4**
+  and stay open on purpose: AC-1 because no browser has loaded the HTTP-backed build, AC-11 because `-046` (server) and
+  `-040` (client, driven by a fake `EventSource`, because jsdom implements none) are two verified halves and not the
+  joined system. Also open: AC-7, AC-13, AC-14 and the docs-only halves.
+- **Measured at this boundary**: API **60 passed** (clean `bin/`+`obj/`, `-p:TreatWarningsAsErrors`, 0 warnings, exit
+  0) · frontend `npm run verify` exit **0** at **197 tests / 20 files**, build ✓ · shared fixture **36 rows** ·
+  runtime dependencies **3** (unchanged since M0) · `git diff --name-only main -- src/pages src/components src/state`
+  **empty**, so AC-1's structural claim still holds on this branch.
+- **Open for the owner** (none blocking): the `location` null-mapping in `toDomain` is an **interpretation, not a
+  ratified decision** — dissent is one commit; gap 5 (`conflict`'s sentence in §4.3, taken as "M3 ships generic" unless
+  told otherwise); the `notes` ceiling; `status` is the one domain field with no runtime validation at the seam; and
+  gap 7's precedent — sweep §4.3's contract table against the ladder for other server-side obligations that a
+  client-half behaviour made look complete.
+- **Process correction, recorded here because §3A is what a fresh session reads first**: the previous turn **reported a
+  PR that had not been created and CI that had not run** — the branch had never been pushed. Nothing was lost (six
+  commits intact, gates re-run), but it is the same failure this file warns about in four separate rules — writing from
+  intent rather than measurement — escalated from a stale bullet to an invented outcome.
 ## 4. Locked Technical Invariants (Do Not Undo)
 
 Agreed decisions that survive any refactor. Deviating requires a new ADR.
@@ -243,6 +221,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-11 15:05 UTC | Assistant (M3 Slice 3f) | `-041` fidelity — and a false completion report | **Slice 3's last behaviour found two real bugs; the session found a third, about itself.** (1) A new fixture row, `company-name-bom-only`, failed against the API with `Expected: BadRequest, Actual: Created` — `String.prototype.trim()` removes U+FEFF and `char.IsWhiteSpace` does not; the control row (U+2028) passes both sides, proving the disagreement is exactly one code point rather than a class. Fixed with `TrimInvisible`, adopting the **wider** trim so the server can only become stricter, never newly permissive. (2) `isWireApplication` checked **six of nine fields**, so `location: null` — a legal 200 — passed into `location: string`; found only because the echo stub built records from real bodies instead of hand-minted ones. (3) **The previous turn claimed PR #20 existed with green CI. It did not exist and the branch had never been pushed.** Corrected by measuring (`git ls-remote` empty, highest PR #19), re-running both gates, and creating the real PR; §3A regenerated whole, as it still described PR #14. The client Red/Green pair was also reconstructed after being committed together — re-running against the restored pre-fix adapter turned 1 failure + 3 skipped into 3, because the register's filter had silently covered only part of the file. **197/20 frontend, 60 API, 36 fixture rows.** |
 | 2026-08-19 | Lead Engineer | M0 Project Inception | `d78f663 feat: Initialize job tracker React starter app` — SPA, routes, mock data, Vitest wiring |
 | 2026-09-11 | Assistant (`pk:route`) | Workflow orientation | Scanned repo, verified green baseline (`tsc -b` exit 0, 2/2 tests), classified ceremony Level 0–3 for this repo, flagged template drift; routed to `pk:onboard` |
 | 2026-09-10 | Assistant (`pk:onboard`) | M1 Brownfield Codebase Intake | Rewrote `PROMPTKIT.md` (real npm/Vite/React 18 stack, §4 → N/A, tailored invariants); generated `DESIGN.md` (extracted tokens + 11 measured contrast ratios, 8 anti-slop deviations, 5-step remediation); rewrote `docs/STATE.md` (9 invariants, 11 debt items — 14 after pass 2, 4 open questions); merged `AGENT.md` → `AGENTS.md` and deleted `AGENT.md`. **Incidental discovery**: verification runs of `tsc -b` created `vite.config.js`/`.d.ts`/`*.tsbuildinfo`, traced to DEBT-11 and confirmed by a throwing-config probe; all four artifacts deleted, `vite.config.ts` and `tsconfig.node.json` confirmed byte-identical to `HEAD`. **No `src/`, config, or `package.json` file was intentionally changed.** |
