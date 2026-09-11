@@ -35,8 +35,14 @@ import { spawn } from 'node:child_process'
 import { openSync } from 'node:fs'
 
 const CDP_PORT = 9222
-const APP = 'http://127.0.0.1:4173'
-const API = 'http://127.0.0.1:5080'
+// Env-driven because *where this runs* changes what the addresses mean. Inside the container (the only topology
+// that works — my shell cannot route into the Docker network) :4173 is the co-located static server but the API is
+// reachable only at the sandbox's routable IP. Run outside, the defaults are the plain local ports.
+const APP = process.env.E2E_APP ?? 'http://127.0.0.1:4173'
+// The list route, not the root. `/` is the dashboard, which renders neither an application card nor an empty state,
+// so waiting for those anchors there can only ever time out — a harness bug that looked like an app bug.
+const LIST = `${APP}/applications`
+const API = process.env.E2E_API ?? 'http://127.0.0.1:5080'
 const CHROME_IMAGE = 'mcr.microsoft.com/playwright:latest'
 const CHROME_BIN = '/ms-playwright/chromium-1129/chrome-linux/chrome'
 const CONTAINER = 'jt-browser'
@@ -56,6 +62,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // SIGKILL to `docker run` can leave the container behind, and a stale container still holding :9222 makes the next
 // run fail for a reason that has nothing to do with the code under test. Remove it by name; ignore "no such container".
 function stopChrome(chrome) {
+  if (!chrome) return
   // Both, in this order: SIGKILL to the `docker` CLI does not reliably reach the container, and `docker rm -f`
   // works without the handle. Doing only one leaves a browser holding :9222 for the next run.
   try {
@@ -179,7 +186,10 @@ async function main() {
   // which is the same mistake AGENTS.md records about `grep`-filtering a gate's output.
   // A file descriptor, not a WriteStream: spawn reads stdio synchronously and an unopened stream has fd:null.
   const log = openSync('/tmp/chrome-cdp.log', 'w')
-  const chrome = spawn('docker', ['run', '--rm', '--name', CONTAINER, '--network=host',
+  // E2E_NO_SPAWN: Chromium is already running alongside us (in-container), so don't try to launch Docker from
+  // inside a container — there is no Docker socket there, and the failure would look like a browser bug.
+  const spawned = !process.env.E2E_NO_SPAWN
+  const chrome = spawned && spawn('docker', ['run', '--rm', '--name', CONTAINER, '--network=host',
     '--shm-size=1g', '--entrypoint', CHROME_BIN, CHROME_IMAGE,
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
     '--remote-debugging-address=0.0.0.0',
@@ -197,7 +207,7 @@ async function main() {
   const marker = `Crosstab ${Date.now().toString(36)}`
   const tabs = []
   try {
-    for (let i = 0; i < 2; i++) tabs.push(await openTab(call, APP, true))
+    for (let i = 0; i < 2; i++) tabs.push(await openTab(call, LIST, true))
     record('both tabs rendered the HTTP-backed build', tabs.length === 2, `page ${APP}, api ${API}`)
 
     const a = tabs[0]
