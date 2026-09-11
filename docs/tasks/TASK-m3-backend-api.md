@@ -147,7 +147,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   on rendered text through the real `ApplicationsProvider`, not just on the adapter's return value. **Closes M2b's
   handed-over P2-2.** The guard is adapter-side, so AC-1's diff check still passes: `src/state/` is imported, never
   edited.
-- [ ] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040`
+- [x] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040` <!-- checkbox flipped 18:10 UTC in the -043 records commit: PR #24 wrote AC-11's evidence and claimed the closure, but its own scripted edit replaced only the continuation line and never touched this box -->
   **Result**: **Verified — including the browser join** (2026-09-11 17:25 UTC; `-042` closes what `-040`/`-046` left
   open). **Evidence**: `-046` (server — real bytes off `WebApplicationFactory`, one `event: change` +
   `data: {"id":"…"}` per committed write), `-040` (client — 11 tests over a fake `EventSource`: one re-list per
