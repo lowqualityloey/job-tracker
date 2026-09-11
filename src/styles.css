@@ -389,12 +389,15 @@ textarea {
   outline-offset: 3px;
 }
 
-.filter-count {
+.filter-summary {
   align-items: center;
-  color: #94a3b8;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.filter-count {
+  color: #94a3b8;
   margin: 0;
 }
 

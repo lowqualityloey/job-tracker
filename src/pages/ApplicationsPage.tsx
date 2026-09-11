@@ -72,15 +72,19 @@ export default function ApplicationsPage() {
       <ApplicationFilters criteria={criteria} onChange={setCriteria} />
 
       {/* One live region for every view, including the unfiltered one, so the count is announced
-          by a single code path instead of appearing only after the user does something. */}
-      <p className="filter-count" role="status">
-        Showing {visible.length} of {applications.length} applications
+          by a single code path instead of appearing only after the user does something. The region
+          holds text only: a button inside it would be announced as part of the result, and a live
+          region is an unreliable place to park a control someone has to operate. */}
+      <div className="filter-summary">
+        <p className="filter-count" role="status">
+          Showing {visible.length} of {applications.length} applications
+        </p>
         {filtersActive && visible.length > 0 && (
           <button type="button" className="clear-filters" onClick={clearFilters}>
             Clear filters
           </button>
         )}
-      </p>
+      </div>
 
       {/* The zero case keeps the filter controls mounted. Replacing the whole page with an empty
           state would hide the box that caused it, leaving the user to guess at their own query.
