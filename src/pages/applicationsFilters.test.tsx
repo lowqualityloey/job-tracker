@@ -4,12 +4,20 @@ import ApplicationsPage from '../pages/ApplicationsPage'
 import { createInMemoryRepository } from '../data/localStorageApplicationRepository'
 import { seedApplications } from '../data/seedApplications'
 import type { ApplicationRepository } from '../domain/applicationRepository'
-import { ApplicationsProvider } from '../state/applicationsProvider'
+import { ApplicationsProvider, useApplications } from '../state/applicationsProvider'
+
+/** Reports what the provider still holds, so "filtered out" and "gone" are distinguishable. */
+function SnapshotProbe() {
+  const { applications } = useApplications()
+
+  return <p data-testid="snapshot">{`snapshot:${applications.length}`}</p>
+}
 
 function setup(repo: ApplicationRepository) {
   render(
     <MemoryRouter initialEntries={['/applications']}>
       <ApplicationsProvider repository={repo}>
+        <SnapshotProbe />
         <Routes>
           <Route path="/applications" element={<ApplicationsPage />} />
         </Routes>
@@ -160,6 +168,25 @@ describe('the result count region', () => {
     // Status is selected, not toggled off: exactly one chip is ever pressed, so "All" is the clear.
     expect(within(search).getAllByRole('button', { pressed: true })).toHaveLength(1)
     expect(within(search).getAllByRole('button', { pressed: false })).toHaveLength(5)
+  })
+})
+
+// Spec B-9 — a filter is a view over the snapshot, never an edit of it. If `selectApplications`
+// ever wrote back, or the page started handing the filtered array to the provider, the details
+// page would tell users their record was gone.
+describe('a filter does not touch the data', () => {
+  it('narrows the rendered cards without shrinking the provider snapshot', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rejected' }))
+
+    expect(cardTitles()).toHaveLength(1)
+    expect(screen.getByTestId('snapshot')).toHaveTextContent('snapshot:5')
+
+    typeQuery('zzz-nothing-here')
+    expect(screen.getByTestId('snapshot')).toHaveTextContent('snapshot:5')
+    expect(screen.getByRole('status')).toHaveTextContent('0 of 5 applications')
   })
 })
 
