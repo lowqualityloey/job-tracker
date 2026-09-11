@@ -79,18 +79,23 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 
 ## 5. State and Active Ownership
 
-- **Execution State**: `planned`
-- **Mapped `pk:tasks` Status**: `To Do`
-- **Active Task Pointer**: `None` (claimed only when this record moves to `in_progress`, and exactly one record may hold it in this scope)
-- **Start Time**: `N/A` — not started
+- **Execution State**: `in_progress` — claimed by the owner's merge of PR #10, whose reviewer-focus item was
+  explicitly "promote to `in_progress`, which authorises Slice 0"
+- **Mapped `pk:tasks` Status**: `In Progress`
+- **Active Task Pointer**: `TASK-m3-backend-api` (this record holds it; Slice 0 is executing, not complete)
+- **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
+  of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action**: **start Slice 0** — install SDK **10.0.401** and scaffold `api/` + `docker-compose.yml` + the path-gated CI job, under §1.3's exception-verification path (no Red test: there is no behaviour yet). Slices 0–1 are unblocked; **Slice 2 is not** (F-1's fixture must exist first). Gates now closed: `pk:grill` ran at 2026-09-11 03:50 UTC → [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
+- **Next Action (Slice 0 complete)**: **`BEHAVIOR-m3-backend-api-026`** — write the failing test that
+  `GET /api/applications` returns `200 []`, then the `DbSet`, the entity, the endpoint and the **first real
+  migration** its Green requires. (Preceding text read "**start Slice 0** — install SDK **10.0.401** and scaffold `api/` + `docker-compose.yml` + the path-gated CI job, under §1.3's exception-verification path (no Red test: there is no behaviour yet). Slices 0–1 are unblocked; **Slice 2 is not** (F-1's fixture must exist first). Gates now closed: `pk:grill` ran at 2026-09-11 03:50 UTC → [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
 
 ### Transition History
 
 | Previous State | New State | Timestamp | Actor | Reason | Supporting Evidence |
 |---|---|---|---|---|---|
 | — (none) | `planned` | 2026-09-11 03:32 UTC | Assistant (`pk:tasks`) | Decomposed from an approved Full Planning Record; readiness deliberately **not** claimed because `pk:test`'s plan and `pk:grill` have not run | [PR #7 merge (`84bf560`)](https://github.com/lowqualityloey/job-tracker/commit/84bf560) |
+| `planned` | `in_progress` | 2026-09-11 06:00 UTC | Assistant (Slice 0) | Owner merged PR #10, whose focus item asked for exactly this promotion. Slice 0 ran the exception-verification path: SDK 10.0.401 installed, projects scaffolded, container harness proven, migration applied |
 | `planned` | `planned` | 2026-09-11 05:03 UTC | Assistant (`pk:test`) | Test strategy and the **TDD intent register** produced: 20 intents, all `ready`, mode **reconciled** with §4 (`Matches Task Record`). State still not promoted by the workflow that prepared it — **readiness is the owner's call on this PR**, and it is now unblocked in substance | [`docs/tests/2026-09-11-test-m3-backend-api.md`](../tests/2026-09-11-test-m3-backend-api.md) |
 | `planned` | `planned` | 2026-09-11 03:50 UTC | Assistant (`pk:grill`) | Design gate executed, **state deliberately unchanged** — a grill that automatically promotes readiness is a grill with no teeth. Slice 2 now carries a blocking condition (F-1: AC-12 had no cross-language mechanism) and two contract amendments await the owner (F-3 `If-Match` on `DELETE`, F-4 JSON-only bodies) | [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md) · PR #8 merged (`e58da50`) |
 
@@ -98,21 +103,63 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 
 *All fields below are `Pending` / `None` by construction — this record is created before execution, and pre-filled evidence would be fabrication.*
 
-- **Changed Files**: `Pending`
+- **Changed Files (Slice 0)**: new `global.json`; `api/{JobTracker.slnx,README.md,docker-compose.yml}`;
+  `api/src/JobTracker.Api/{Program.cs,*.csproj,appsettings*.json,Properties/launchSettings.json,Data/JobTrackerDb.cs,
+  Data/JobTrackerDbFactory.cs,Migrations/*}`; `api/tests/JobTracker.Api.Tests/{*.csproj,PostgresHarness.cs}`;
+  `.gitignore`; `.github/workflows/ci.yml`. **`src/**`: untouched** (verified by `git diff main --name-only -- src/` → empty)
 - **Scope Change Records**: `None`
 - **Checkpoint Records**: `None` (a `TASK-m3-backend-api.checkpoint-00N.md` is written at any hard checkpoint)
 - **Handoff Records**: `None`
-- **Verification Evidence**: `Pending` — each AC's named command, with **output quoted, not summarised**
+- **Verification Evidence — Slice 0 (§1.3 exception path)**, output quoted rather than summarised:
+
+| §1.3 acceptance | Command | Observed |
+| :--- | :--- | :--- |
+| SDK pinned | `dotnet --version`, `dotnet --list-sdks` | `10.0.401` — `DECISION-m3-backend-api-002`'s pin exactly, held in `global.json` with `rollForward: disable` |
+| Projects build | `dotnet build api/JobTracker.slnx` | **0 Warning(s), 0 Error(s)** |
+| Tests run | `dotnet test api/tests/JobTracker.Api.Tests` | `Passed: 4, Failed: 0` |
+| Container real *and fresh* | `select pg_postmaster_start_time()` asserted inside the fixture's own window; `docker events` | daemon logged `testcontainers-ryuk-*` plus a cold `postgres:18.6` at each run |
+| Server is the pinned version | `show server_version`; `psql -tAc 'select version()'` | `PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2)` |
+| `CHECK` is enforced | `insert … values ('Escalated')` | `PostgresException`, `SqlState 23514` — the premise `BEHAVIOR-…-032` rests on |
+| Migration applies | `dotnet ef database update` | `Applying migration '20260911055250_ToolchainProvesMigrationPipeline'. Done.` |
+| Recorded server-side | `select "MigrationId","ProductVersion" from "__EFMigrationsHistory"` | `20260911055250_ToolchainProvesMigrationPipeline \| 10.0.12` |
+| Schema empty on purpose | `information_schema.tables` count | `0 user tables so far` — the table is Slice 1's Red test's job |
+| Design-time guard refuses to guess | `env -u ConnectionStrings__Default dotnet ef dbcontext info` | `The exception 'ConnectionStrings__Default is not set…' was thrown` |
+| Frontend gate untouched | `npm run verify` | exit **0** — 100 tests, build ✓ |
+| Nothing build-shaped staged | `git add -An --dry-run api global.json \| grep -cE 'bin/\|obj/'` | `0` of 16 files |
+
+**Three findings Slice 0 exists to produce, and did:**
+
+1. **`UNCERTAINTY-m3-backend-api-003-001` resolved, with a nuance the spec did not anticipate.** EF Core 10.0.12 and
+   Npgsql EF 10.0.3 *are* compatible — the provider declares `[10.0.4, 11.0.0)` — but the first build emitted
+   `MSB3277`: the app compiled against **10.0.12** while the test project resolved **10.0.4**, because NuGet
+   resolves a range **independently per project** and a *project reference does not carry your chosen version*.
+   Fixed by pinning `Microsoft.EntityFrameworkCore` explicitly in **both** projects. The pin was usable; what the
+   spec missed is that "pin the provider" ≠ "pin the graph".
+2. **`DECISION-m3-backend-api-001` needs a companion fact: the volume path is part of the version pin.**
+   `postgres:18`+ images **refuse** a mount at `/var/lib/postgresql/data` and exit 1 ("there appears to be
+   PostgreSQL data in … unused mount/volume"); it belongs at `/var/lib/postgresql`. Found by the container failing,
+   not by reading release notes — and my earlier probe had succeeded *only because it had no volume*, which is why
+   nothing contradicted the compose file until it actually ran.
+3. **`UNCERTAINTY-m3-backend-api-008-001` (Docker from a .NET process) resolved locally**: Testcontainers started,
+   served and cleaned up four containers from inside `dotnet test`. The CI half is this PR's first `api` job.
+
+- **Verification Evidence — ACs**: `Pending`. Slice 0 asserts no AC; AC-2's `npm run verify` was re-run at the
+  slice boundary and is green.
 - **Behavior IDs [Required when enabled]**: `BEHAVIOR-m3-backend-api-026` … `-043` — see the ladder in §7
 - **TDD Intent Register [Required when enabled]**: [`docs/tests/2026-09-11-test-m3-backend-api.md`](../tests/2026-09-11-test-m3-backend-api.md) — 20 `TDD-INTENT-m3-backend-api-<nnn>` rows, one per behaviour, each `ready` with a concrete Red command and expected failing assertion. **Mode reconciliation: `Matches Task Record`** (both say `enabled`), so readiness is no longer blocked on this field. *Filename follows `pk:test`'s template (`YYYY-MM-DD-test-<feature>.md`); the earlier `TEST-m3-backend-api.md` name in this record was mine and is superseded.*
 - **TDD Execution Evidence [Required when enabled]**: `None yet` — one `TDD-EXEC-m3-backend-api-<seq>` block per behaviour, recorded in §7's evidence column as execution proceeds, each retaining its behaviour identity and re-running the same Red command
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
-- **CI Evidence**: `Pending` (first run = this PR; provider GitHub Actions, workflow `ci.yml`, job `verify`)
+- **CI Evidence**: `Pending` — Slice 0 **adds the second job** (`api`), so this PR's run resolves the
+  Docker-on-runners question on the provider that will actually execute it. AC-13's other half (a docs-only push →
+  job reports success, steps skip) is asserted on the next docs PR. Disclosed honestly: my first local test of the
+  detection pattern was **vacuous** — `git diff main...HEAD` on an uncommitted tree is empty, and an empty diff and
+  an untriggered gate look identical. Near-miss paths (`api-notes.md`, `global.json.bak`, `src/api/client.ts`) were
+  then verified to yield `false`.
 - **Review Evidence**: **design gate**: [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md) (12 findings; F-7 = `pk:grill` has **no workflow definition** in `.promptkit/workflows/`, so the gate ran from its advertised two-line contract and its self-assessment weakness is stated in the record's head). **Code review**: `Pending` — `REVIEW-m3-backend-api` at `docs/reviews/`, two-axis, at PR time
 - **Commit Evidence**: `Pending`
 - **Pull Request Evidence**: this PR (#8), then one PR per slice
 - **Release Evidence**: `N/A` — no release before M5
-- **Blocker and Resume Condition**: **Slice 2 is blocked** on F-1 (shared `api/tests/fixtures/validation-cases.json` consumed by both xUnit and vitest — without it AC-12 is two test files encoding two opinions). **Slices 0–1 are unblocked.** Owner attention awaited on F-3 and F-4, which change the §4.3 contract, and on F-7's remedy. **To proceed**: `pk:test` → Slice 0.
+- **Blocker and Resume Condition**: **Slice 2 is blocked** on F-1 (shared `api/tests/fixtures/validation-cases.json` consumed by both xUnit and vitest — without it AC-12 is two test files encoding two opinions). **Slice 0 is complete; Slice 1 is unblocked.** Owner attention awaited on F-3 and F-4, which change the §4.3 contract, and on F-7's remedy. **To proceed**: `pk:test` → Slice 0.
 
 ## 7. Behaviour Ladder (decomposition, sizing, priorities)
 

@@ -11,7 +11,12 @@
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
 - **Current Working Branch**: `tests/m3-test-plan` on `main` @ `4f06927` = merged PR #9 (base read with `git rev-parse --short main` and `git rev-parse --abbrev-ref HEAD` **before** the first `git add`, per the rule earned last branch). **PR #10** carries the test plan; `headRefOid` re-checked against the local tip. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
-- **Last Updated**: 2026-09-11 05:03 UTC — PR #9 merged (`4f06927`); verify re-run green on merged `main` (100 tests). Then `pk:test` wrote the M3 test plan. It also **falsified part of my own grill record**: reading `src/domain/validation.ts` shows `MAX_TEXT_LENGTH = 120` *is* enforced on three fields, so F-1's "no ceiling at all" was wrong, and `status` has no runtime client validation at all — which made AC-12's "sixth status to both validators" impossible as written. Corrected additively in the grill record (§4), in the Task Record's AC-12, and in the plan's fixture design. Timestamps from `date -u`, measured not inferred
+- **Last Updated**: 2026-09-11 06:00 UTC — PR #10 merged (`85a19e8`), reconciled, verify green on merged `main`, then
+  **M3 Slice 0 executed**: `dotnet-install.sh` → 10.0.401 on the host, `api/` scaffolded, 4 integration tests green
+  against a real Testcontainers PostgreSQL 18.6, first migration applied to the compose database. Two
+  uncertainties closed with evidence, one spec gap found (PostgreSQL 18's volume path), and one of my own
+  test-plan arguments retracted (`coverlet.collector` was already in the tree, brought by `dotnet new`).
+  Timestamps from `date -u`, measured not inferred
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -26,7 +31,7 @@
 - [x] **M1 — Engineering OS Integration**: **MERGED as PR #1 (`63d769d`, 2026-09-10)**. Submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed, lockfile tracked
 - [x] **M2a — Persistence seam**: **MERGED as PR #2 (`1ec8fe8`)**. 17 behaviours, AC-1…AC-11, repository seam + failure modes + CRUD UI + error-code contract sweep
 - [x] **M2b — Filters, search, cross-tab reconciliation**: **MERGED as PR #3 (`489cdb9`)**; verified green on `main` the same day. Behaviours 018–026 (9/9), AC-1…AC-10 (10/10), 77 → **100 tests**. Spec `docs/specs/2026-09-10-spec-m2b-filters-cross-tab.md`, record `docs/tasks/TASK-m2b-filters-cross-tab.md`
-- [ ] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · `pk:test` **done** (20 intents, mode reconciled, PR #10) · next: **Slice 0** (SDK 10.0.401 + scaffold), Slice 2 gated on F-1's fixture
+- [ ] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · `pk:test` **done** (20 intents, mode reconciled, PR #10) · **Slice 0 DONE** (SDK installed, `api/` scaffolded, 4 tests green, migration applied — PR #11) · next: Slice 1 (`BEHAVIOR-…-026`); Slice 2 still gated on F-1's fixture
 - [ ] **M4 — Authentication** (**Level 2**: `pk:auth`)
 - [ ] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval)
 
@@ -65,18 +70,23 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 > Record exists and is authoritative; nothing in it has been executed.
 
 - **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution state
-  **`planned`**, mapped status `To Do`, **Active Task Pointer: `None`** (claimed only on `in_progress`). Planning
+  **`in_progress`**, mapped status `In Progress`, **Active Task Pointer held by this record**, Slice 0 of 4
+  complete. Planning
   Record [`PLAN-m3-backend-api`](../specs/2026-09-11-spec-m3-backend-api.md#PLAN-m3-backend-api) is `Full`, approved
   by merging PR #7
-- **In flight**: **PR #10** `tests/m3-test-plan` — the M3 test plan + intent register, the grill correction, and
-  the Task Record's consequence edits. Docs-only as ever: no `src/`, no `api/`, no dependency change, **`dotnet`
-  still not installed**
+- **In flight**: **PR #11** `feat/m3-slice0-backend-scaffold` — **the first non-TypeScript code in this
+  repository**: `api/` (ASP.NET Core 10 + EF Core + a Testcontainers harness), `global.json`, and a second CI job
+  (`api`). SDK **10.0.401 is installed on the host** at `~/.dotnet`; PostgreSQL 18.6 runs in Docker. **`src/` is
+  untouched** (`git diff main --name-only -- src/` → empty), the frontend suite is still 100 tests, and the runtime
+  dependency count is still **3**
 - **Approval state**: the owner approved the design by merging PR #7, which carried §7's checklist — the eighth
   `RepositoryError` variant, the PostgreSQL **18.6** / .NET **10, SDK 10.0.401** pins, and three assumptions.
   Recorded as approved-by-merge in §1 of the record, with an explicit invitation to dissent before Slice 1,
   because after Slice 1 the reversal cost stops being one commit
 - **Execution Scope**: repo `job-tracker`; this PR touches `docs/tasks/TASK-m3-backend-api.md` and `docs/STATE.md`
-- **Execution State**: `planned` — **unchanged by the grill, deliberately**: a gate that promotes its own subject
+- **Execution State**: **`in_progress`** since 2026-09-11 06:00 UTC — the owner's merge of PR #10 authorised Slice 0, the only
+  step in M3 that installs anything. **The grill did not promote readiness; a merge did.** (Earlier wording:
+  "unchanged by the grill, deliberately: a gate that promotes its own subject
   is not a gate. Readiness still requires `pk:test`'s intent register to exist and agree with
   `TDD Enforcement Mode: enabled`. `pk:grill` has now run
 - **Mapped `pk:tasks` Status**: `To Do` · **Active Task Pointer**: `None`

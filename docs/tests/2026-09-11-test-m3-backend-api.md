@@ -178,6 +178,13 @@ export function buildApplicationInput(overrides: Partial<ApplicationInput> = {})
   assertion, and every acceptance criterion in the Task Record pointing at one of them. **If a threshold is wanted,
   say so and it becomes a Slice 4 task rather than a silent default.**
 
+> **Correction added by Slice 0 (2026-09-11 05:59 UTC):** the paragraph above argues a coverage tool "is also a new
+> dependency". True of my intent, **false of the outcome** — `dotnet new xunit` silently brought
+> `coverlet.collector 6.0.4` with it, so the dependency arrived the moment the project was scaffolded. Removed,
+> because nothing here measures coverage and `AGENTS.md` requires each addition to be justified. The decision
+> stands on its own merits; one of its two arguments did not. The general lesson: **read a generated
+> `.csproj` before trusting what the template did not tell you.**
+
 ---
 
 ## 8. Correction to the grill record (found while writing this plan)
