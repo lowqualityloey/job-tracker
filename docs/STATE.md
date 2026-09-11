@@ -7,7 +7,7 @@
 ## 1. Executive Summary & Current Position
 
 - **Project Name**: Job Tracker (`job-tracker` v0.2.0)
-- **Current Milestone / Epic**: **M2 complete** — M1 (PR #1) · M2a (PR #2 → `1ec8fe8`) · M2b (PR #3 → `489cdb9`) · **DEBT-03 lint+CI (PR #4 → `68db873`)** all merged. `npm run verify` now gates every PR **and `main` itself**. **DEBT-01's residual is closed by observation, not deferred**: the cross-tab behaviour and AC-10's unmeasured halves ran in real Chromium 128 — **13/13**, the first time this app was rendered by anything other than jsdom (`docs/spikes/2026-09-11-real-browser-cross-tab-check.md`). That check also exposed a crash-level defect in the new lint config, fixed in `72f2b68`. Next phase: **M3 — Backend API**, `pk:plan`, Level 2
+- **Current Milestone / Epic**: **M2 complete** — M1 (PR #1) · M2a (PR #2 → `1ec8fe8`) · M2b (PR #3 → `489cdb9`) · **DEBT-03 lint+CI (PR #4 → `68db873`)** all merged. `npm run verify` now gates every PR **and `main` itself**. **DEBT-01's residual is closed by observation, not deferred**: the cross-tab behaviour and AC-10's unmeasured halves ran in real Chromium 128 — **13/13**, the first time this app was rendered by anything other than jsdom (`docs/spikes/2026-09-11-real-browser-cross-tab-check.md`). That check also exposed a crash-level defect in the new lint config, fixed in `72f2b68`. **M3 — Backend API is planned and awaiting approval**: `pk:plan` produced `docs/specs/2026-09-11-spec-m3-backend-api.md` (476 lines, 8 technology decision records with verified citations, 3 owned assumptions, 10 FMEA rows, behaviour ladder 026-043). It is under review as **PR #7**, and it authorises no code until the owner signs it off.
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
 - **Current Working Branch**: `docs/real-browser-crosstab-evidence` (3 commits) on `main` @ `dd6c5ec` = merged PR #5. Published as **PR #6**; `headRefOid` checked against `git rev-parse HEAD` per the rule, as now required. **Phase advances via PR only** — see `AGENTS.md` §Branch & PR workflow
@@ -26,7 +26,7 @@
 - [x] **M1 — Engineering OS Integration**: **MERGED as PR #1 (`63d769d`, 2026-09-10)**. Submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed, lockfile tracked
 - [x] **M2a — Persistence seam**: **MERGED as PR #2 (`1ec8fe8`)**. 17 behaviours, AC-1…AC-11, repository seam + failure modes + CRUD UI + error-code contract sweep
 - [x] **M2b — Filters, search, cross-tab reconciliation**: **MERGED as PR #3 (`489cdb9`)**; verified green on `main` the same day. Behaviours 018–026 (9/9), AC-1…AC-10 (10/10), 77 → **100 tests**. Spec `docs/specs/2026-09-10-spec-m2b-filters-cross-tab.md`, record `docs/tasks/TASK-m2b-filters-cross-tab.md`
-- [ ] **M3 — Backend**: ASP.NET Core Web API, database, replace mock with HTTP (**Level 2**: `pk:api` + `pk:data`)
+- [ ] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). **Planned 2026-09-11** — `PLAN-m3-backend-api` in review as PR #7; Task Record not yet minted, so `pk:tasks` → `pk:grill` → Slice 0 is the sequence after approval
 - [ ] **M4 — Authentication** (**Level 2**: `pk:auth`)
 - [ ] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval)
 
@@ -60,38 +60,39 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### 3A. Execution-Control Projection
 
-> Synchronised projection. **No Level 2 Controlled Work is open.** DEBT-03 is merged (`68db873`) and M2b is
-> merged (`489cdb9`); their canonical records are `docs/tasks/TASK-m2b-filters-cross-tab.md` and the DEBT-03
-> row in §5. The next phase, **M3 — Backend API**, has not been opened: it starts with `pk:plan`.
+> Synchronised projection. M3 is **planned but not opened for execution**: `PLAN-m3-backend-api` exists and
+> asks for sign-off; there is no Task Record yet, and a spec authorises nothing on its own. M2 is closed
+> (`489cdb9`, `68db873`, `dd6c5ec`, `7149836`) and DEBT-01's residual was retired by real-browser observation.
 
-- **Active Task**: none — the agent is between phases. Deliberately not "M3 in progress": M3 opens with its
-  own spec and task record, and nothing has been written for it yet
-- **In flight (housekeeping, not a phase)**: **PR #6** `docs/real-browser-crosstab-evidence` — the real-browser
-  evidence, the lint-config crash it exposed (`72f2b68`), and the closure of DEBT-01's residual
-- **M2b's residual is now retired by observation**: the two-tab check ran in a real browser, and the
-  direction jsdom cannot model — **tab B writes, tab A updates without a reload** — passed, along with the
-  reverse. What remains unverified is stated in the spike note rather than dropped: Chromium only, happy path
-  only, one run, not a gate
-- **Execution Scope**: repo `job-tracker`; PR #6 touches `eslint.config.js`, `PROMPTKIT.md`,
-  `docs/spikes/2026-09-11-real-browser-cross-tab-check.md` and its `crosstab.mjs`/`static.mjs`, `docs/STATE.md`,
-  `docs/tasks/TASK-m2b-filters-cross-tab.md`, `docs/reviews/2026-09-11-m2b-review.md`. **No `src/` file.**
-- **Execution State**: `handoff_ready` for the housekeeping PR · `planned` for M3
-- **Mapped `pk:tasks` Status**: `In Review` (PR #6) · **Active Task Pointer**: none
-- **Owner / Current Actor**: Lead Engineer (accountable, reviewing/merging) · Assistant (executing)
-- **Verification Status**: `npm run verify` on this branch — typecheck 0 · eslint 0 · stylelint 0 ·
-  **100 tests / 13 files** · build ✓ 1.24s · clean tree afterwards. Plus **13/13 real-browser checks** and two
-  lint-scope probes proving the config change in both directions (typed rule fires in `src/`, plain JS exempt) —
-  probes deleted after the run, as recorded in the commit message
-- **CI Evidence**: two runs observed, not inferred — [PR #4's run](https://github.com/lowqualityloey/job-tracker/actions/runs/34551505046)
-  (`pull_request`, 6/6 steps, 43s), and a `push` run on `main` at `68db873` that **completed success**. The
-  gate is live on the trunk, not merely available
-- **Per-commit audit of DEBT-03's branch** (9 commits, separate clone): `tsc` **green at every commit**,
-  **100 tests at every commit**, stylelint green at the commit that introduced it, and eslint red at exactly
-  one — `04e04d5`, which lands the config one commit before the commit that clears the 17 findings it
-  reports. That ordering is intended: a tool that surfaces findings must be allowed to arrive before its
-  repairs, and CI gates the PR head, not every intermediate commit
-- **Blockers and Resume Condition**: none. **To start M3**: `pk:plan` (Level 2) — and from here its Definition
-  of Done is machine-enforced on every PR, which is what DEBT-03 was for
+- **Active Task**: none open for execution — **`PLAN-m3-backend-api` is `ready` and awaiting the owner's approval**
+  (M2b's `TASK-m2b-filters-cross-tab` is closed, residual included). Deliberately not "M3 in progress": the
+  first line of C# requires `pk:tasks` to mint the Task Record and `pk:grill` to run first
+- **In flight**: **PR #7** `docs/m3-backend-api-spec` — the spec plus this projection update. Docs-only: no
+  `src/`, no `api/`, no dependency change, **no .NET installed**
+- **Awaiting the owner** (the spec's §7 checklist): the four forks as *written*, the **eighth
+  `RepositoryError` variant** (the only widening of a locked M2a invariant), the PostgreSQL **18.6** and
+  .NET **10 / 10.0.401** pins, and three assumptions with their validation actions
+- **Owed by the human, still**: nothing blocking. DEBT-01's two-tab check is closed; DEBT-16 and DEBT-17/18
+  remain tracked, not urgent
+- **Execution Scope**: this branch touches `docs/specs/2026-09-11-spec-m3-backend-api.md` and `docs/STATE.md` only
+- **Execution State**: `handoff_ready` (planning) — no execution authority granted by this document
+- **Mapped `pk:tasks` Status**: not decomposed yet (that is `pk:tasks`, after approval) · **Active Task Pointer**: none
+- **Owner / Current Actor**: Lead Engineer (accountable; approval outstanding) · Assistant (executing)
+- **Verification Status**: `npm run verify` on this branch — typecheck · eslint · stylelint · 100 tests / 13 files ·
+  build · clean tree. Every version claim in the spec was **measured this session**, not recalled: PostgreSQL
+  `18.6` from `docker run postgres:18 postgres --version`, `postgres:19` not resolvable, .NET SDK `10.0.401` from
+  `dotnet/sdk:10.0`, EF Core `10.0.12` and Npgsql `10.0.3` from the NuGet feed, and the `RepositoryError`
+  variant list read from `src/domain/applicationRepository.ts:19-29` — where I also corrected a claim I had
+  written down as "13 codes": there are **7**, and 13 is an invariant count
+- **CI Evidence**: `main` green on every push since the gate existed — `68db873`, `dd6c5ec`, `7149836` observed,
+  plus the gate run locally on merged `main` before branching. PR #6's `verify` job: SUCCESS
+- **Per-commit audit of DEBT-03's branch** (historical, kept where it was filed): `tsc` green at all 9 commits,
+  100 tests at all 9, stylelint green at its introducing commit, eslint red at exactly `04e04d5` — the commit
+  that installs the config one step before the commit that clears what it found
+- **Blockers and Resume Condition**: **owner approval of PR #7**. On approval: `pk:tasks` mints
+  `TASK-m3-backend-api` (TDD mode + the `BEHAVIOR-026…043` ladder) → `pk:grill` → Slice 0 installs the pinned
+  SDK → PR #8. If the owner rejects `DECISION-006` (the eighth error code), the fallback is documented as a
+  *rejected* option, not a shrug: no optimistic concurrency in M3, which returns M2b's silent last-write-wins
 - **Next Action**: human reviews and merges **PR #6** (one config commit, then docs). M3 planning begins on a
   fresh branch afterwards, not before
 
@@ -147,12 +148,16 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 - **Submodule note for the reviewer**: `.promptkit` is a gitlink (mode `160000`) at `a1eb608`, with
   `.gitmodules` committed in the same commit (DEBT-14). GitHub's file view will show it as a link, not a
   folder; a clone needs `git submodule update --init --recursive` before `pk:*` workflow paths resolve.
-- **Architectural open questions** (answer in `pk:plan` / `pk:spike`, not by coding):
-  1. Where does durable state live first — `localStorage`, IndexedDB (`idb`), or wait for the ASP.NET Core API?
-     This decides M2's shape and whether M3 is a drop-in or a rewrite.
-  2. Does `id: number` survive contact with a backend, or become a string UUID now while data is fake and free to change?
-  3. Is `appliedAt?: string` re-typed as an ISO-8601 branded string or a real `Date` at the domain boundary?
-  4. Is the status set a fixed union or a data-driven list the UI derives from?
+- **Architectural open questions — all four now answered** (M2's first two, M3's spec §4.1 the last two, which is
+  why they were still open at all: they were *contract* questions and there was no contract to answer them against):
+  1. **Answered by M2**: `localStorage` first, behind the seam, precisely so the API is a drop-in. M3 proves it.
+  2. **Answered by M2a + `DECISION-m3-backend-api-007`**: opaque `string` ids; **the adapter mints them**, so the
+     HTTP create is idempotent and `create(input)` keeps its signature.
+  3. **Answered in M3 §4.1**: `appliedAt` stays a `yyyy-MM-dd` **string** and a PostgreSQL **`date`** — not
+     `timestamptz`, not a `Date` object. The domain asks *which day*, and an instant would let the server's
+     timezone decide the answer.
+  4. **Answered in M3 §4.1**: **fixed union** in TS **plus** a `CHECK` constraint in the DB; no data-driven
+     lookup table for five values, and `CHECK` over a PostgreSQL `ENUM` so adding a status stays an expand step.
 - **Technical debt register** (severity P1 = before M2, P2 = during M2, P3 = polish):
 
 | ID | Sev | Finding | Evidence | Suggested workflow |
@@ -188,7 +193,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 ## 7. Next Immediate Actions
 
-1. **HUMAN**: review and merge **PR #6** (`docs/real-browser-crosstab-evidence`). Two things worth attention:
+1. **HUMAN**: review and merge **PR #7** (`docs/m3-backend-api-spec`) — the M3 spec. Its §7 checklist is the review script; the four things that most deserve your disagreement are `DECISION-006` (widening the error union M2a froze), `DECISION-007` (client-minted ids, which is unusual and argued at length), the `date`-not-`timestamptz` choice, and the deliberate non-goal of **no auth ⇒ no public exposure before M4**. Then PR #6 (`docs/real-browser-crosstab-evidence`) is already merged; attention items there are moot. Old item:
    `72f2b68` changes the lint config's structure (typed rules moved inside the `src/**` block — read the comment
    on why the unscoped spread was the wrong default), and the spike note's "what this does not prove" section is
    the part that keeps the closure honest.
@@ -232,6 +237,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | 2026-09-10 22:01 UTC | Assistant (`pk:checkpoint`) | Checkpoint 001 + Handoff 001 | Level 2 checkpoint contract satisfied: `docs/tasks/TASK-m2-persistence-seam.checkpoint-001.md` (state, evidence, 9 locked invariants, one next action) and `.handoff-001.md` (receiver pass V1–V7, guard rails). Execution State deliberately left **`in_progress`**, not `handoff_ready`: nothing is blocked, the records exist so a context restart costs nothing, and a fresh session still runs V1–V7 before editing. Hygiene scan clean — 0 debug residue (the 5 `PROBE` grep hits are the production availability probe), 0 `.only`/`.skip`, 0 `.env`, 0 build artefacts. Evidence re-measured at `e5d0bbf`: **41/41 tests, tsc exit 0**. §7 rewritten because it had gone stale (still listed the M1 merge as pending). **Running my own validation pass found a bad check**: `grep " as JobApplication"` hits a comment explaining why that assertion was removed, so V5 was tightened to `JSON.parse(... as ` — a receiver's check must discriminate code from prose about code. |
 | 2026-09-10 22:25 UTC | Assistant (`pk:checkpoint` continuation) | M2a.4 — CRUD UI | Behaviours 012–017 in 11 commits: `ApplicationsProvider` + `useApplications`, `ApplicationForm` serving create and edit from one page, `data/applicationStore.ts` as the sole composition root, `domain/pipeline.summarise` (first domain module a page uses), provider-scoped details lookup with an honest loading state, and delete behind an inline `role=group` confirmation. **68 tests, 9 files; tsc 0; build 0 with no `vite.config.js`.** Closes DEBT-01/05/07 — 7 of 14 debt rows now shut. AC-1…AC-10 met; AC-11 owed at M2a.5. Five deviations disclosed as D-4…D-8 in the Task Record, of which D-4 matters most: 014 produced no Red because 013 had already wired the behaviour, so it is recorded as coverage rather than staged as a failure. Two scripted patches misapplied and the pre-commit gate caught both, which is the M1 incident finally paid off. |
 | 2026-09-10 23:00 UTC | Assistant (`pk:checkpoint`) | Checkpoint 002 + Handoff 002 | Level 2 checkpoint contract for the M2a.4 milestone: `checkpoint-002.md` (17/17 behaviours, AC-1…AC-10, evidence re-measured *in this checkpoint* rather than carried forward, 9 new invariants, gaps, one next action) and `handoff-002.md` (V1–V10, each executed before being written). Supersedes 001's next action; 001's invariants stand. Execution State stays `in_progress`. Measured here and now: 68 tests / 9 files, tsc 0, build 0, no `vite.config.js`, 0 storage references outside `src/data/`, 0 `Number(id)`, 3 of 14 debt rows countable as closed. Two findings worth more than the bookkeeping: **persistence has never been checked in a real browser** (every claim is jsdom-backed, so DEBT-01's closure carries a named residual), and the **debt register marks closures inconsistently** — DEBT-11…14 say FIXED in prose while still reading `P1`/`P2`, which is why no aggregate count appears anywhere. |
+| 2026-09-11 03:20 UTC | Assistant (`pk:plan`, M3) | M3's spec, planned against measurements rather than recollection | PR #6 merged (`7149836`): reconciled, `headRefOid` == tip, `npm run verify` green on `main`, CI observed green on all three post-gate pushes. Owner answered all four planning forks (PostgreSQL · host SDK via `dotnet-install.sh` · `api/` in-repo with path-filtered CI · SSE). Then `pk:plan` at **Full depth** (mandatory triggers: external contract, schema, multiple components) → `docs/specs/2026-09-11-spec-m3-backend-api.md`, `PLAN-m3-backend-api`. **Every version claim measured or cited, none recalled**: PG **18.6** (from `postgres:18`, and `postgres:19` does not resolve — 19 is `Beta 3` per the project's own 2026-08-13 line), .NET **10 is LTS to 2028-11-14** (`dotnet/core` release notes), SDK **10.0.401** (local run), EF Core **10.0.12** and Npgsql EF **10.0.3** (NuGet feed), RFC **9457** read at §3.1/§3.2 — which is the only reason the envelope's extension member is `code` and not `c`, since the spec requires names ≥3 characters. Five things left explicitly **unverified** with owners and validation actions (RDS 18.6 availability; Npgsql⇄EF compatibility inferred from matching majors; `EventSource` and SSE-through-proxy behaviour; Docker on CI runners; test-stack versions **deliberately unpinned**, Decision 008 `proposed`) — the workflow's rule that a claim without a source may not be marked verified is the reason they are listed instead of asserted. Two M2 questions finally answered in §4.1 (`date` not `timestamptz`; fixed union + `CHECK` not a lookup table). The spec's real content is the **eighth `RepositoryError` variant** (`DECISION-006`): conflict is a failure mode localStorage physically could not express, so M2a's "no eighth code" rule is honoured by growing the union only when reality does — and the rejection of mapping 409→`unavailable` matters because `unavailable` trips the provider's write-refusal gate. **Process failure, self-caught and disclosed**: I ended the previous turn with "Writing the spec:" and **never wrote it** — the second time this session that prose announced an artefact the filesystem disagreed about; confirmed by `ls docs/specs/` before answering the owner's status question. Also **not done on purpose**: the .NET install waits for approval of the pin, because installing 500 MB of an unapproved version puts the machine ahead of the decision. Deviation noted rather than hidden: claim/citation/uncertainty records are compact one-line records carrying each required field's value, not the template's field-per-line labels. |
 | 2026-09-11 02:38 UTC | Assistant (verification, not a phase) | Retiring M2b's residual with evidence | PR #5 merged (`dd6c5ec`); reconciled, re-verified `main` under its own gate, CI seen green on `main` twice. The human asked to "retire" the two-tab check, and **"retire" was ambiguous in a way that mattered**: recording it as verified when nobody had looked would have been the worst kind of bookkeeping. So rather than ask which they meant, I checked whether it could actually be run — no host browser existed, Docker did. Raw CDP (no new dependency: the Playwright image ships no package and its `latest` browsers are stale), two targets on one connection because separate contexts isolate storage and would have proven nothing. **13/13**, including the direction jsdom cannot express. AC-10's 44px and ring are now *measured* (45px; `solid 3px`) not read from CSS. **All three red runs were my harness, not the app** — `{result:{value}}` read as `.value`, an expression where a selector was required, and `pkill -f "vite preview"` matching its own command line and killing the cleanup — which is the argument for reading a check's output rather than trusting its exit code. It also caught a real defect in the four-hour-old lint config: `recommendedTypeChecked` spread unscoped made `npm run lint` **crash (exit 2) on any file outside `src/`**, reproduced twice via different patterns; fixed in `72f2b68`, proven with two opposite probes. Limits kept in view: Chromium only, happy path only, not a gate — DEBT-15's "no CSS assertion harness" stays open. |
 | 2026-09-11 01:56 UTC | Assistant (`pk:fix` tail, PR #5) | Merge reconciliation, and a commit the merge lost | **DEBT-03 merged as PR #4 (`68db873`)**. Reconciled `main` and re-verified under the new gate before anything else: `npm run verify` exit 0 · 100 tests / 13 files · build ✓ · clean tree · CI observed green **on `main` itself** (a `push` run at `68db873`), which is the point the tooling existed for. Then the reason to distrust a green badge: **PR #4 merged at head `415f819` while the branch tip was `28f3408`**, so the STATE.md commit carrying DEBT-17 (the critical `vitest` advisory) and DEBT-18 was on GitHub, on the branch, and not on `main`. Found only by comparing `gh pr view --json headRefOid` against `git rev-parse HEAD` after the PR head looked stale for minutes; the merge itself reported nothing wrong. Re-landed as cherry-pick `33639f2` → **PR #5**, docs-only. Rule written into `AGENTS.md` §Branch & PR workflow step 3 and re-synced to the Kilo mirror in the same commit (DEBT-12): *the branch having a commit is not the same as the PR carrying it.* Also recorded in this pass: DEBT-03's per-commit audit (9 commits, tsc green at every one, 100 tests at every one, eslint red at exactly the commit that introduces the config), and the audit harness's own first run being **entirely false** because `../node_modules` was the wrong relative path — which produced "every commit fails including the tip", the tell being that it contradicted a locally measured green. Harness sanity-checked before results were trusted this time. |
 | 2026-09-11 01:33 UTC | Assistant (`pk:fix`, DEBT-03) | Lint + CI bootstrap, and M2b's merge reconciliation | **M2b merged as PR #3 (`489cdb9`)** and re-verified on `main` before anything else: tsc 0 · 100 tests / 13 files · build 0 · no `vite.config.js` · clean tree after build. Then DEBT-03, which the human chose over starting M3: eslint 9 + stylelint 17 + `.github/workflows/ci.yml` running one new command, `npm run verify` (typecheck → lint → lint:css → test:run → build), so the DoD exists in a form another machine can execute. **First lint run: 42 findings → 25 suppressed with written reasons, 17 real and fixed** (2 dead imports, 2 escaped-quote bugs from M2a's scripted patches, 4 untyped `JSON.parse`, 9 redundant casts). Two rule sets switched off *because the codebase's own design contradicts them*: `require-await` (the repository seam is async over a synchronous store on purpose — 18 findings) and `unbound-method` (7 findings, all React-context destructuring of arrow functions). `jsx-a11y` added last and it changed the eslint major: its peer range stops at 9, npm's ERESOLVE refused it under 10, so **the ecosystem beat the newest version** — and 34 a11y rules now report **0 findings on this codebase**, proven to be live by a throwaway probe file that drew 3 findings before deletion. Each gate proven able to fail, not just able to pass: `git show f1ae7af:src/styles.css` (the DEBT-15 orphan) fails stylelint with exit 2, and a brace-balanced variant — which no parser error would surface — fails `no-invalid-position-declaration`. Two things this session caught about itself: `--fix` deleted five "unnecessary" casts one at a time until the discriminant widened to `string` and broke `tsc` (**lint --fix must always be followed by the typechecker**), and `set -e` does not cover a pipeline, so `verify \| head` let a failing probe through twice — now `AGENTS.md`'s sixth discipline rule. DEBT-03/11/15 closed; **DEBT-17** (7 dependency advisories, 0 of them new, all pre-existing in `vite`/`vitest`/`react-router-dom`) and **DEBT-18** (eslint pinned to a major npm calls unsupported, because `jsx-a11y` stops at 9) opened from what the runner's log made visible; DEBT-01's residual re-offered and **still owed by the human's own choice**; DEBT-16 open. 100 tests, 0 new runtime dependencies, 0 changed lines of application logic. |
