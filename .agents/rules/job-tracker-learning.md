@@ -72,7 +72,9 @@ Mirrored from `AGENTS.md` (canonical) — every rule below came from a failure o
 - **Read the ref before writing to it.** Every bash call is a new shell, so a branch created in an earlier
   turn is not the branch you are on later. On 2026-09-11 a ladder committed to local `main` for exactly that
   reason while STATE.md named a branch that had never been created. Check `git rev-parse --abbrev-ref HEAD`
-  before committing, and write a ref into a document only after measuring it.
+  before committing, and write a ref into a document only after measuring it. When a section is a *projection*
+  of another record (STATE.md §3A), regenerate it whole at each boundary — bullet-wise patching across turns
+  left it contradicting itself.
 - **Reproduce the gate's conditions before quoting its verdict.** CI's first .NET run failed on
   `error CS8605` in code I had called clean: my build was incremental and my grep pattern omitted
   `warning`, so the evidence was thrown away by the reading. Delete `bin/ obj/`, pass the same flags CI

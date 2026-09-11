@@ -93,6 +93,10 @@ public sealed class PostgresHarnessTests(PostgresFixture fixture)
     }
 
     [Fact]
+    // SCOPE, stated where it can be misread: this proves PostgreSQL enforces CHECK constraints in this image, so
+    // the mechanism BEHAVIOR-m3-backend-api-032 leans on exists. It says nothing about the applications table —
+    // which had no CHECK at all until 032's Red inserted 'Escalated' and the database accepted it. The shipped
+    // schema's constraint is asserted in ApplicationConstraintTests.
     public async Task A_check_constraint_is_enforced_by_this_container_and_not_silently_accepted()
     {
         // The whole reason SQLite and EF-InMemory are excluded from this milestone: this must fail for the

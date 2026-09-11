@@ -3,6 +3,7 @@ using System;
 using JobTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace JobTracker.Api.Migrations
 {
     [DbContext(typeof(JobTrackerDb))]
-    partial class JobTrackerDbModelSnapshot : ModelSnapshot
+    [Migration("20260911070607_AddRevisionConcurrencyToken")]
+    partial class AddRevisionConcurrencyToken
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -39,10 +42,8 @@ namespace JobTracker.Api.Migrations
                         .HasColumnName("company_name");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
+                        .HasColumnName("created_at");
 
                     b.Property<string>("JobTitle")
                         .IsRequired()
@@ -69,20 +70,15 @@ namespace JobTracker.Api.Migrations
                         .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("now()");
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
                     b.HasIndex(new[] { "UpdatedAt" }, "applications_updated_at_idx")
                         .IsDescending();
 
-                    b.ToTable("applications", null, t =>
-                        {
-                            t.HasCheckConstraint("applications_status_check", "status in ('Saved', 'Applied', 'Interview', 'Rejected', 'Offer')");
-                        });
+                    b.ToTable("applications", (string)null);
                 });
 #pragma warning restore 612, 618
         }
