@@ -5,7 +5,6 @@ import {
   APPLICATIONS_STORAGE_KEY,
   createLocalStorageRepository,
 } from '../data/localStorageApplicationRepository'
-import { seedApplications } from '../data/seedApplications'
 import { ApplicationsProvider } from './applicationsProvider'
 
 beforeEach(() => {

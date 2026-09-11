@@ -5,7 +5,7 @@ import { createInMemoryRepository } from '../data/localStorageApplicationReposit
 import { seedApplications } from '../data/seedApplications'
 import type { ApplicationRepository, RepositoryError, Result } from '../domain/applicationRepository'
 import { ApplicationsProvider } from '../state/applicationsProvider'
-import type { ApplicationInput, JobApplication } from '../types/application'
+import type { JobApplication } from '../types/application'
 
 function withFailingCreate(error: RepositoryError) {
   const base = createInMemoryRepository(seedApplications)
@@ -89,16 +89,20 @@ describe('repository errors reach the user with their own message', () => {
     expect(await screen.findByText(/format 2/)).toBeInTheDocument()
   })
 
-  it.each([
-    ['not-found', { code: 'not-found', id: 'x' } as RepositoryError],
-    ['unavailable', { code: 'unavailable' } as RepositoryError],
-    ['quota-exceeded', { code: 'quota-exceeded' } as RepositoryError],
-    [
-      'corrupt-data',
-      { code: 'corrupt-data', quarantinedAs: 'job-tracker:applications:corrupt-x' } as RepositoryError,
-    ],
-  ])('%s already renders its own sentence', async (_code, error) => {
-    withFailingCreate(error as RepositoryError)
+  // Annotated once, on the table, instead of casting each row. Typing the array is what makes
+  // `code: 'not-found'` check against the discriminated union — with the annotation removed, an object
+  // literal in a bare array widens `code` to `string` and the union no longer matches anything.
+  // Five `as RepositoryError` casts used to sit here doing that job worse: each one silenced the
+  // checker for its own row, so a wrong *extra* field would have passed.
+  const surfaces: ReadonlyArray<[code: string, error: RepositoryError]> = [
+    ['not-found', { code: 'not-found', id: 'x' }],
+    ['unavailable', { code: 'unavailable' }],
+    ['quota-exceeded', { code: 'quota-exceeded' }],
+    ['corrupt-data', { code: 'corrupt-data', quarantinedAs: 'job-tracker:applications:corrupt-x' }],
+  ]
+
+  it.each(surfaces)('%s already renders its own sentence', async (_code, error) => {
+    withFailingCreate(error)
     await submitValidForm()
     expect(screen.queryByText('Something went wrong saving that application. Nothing was changed.')).toBeNull()
     expect(await screen.findByRole('alert')).toBeInTheDocument()

@@ -114,7 +114,7 @@ describe('deleting an application', () => {
     const target = seedApplications[1]
     setup(repo, `/applications/${target.id}`)
     await screen.findByRole('heading', { level: 2 })
-    const title = (screen.getByRole('heading', { level: 2 }) as HTMLElement).textContent
+    const title = (screen.getByRole('heading', { level: 2 })).textContent
 
     fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
     fireEvent.click(await screen.findByRole('button', { name: /delete application/i }))

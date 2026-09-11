@@ -1,0 +1,68 @@
+name: CI
+
+# DEBT-03, closed by execution rather than by intention. Everything below is the same command a human
+# runs locally: CI's job is not to define a second, slightly different standard, but to run the one in
+# `package.json` at moments when nobody is remembering to.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only: this workflow builds and checks. It never deploys, publishes, or writes to the repository,
+# because tagging, releasing, and pushing to `main` are human decisions (`AGENTS.md` §Branch & PR workflow).
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 24 to match the measured local runtime (`node -v` → v24.20.0 on 2026-09-11), not whatever
+      # the runner happens to default to. A CI that passes on a different major than the developer's
+      # machine is a source of bugs nobody can reproduce.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # `npm ci` rather than `npm install`: it refuses to proceed when `package.json` and
+      # `package-lock.json` disagree, which is the one guard against an accidental dependency change
+      # that no local command provides.
+      - name: Install (lockfile-exact)
+        run: npm ci
+
+      - name: Verify (typecheck → lint → stylelint → tests → build)
+        run: npm run verify
+
+      # Permanent teeth for DEBT-11. `tsc -b` (inside `npm run build`) emits next to its inputs unless
+      # `tsconfig.node.json` keeps `"noEmit": true`; the emitted `vite.config.js` then shadows the real
+      # `vite.config.ts` for `vite dev`/`vite build` — Vite resolves `.js` before `.ts` — while Vitest
+      # keeps reading the `.ts`. Tests stay green; the app silently runs a stale config. `bd8a8b6` closed
+      # it, and this step is what stops it from coming back as a regression nobody notices.
+      - name: Assert the build did not emit a config shadow (DEBT-11)
+        run: |
+          set -euo pipefail
+          for f in vite.config.js vite.config.d.ts; do
+            if [ -e "$f" ]; then
+              echo "::error::$f exists after the build. tsconfig.node.json lost \"noEmit\": true — the emitted copy now shadows vite.config.ts for vite dev/build. See DEBT-11 in docs/STATE.md."
+              exit 1
+            fi
+          done
+          # Any other visible file means the build wrote into the tree: `*.tsbuildinfo` and `dist/` are
+          # gitignored on purpose, so an entry here is something new and unexplained.
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::The build left changes visible to git:"
+            git status --porcelain
+            exit 1
+          fi
+          echo "✓ no config shadow, no leaked build output"

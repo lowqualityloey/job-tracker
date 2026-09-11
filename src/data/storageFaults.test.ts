@@ -26,7 +26,7 @@ function writeThrows(name: string): Storage {
       throw new DOMException('blocked', name)
     },
     length: 0,
-  } as unknown as Storage
+  }
 }
 
 function fullButUsableStore(): Storage {
@@ -39,7 +39,7 @@ function fullButUsableStore(): Storage {
       throw new DOMException('quota', 'QuotaExceededError')
     },
     length: 3,
-  } as unknown as Storage
+  }
 }
 
 // BEHAVIOR-m2-persistence-seam-008
@@ -116,7 +116,7 @@ function fakeWorkingStore(): StorageLike & { forceQuotaError: boolean } {
       backing.set(key, value)
     },
   }
-  return fake as StorageLike & { forceQuotaError: boolean }
+  return fake
 }
 
 function storeThatFailsOnlyOn(failKey: string): StorageLike {

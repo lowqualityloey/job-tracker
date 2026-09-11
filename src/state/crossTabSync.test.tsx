@@ -195,7 +195,8 @@ describe('reconciling a write from another tab', () => {
     )
 
     // The newer bytes are untouched — not quarantined, not rewritten (invariant 13).
-    expect(JSON.parse(String(localStorage.getItem(APPLICATIONS_STORAGE_KEY))).schemaVersion).toBe(999)
+    const stored = JSON.parse(String(localStorage.getItem(APPLICATIONS_STORAGE_KEY))) as { schemaVersion: number }
+    expect(stored.schemaVersion).toBe(999)
   })
 
   // Fail-closed must not be a trap. Note what this does *not* claim: this build cannot write its

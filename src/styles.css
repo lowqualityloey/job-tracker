@@ -142,11 +142,17 @@ textarea {
   font-weight: 700;
 }
 
+/* One status pair per line, on purpose: this block is the machine-readable copy of DESIGN.md §3's
+   `Status | Background | Text | Class` table, and splitting it into twenty lines would break the visual
+   pairing that makes a background/text mismatch catchable by eye. Scoped disable rather than switching
+   the rule off globally, so every other single-line block in this file is still checked. */
+/* stylelint-disable declaration-block-single-line-max-declarations */
 .badge-saved { background: #334155; color: #e2e8f0; }
 .badge-applied { background: #1d4ed8; color: #dbeafe; }
 .badge-interview { background: #7c3aed; color: #ede9fe; }
 .badge-rejected { background: #b91c1c; color: #fee2e2; }
 .badge-offer { background: #047857; color: #d1fae5; }
+/* stylelint-enable declaration-block-single-line-max-declarations */
 
 .details-link {
   display: inline-flex;
