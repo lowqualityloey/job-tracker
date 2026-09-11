@@ -279,7 +279,14 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 18:45 UTC): **the ladder and the AC sweep are both done — 13 of 14 ACs verified.** M3
+- **Next Action (2026-09-11 20:00 UTC): M3's evidence and spec-truth work is done — gap 10a and 10b are resolved, §6 is
+  complete, 14/14 ACs verified.** Two things remain, in order. **(1) The owner's:** spec §7's four approval boxes (they
+  read `agent left unchecked`), M3's `[/]`→`[x]` flip, and the five carried decisions — gap 5, the `notes` ceiling, the
+  `location` null-map, `status` runtime validation at the seam, gap 7's §4.3-vs-ladder sweep. **(2) Mine, once §7 is
+  signed:** open **M4 — Authentication** (`pk:plan`, Level 2), which spec §7 makes a **hard ordering constraint on any
+  public exposure of this API**. One M3 item is still honestly open rather than closed: the **unreproduced `dotnet test`
+  failure** (1/64 once; six later runs clean; **test never named**), and a seventh clean run will not name it either —
+  it needs a full-log capture the moment it recurs.
   waits on one owner decision, **gap 9 (A / B / C)**, which is the only thing between this task and "all 14". If **(B)**
   is chosen, amend `DECISION-m3-backend-api-007`, spec §6's `BEHAVIOR-034` client clause, and AC-7's wording **in one
   commit** so the three cannot drift, then close AC-7 and run §6's Evidence and Completion Gate (with spec §7's sign-off checklist). If **(A)**, it is a normal
@@ -369,7 +376,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   | `GET /api/applications` p50 | < 30 ms | **2.7 ms** (n=40) | ✓ |
   | `GET /api/applications` p95 | < 80 ms | **5.3 ms** (max 75.8 ms) | ✓ |
   | `POST` p95 including commit | < 150 ms | **5.8 ms** (n=25, p50 4.7, max 52.9) | ✓ |
-  | SSE notification observed in a second tab | observed | **observed** (`-042`, tab B never reloaded) | ✓ *for existence*; **no latency figure is claimed — see gap 10** |
+  | SSE notification reaches a subscriber | *(none given → gap 10b)* | **p50 9 ms, p95 11 ms, max 35 ms** (n=8/8, id-matched frame) | ✓ now falsifiable; **browser-render timing still unmeasured** |
 
   **Spec §7's checklist item ("falsifiable by a command; if any cannot be, it is deleted rather than defended") is now
   satisfied for the three latency targets** — and the exercise found that a fourth was never actually falsifiable:

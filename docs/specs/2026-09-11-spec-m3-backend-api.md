@@ -286,7 +286,15 @@ The outcome is a deployed-able ASP.NET Core Web API over PostgreSQL with migrati
 5. **G-5** `subscribe()` over SSE, keeping cross-tab sync working when the medium is a server.
 6. **G-6** Contract test proving client and server validators agree at every shared boundary — two definitions of "valid", one truth (`§5`).
 7. **G-7** CI gains an `api` job that cannot fail because of the frontend job and vice versa (`paths` filters).
-8. **Measurable targets** (dev machine, 5-50 rows — deliberately modest so a number is never unfalsifiable): `GET /api/applications` **p50 < 30 ms, p95 < 80 ms**; `POST` **p95 < 150 ms** including commit; SSE notification observed in the second tab in **< 500 ms**; API suite runs in **< 60 s** in CI; **0** unhandled exceptions reaching a client (everything becomes a problem response); frontend bundle **not measured here** — the API client uses `fetch`, so the bundle delta must stay **< 2 kB** and Slice 3 records the actual number from the build output.
+8. **Measurable targets** (dev machine, 5-50 rows — deliberately modest so a number is never unfalsifiable): `GET /api/applications` **p50 < 30 ms, p95 < 80 ms**; `POST` **p95 < 150 ms** including commit; **`SSE` notification frame reaches a subscriber within **p95 < 250 ms** of the committing request returning** (measured 2026-09-11 19:55 UTC: **p50 9 ms, p95 11 ms, max 35 ms**, n=8/8 observed — server-commit → frame on the wire, curl subscriber; **the *visible-in-a-second-tab* half is an existence claim proved by `-042`, not a timed one — see below** in **< 500 ms**; API suite runs in **< 60 s** in CI; **0** unhandled exceptions reaching a client (everything becomes a problem response); frontend bundle **not measured here** — the API client uses `fetch`, so the bundle delta must stay **< 2 kB** and Slice 3 records the actual number from the build output.
+
+   **Two claims, deliberately separated (gap 10b).** (1) *Notification reaches a subscriber promptly* — falsifiable, and
+   now measured above. (2) *A second browser tab visibly updates without reloading* — proven by `BEHAVIOR-042`'s harness
+   (tab B, **1 navigation entry**, row appeared), but **its timing was never measured**, because the harness asserts
+   appearance within its polling window rather than time-to-render. The original single clause, "observed in the second
+   tab", sat inside a list of *measurable targets* while naming **no threshold at all**, so it could not fail. Per §7's own
+   rule — unfalsifiable items are "deleted rather than defended" — it is **split** rather than defended: (1) carries the
+   number, (2) stays an existence claim with its own evidence ID.
 
 ### Non-Goals (Explicit Scope Boundary)
 Authentication/authorisation, tenants, roles (M4) · deploying to AWS or any cloud (M5) · pagination/search/sorting · bulk import/export · rate limiting · OpenAPI/Swagger client **codegen** (`Microsoft.AspNetCore.OpenApi` may be added for *browsing*, never as a source of generated types) · soft delete, archive, audit history · email/notifications · **deleting the localStorage adapter** · migrating existing local records (Assumption 003) · any change to a page, component, or the provider's state machine.
@@ -381,8 +389,8 @@ M3 changes **no existing column** (the table is new: pure expand), so the real E
 | :--- | :--- | :--- | :--- |
 | `GET /api/applications` | — | `200 Application[]` (unordered is fine; client sorts) | `503 unavailable`, `500 storage-error` |
 | `GET /api/applications/{id}` | — | `200 Application` + `ETag: "<xmin>"` | `404 not-found` |
-| `POST /api/applications` | `{ id, companyName, jobTitle, location?, status, appliedAt?, notes? }` | `201` + `Location` + body + `ETag` | `400 validation` (+`errors[]`), `409 conflict` (id exists), `503`, `500` |
-| `PUT /api/applications/{id}` | full replacement; **`If-Match: "<xmin>"` required** | `200` + new `ETag` | `404 not-found`, `409 conflict` (stale version), `400 validation`, `428`→**mapped to `409`** (missing precondition, see note) |
+| `POST /api/applications` | `{ id, companyName, jobTitle, location?, status, appliedAt?, notes? }` | `201` + `Location` + body (**body carries `revision`** — `ETag` header **not** emitted, see §4.4 note) | `400 validation` (+`errors[]`), `409 conflict` (id exists), `503`, `500` |
+| `PUT /api/applications/{id}` | full replacement; **`If-Match: "<xmin>"` required** | `200` + body with the new `revision` (**no `ETag` header**) | `404 not-found`, `409 conflict` (stale version), `400 validation`, `428`→**mapped to `409`** (missing precondition, see note) |
 | `DELETE /api/applications/{id}` | `If-Match` optional | `204` | `404 not-found`, `409 conflict` |
 | `GET /api/applications/events` | `Accept: text/event-stream` | `200`, `event: change` + `data: {"id":"…"}` after each committed write | n/a (a dropped stream reconnects) |
 | `GET /api/health` | — | `200 {"status":"ok"}` | used by CI/Slice 0 readiness only |
@@ -413,6 +421,21 @@ M3 changes **no existing column** (the table is new: pure expand), so the real E
 **`subscribe()` over SSE**: the interface `subscribe(onExternalChange: () => void): () => void` **cannot report an error** — it hands back only an unsubscriber. That is a real constraint, not an inconvenience: so the adapter owns recovery invisibly. Policy: `EventSource` with browser-native reconnect; **on `open` after any disconnect, call `onExternalChange()` once** (a dropped stream may have missed events, and a re-read is always safe); on the unsubscriber, close the stream. No page or provider change, and a dropped connection degrades to "reads only refresh on the next user action" rather than to stale-forever.
 
 **Concurrency**: `PUT` requires `If-Match`. A mismatch, or a missing header, is `409 conflict` — the UI already refuses to overwrite on refusal (`DECISION-006` rationale), and the message is *"someone else changed this record; reload to see it"*, which is the first user-facing sentence in this project that only a server could make necessary.
+
+> **§4.4 note — why there is no `ETag` header (gap 10a, resolved 2026-09-11 19:55 UTC by amending this table rather
+> than implementing the header).** The table previously promised `ETag` on `POST` and `PUT` responses. **The server has
+> never emitted it** (`grep -rn "ETag" api/src/JobTracker.Api/Program.cs` → no match), **no test ever read it** (grep across
+> `api/tests` for any `ETag` response-header read → zero hits), and **the design does not need it**: `revision` is the `xmin`
+> value carried in the response *body* (`-029`, `-041`'s wire shape), the adapter sends it back as a quoted `If-Match`
+> (`-033` proves stale → `409` with the row unchanged), and `DECISION-006` deliberately chose an **opaque `revision?: number`
+> on the domain record** over a header-only token so that the value survives the store's normalization. Emitting `ETag` as
+> well would put **two sources of truth on one counter** with no consumer for the second. **The client's own `If-Match`
+> header is still the concurrency mechanism — it is the *response* header that doesn't exist.**
+>
+> **How this survived spec approval, grilling, 126 commits and 14 verified ACs:** `-029`'s assertion was written "list results
+> carry an `ETag`/`revision`", and **the slash let a body-only implementation satisfy a header-shaped promise**. A test that
+> asserts *A or B* cannot detect the absence of *A*. Discovered only because the close-out went to *measure* §2 rather than
+> restate it.
 
 ## 5. Security, Privacy & Failure Modes (FMEA)
 

@@ -547,3 +547,28 @@ both warn about, reproduced by the person writing the measurement. Recovered by 
 company_name LIKE 'PERF-%'` (25 deleted, count back to **0**, verified). **Lesson: when a probe creates state, clean it
 up in the same command that creates it, or verify the count immediately — an aborted measurement is a state mutation
 with the report missing.**
+
+### Resolution (2026-09-11 19:55 UTC)
+
+**10a — resolved by amending §4's table** (option "amend", not "implement"), with a new **§4.4 note** carrying the
+measurements, the `DECISION-006` rationale for a body-only token, and the mechanism that hid it. The client's `If-Match`
+*request* header remains real; only the response header was fictional.
+
+**10b — resolved by splitting the clause**, not by deleting it: *notification reaches a subscriber within p95 < 250 ms*
+(**measured: p50 9 ms, p95 11 ms, max 35 ms, n=8/8**) versus *a second tab visibly updates without reloading* (`-042`,
+existence, **timing never measured**). The first is now falsifiable; the second is labelled for what it is.
+
+**10c — superseded by two more failures during the same measurement, which is the real finding.** After filing "clean up
+in the same command", I immediately produced two new bugs: **(i)** the first SSE probe paired each `POST` with the
+**previous** probe's frame because it read *the last `data:` line in the file* instead of the line containing **its own
+id** — every latency came out a constant **−1195 ms**, which is physically impossible and is the tell worth remembering:
+*a suspiciously consistent wrong number means a systematic pairing error, not noise*; **(ii)** the second probe captured
+**zero frames** because the subshell's own `exec >>file` redirect won over the one I was polling, so I measured an empty
+file and reported "NOT OBSERVED within 5s" — **an absent-signal bug that reads exactly like the defect under test**
+("the server doesn't notify!") and would have been recorded as a finding about the product. Also **(iii)** `pkill -f
+'applications/events'` killed my own shell a third time, because the pattern appears in the command's own cmdline —
+the bracket trick does not save you when the *literal* string is elsewhere in the same line; kill by recorded PID.
+
+**Cleanup discipline held on the retry**: the probe now deletes its rows in a **`finally`**, and the dev database was
+verified at **0 rows** after every attempt including the failed ones. **Two orphan incidents were recovered by `DELETE …
+LIKE`** — the pattern to copy is not "remember to clean up" but *"cleanup runs no matter how the probe dies."*
