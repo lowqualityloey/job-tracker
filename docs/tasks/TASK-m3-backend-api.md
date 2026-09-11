@@ -135,6 +135,13 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   `DateOnly?`, because a binding failure answers with the framework's envelope — **no `code`**, which the client's
   fail-closed rule reports as `corrupt-data` about a typo. The wire field is now `string?` and the parse sits inside
   the validator.
+  **Re-verified by `-041`** (2026-09-11 14:30 UTC): the fixture grew to **36 rows** and the API suite to **60 tests**,
+  because a new row exposed a real cross-language divergence — `company-name-bom-only` failed with
+  **`Expected: BadRequest, Actual: Created`**. The AC's claim is that neither validator can pass its own opinion; this
+  is that mechanism *working after* the AC was already checked off, and the checkmark was not wrong. One row
+  (`company-name-line-separator-only`) was added as the control, proving the disagreement is exactly one code point
+  (U+FEFF) rather than a class of them.
+
 - [ ] **AC-13** — **CI jobs are independent.** The API job is gated by an **internal `if:` on changed paths, not by `on.pull_request.paths`** (grill F-10: an excluded job reports *no status*, which is indistinguishable from a check that never ran the day branch protection requires all checks). So the job always reports and only its steps skip. **Result**: Pending · **Evidence**: two PR pushes — a docs-only push showing job *success / steps skipped* and an `api/**` push showing steps executed, both run lists quoted
 - [ ] **AC-14** — **Locked invariants I-1…I-6 still hold** (spec §3), checked by command rather than by re-reading code: no `fetch`/`EventSource` outside `src/data/`, no `Number(id)` anywhere, **runtime dependency count still 3**, no `.only`/`.skip`, no `vite.config.js` in the tree, **and `revision` referenced nowhere outside `src/data/` + its declaration** (grill F-5: the field's isolation was a comment; it is now a grep). **Result**: Pending · **Evidence**: §8's invariant scan block, output quoted verbatim
 
@@ -158,15 +165,17 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 13:55 UTC): `-041`, unicode and long-string fidelity through JSON** — the last behaviour
-  in Slice 3, and the one that finally exercises the asymmetry deferred twice: the client model types `location` as
-  **required `string`** while the wire and the API treat it as optional, and every test so far either minted a complete
-  record or sent none. `-041` sends real records through a round trip, so the decision has to be made: client-required
-  (the adapter is where that fact is enforced) or wire-optional (then the client model is wrong, and AC-1's "the
-  frontend changes not at all" needs re-reading). **Then Slice 4** (`-042` browser over HTTP, `-043` survives a
-  restart), where AC-1 and AC-11 can actually close. Open for the owner: gap 5 (`conflict`'s sentence — being taken as
-  "M3 ships generic" unless told otherwise), the `notes` ceiling, and **gap 7 as a precedent worth acting on** — sweep
-  §4.3's table against the ladder for any other server-side obligation a client-half behaviour made look complete.
+- **Next Action (2026-09-11 14:30 UTC): Slice 3 is complete — `-036`…`-041` and `-046` all shipped. Open the PR and
+  then **Slice 4: `-042`**, the CDP harness from `docs/spikes/…/crosstab.mjs` pointed at an `VITE_API_BASE_URL`-backed
+  build in real Chromium. That behaviour is the milestone's most valuable single artefact and it is the first place the
+  client and server halves of SSE meet for real: **AC-1 and AC-11 both close there**, and neither can be checked
+  honestly before it. Expect to need a running API + Postgres + a built frontend, so budget for wiring rather than
+  tests: `dotnet run` against the dev container, `npm run build`, `vite preview`, and the harness pointed at the
+  preview origin with the API base baked in. Carried into Slice 4: gap 5 (`conflict`'s sentence, taken as "M3 ships
+  generic" unless told otherwise), the `notes` ceiling, the `location` interpretation above, `-041`'s observation that
+  **`status` is the one domain field with no runtime validation at the seam** (a wire `"Bogus"` passes both `-037`'s
+  guard and the type), and gap 7's precedent — sweep §4.3's table against the ladder for other server-side obligations
+  a client-half behaviour made look complete.
   (Preceding text read: "**Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared
   fixture.** Author `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules …
   Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and `job_title` (deferred
@@ -600,6 +609,45 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     instead of bumping `lib` — a production compiler target widened for one test line outlives the test.
   - Mutations against the committed Green: **re-read on `error`** → 3 red; **re-read on every `open` including the
     first** → 3 red. Restored: 11 passed.
+
+  **`TDD-EXEC-m3-backend-api-041`** · `BEHAVIOR-…-041` · **two Red/Green pairs**: API `85f66eb → faa0ecb`, client
+  `096d6c1 → 0e1bdf3` · p2 · Slice 3f
+  - **The client pair was reconstructed, and that needs saying.** The first pass committed `-041`'s tests together with
+    the adapter fix, which is the exact rule this ladder has broken before. Fixed by restoring
+    `httpApplicationRepository.ts` to its pre-fix state, re-running the test file against it, and committing the fresh
+    three failures as the Red — so `096d6c1`'s output is a measurement, not a memory. Reconstructing it found *more*
+    than the original run: **1 failed with 3 skipped** became **3 failed**, because the register's filter had matched
+    only some case names. A filtered run that skips cases is a filtered run that reports fewer bugs.
+  - **Two halves, one behaviour, both producing a genuine Red** — the first Slice-3 behaviour to do so since `-037`.
+    The API half is the BOM trim divergence (fixed by adopting the wider, JS-compatible trim so the server can only
+    become stricter, never newly permissive). The client half is `-041` finding something `-041` was not looking for.
+  - **The wire guard checked six of nine fields.** `{"location": null}` is a legal 200 and `JobApplication.location`
+    is a required `string`; because `isWireApplication` never looked at `location`, the `null` passed into a type that
+    says it cannot be. Same laundering for `appliedAt`/`notes`, which the API sends as `null` and the domain declares
+    absent. **A structural-typing seam is only as honest as the runtime guard behind it** — and AC-1 *is* that seam.
+    An unchecked field in a guard reads as a checked one, which is worse than no guard at all.
+  - `WireApplication` now describes the **wire** (`location: string | null`, `appliedAt`/`notes: string | null`)
+    instead of the domain record with `revision` glued on; that mis-description is why nothing ever forced the
+    reconciliation to be written down.
+  - **Interpretation recorded, not ratified:** the two null mappings deliberately differ. `location: null → ''`
+    (required string in the domain; every consumer already treats it as one; the rejected alternative was making
+    `location` optional across the model, spreading a null check through every reader for a state only the API can
+    produce). `appliedAt`/`notes: null → absent` (genuinely optional; `''` would *mean* something else — an empty date
+    is an invalid date, and the form would render it as one). Owner: dissent is one commit; if `location` should be
+    optional instead, that is a domain-model change touching M2's tested pages, which is M4/M5 scope, not this branch.
+  - **`-041`'s client half is claimed by no AC.** It sits under AC-12's umbrella as the fidelity claim both sides
+    share. Stated plainly so the absence is a fact about the ladder, not a forgotten checkbox.
+  - Fidelity is asserted as **identity** (`toBe` on strings — same code-unit sequence) through an **echo** stub that
+    builds the stored record from the body actually sent, so damage in either direction shows. A 10 kB note keeps its
+    exact length and contains no U+FFFD (a split surrogate pair preserves the count while changing the content).
+  - Mutations, run against the committed Green: **normalise `companyName` to NFC** → 2 red; **delete the `location`
+    guard clause** → 1 red (precisely the wrong-type case); **truncate `notes` to 1000 on send** → 1 red. Restored:
+    16 passed. The first attempts at two of these were themselves wrong (normalising `location` while the test
+    stresses `companyName`; replacing a clause so the guard rejected *everything*) — both were caught by the mutation
+    failing to bite, which is the only reliable way to catch it.
+  - Test defects found by running, both mine: my "two different strings" were the same string (one `replace` matched
+    both literals), and 3 cases were **skipped** because the register's filter matched only some names — the describe
+    now carries the phrase, so `-t "survives unicode"` runs all 16 exactly as the ladder prints it.
 
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — superseded text**: Slice 0 **adds the second job** (`api`), so this PR's run resolves the

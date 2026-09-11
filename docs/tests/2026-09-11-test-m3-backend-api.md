@@ -377,3 +377,59 @@ merge. Caught by `git log --oneline main..HEAD | wc -l` printing `0` where it sh
 branching at `f553e4e` and resetting `main` to `origin/main` **behind a count assertion**, so a `reset --hard` could not
 fire on a history that wasn't what was expected. Nothing reached the remote; the rule that caught it is in AGENTS.md
 under "Read the ref before you write to it", and this is the second time that rule has paid for itself in this repo.
+
+## §16 — Gap 8: a guard that skips a field is asserting it (2026-09-11 14:30 UTC, `-041`)
+
+Slice 3's last behaviour was supposed to be about character encodings. It was, and the fixture found a live bug there:
+`company-name-bom-only` failed against the API with **`Expected: BadRequest, Actual: Created`**, because
+`String.prototype.trim()` removes U+FEFF and `char.IsWhiteSpace` does not. One code point, confirmed by a control row —
+`company-name-line-separator-only` (U+2028) passes on both sides, so the disagreement is not a class of characters and
+does not need a normalisation library, it needs one `.Trim('\uFEFF')`.
+
+**What makes that an AC-12 result rather than an encoding curiosity** is that both validators were already green. Each
+had been tested against its own language's idea of blank, and each passed. Only a row consumed by both could show that
+"blank" means two different things, which is the whole argument for the fixture — and it paid off *after* AC-12 had
+been checked off, so the checkmark was not wrong, just early. The failure mode it prevented is concrete: store a name
+that is nothing but a BOM (some spreadsheets and copy-paste paths leave one behind) and the user sees a row with an
+empty name; open it, change any *other* field, and the client's validator trims the invisible character, finds a blank
+required field, and refuses to submit a form the user never touched.
+
+**Gap 8, found by the client half while it wasn't looking for it.** `isWireApplication` checked six of nine fields.
+`{"location": null}` is a legal 200 — the column is nullable — and `JobApplication.location` is a required `string`, so
+`null` passed straight through into a type that promises it cannot be. Same for `appliedAt`/`notes`, which the API
+sends as `null` and the domain declares *absent*, so every "is there a date?" check in the app was being asked about a
+`null` wearing an optional's clothes.
+
+The lesson is not "check all the fields", though that's part of it. **An unchecked field inside a function named like a
+check reads as a checked one** — to reviewers, to future readers, and to the type system, which trusts the guard
+completely. A structural-typing seam (which is exactly what AC-1's "the frontend changes not at all" rests on) is only
+as honest as the runtime guard behind it. The root cause was the boundary type: `WireApplication` was
+`JobApplication & { revision: number }`, i.e. the domain type describing the wire, which is why no compiler or reader
+ever had a place to notice the difference. It now states the wire's nullability, and `toDomain` reconciles the two
+schemas in one visible place — `location: null → ''`, `appliedAt`/`notes: null → absent`, differing on purpose.
+
+**Open observation for the owner, not fixed here**: `status` is the remaining domain field with no runtime validation
+at the seam — it is a five-member union in TypeScript and only a `typeof === 'string'` check in the guard, so a wire
+`"Bogus"` still lands typed as `ApplicationStatus`. Fixing it needs a runtime list of the five values, which either
+duplicates the union (drift risk) or replaces it (a domain-model change). Small, deliberate scope decision, not an
+oversight; `-041`'s mutations show what the guard is worth on the fields it does check.
+
+### Two process lessons from the same behaviour
+
+1. **A filtered run can silently cover less than the behaviour.** The register's filter for `-041` is
+   `-t "survives unicode"`, which matched some case names and not others — the first run was **1 failed | 12 passed |
+   3 skipped**, and the skipped three included two of the three real bugs. Fixed by putting the phrase on the
+   `describe` so all 16 cases match, and by reading for `skipped` in the output as well as `failed`. Same class as the
+   `-037` lesson; the fix is the same, and so is the diagnosis order: *check which side is wrong before editing it*.
+2. **The Red/Green commit rule was broken here and repairing it found bugs.** The first pass committed `-041`'s tests
+   together with the adapter fix. Rather than narrate the exception, `httpApplicationRepository.ts` was restored to its
+   pre-fix state and the test file re-run against it, producing a fresh **3 failed** that is now `096d6c1`'s evidence —
+   and two of those three failures had been invisible in the skipped set. Reconstructing an honest history is not just
+   bookkeeping: it re-runs an experiment you thought you had already done.
+
+| Gate | Before `-041` | After |
+| :--- | :--- | :--- |
+| API suite | 58 | **60** (two fixture rows, both sides) |
+| Frontend suite | 179 / 19 files | **197 / 20 files** |
+| Shared fixture rows | 34 | **36** |
+| Fields checked by the wire guard | 6 of 9 | **9 of 9** |
