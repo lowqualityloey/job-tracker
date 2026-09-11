@@ -66,3 +66,63 @@ jobs:
             exit 1
           fi
           echo "✓ no config shadow, no leaked build output"
+
+  # --- M3 Slice 0: the API gate --------------------------------------------------------------------
+  #
+  # Gated **internally** (a detection step + per-step `if:`) rather than by `on.pull_request.paths`, because
+  # of grill finding F-10 in docs/reviews/2026-09-11-m3-plan-grill.md: a job excluded by a `paths:` filter
+  # reports *no status at all*, which to required-status-check protection is indistinguishable from a check
+  # that never ran. The day branch protection is enabled with "require all checks", every docs-only PR
+  # becomes unmergeable, and the usual reflex is `if: always()` — which runs a job with no reason to exist.
+  # Here the job always runs and always reports; only its steps skip. AC-13 in
+  # docs/tasks/TASK-m3-backend-api.md asserts both outcomes on real pushes.
+  api:
+    name: verify-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history, so the diff against the PR base has a merge base to compare against.
+          fetch-depth: 0
+
+      - name: Detect whether the API surface changed
+        id: changes
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD")
+          else
+            # Push to main or manual dispatch: examine the commit itself, so the job is never vacuously green.
+            changed=$(git show --name-only --pretty=format: HEAD)
+          fi
+          # global.json and this workflow count as API surface: a toolchain pin change or a CI change must
+          # re-prove the .NET build even if no .cs file moved.
+          if printf '%s\n' "$changed" | grep -qE '^(api/|global\.json$|\.github/workflows/ci\.yml$)'; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            echo "✓ API surface changed — running the .NET gate"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo "✓ no API surface change — steps below skip, job still reports success"
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.changes.outputs.changed == 'true'
+        with:
+          # Read the version from global.json instead of repeating the pin here: exactly one place holds it,
+          # and that file's `rollForward: disable` is what turns a mismatch into a loud failure.
+          global-json-file: global.json
+
+      # `TreatWarningsAsErrors` makes the .NET gate match the frontend's `--max-warnings 0`: a warning nobody
+      # reads is a warning nobody fixes. Slice 0's build is clean under it — 0 warnings, 0 errors — verified
+      # locally on 2026-09-11 before this line was written.
+      #
+      # No `services:` block here: the tests start their own PostgreSQL 18.6 through Testcontainers, which is
+      # exactly what this job's first run proves or refutes (UNCERTAINTY-m3-backend-api-008-001). If a runner
+      # cannot, the fallback is a service container — a fixture swap, not a test rewrite.
+      - name: Verify (build with warnings as errors → test against a real PostgreSQL)
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          dotnet build api/JobTracker.slnx -p:TreatWarningsAsErrors=true
+          dotnet test api/tests/JobTracker.Api.Tests

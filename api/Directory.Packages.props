@@ -1,0 +1,40 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+
+    <!--
+      Transitive pinning is the real lesson of Slice 0's first CI run, and the reason this file exists.
+
+      `dotnet add package` wrote versions into each .csproj, so I "pinned the graph" by pinning the one assembly
+      the first warning happened to name (Microsoft.EntityFrameworkCore). NuGet resolves a dependency *range*
+      independently per project, and a project reference does not carry a chosen version — so Npgsql's
+      `[10.0.4, 11.0.0)` edge let `Microsoft.EntityFrameworkCore.Relational` resolve to **10.0.4** in the test
+      project while the app compiled against **10.0.12**. Locally invisible (incremental build + a grep that
+      dropped warnings); fatal on a clean runner with TreatWarningsAsErrors.
+
+      Central transitive pinning forces every project to the same version of every package in the graph, which
+      makes "one truth per package" structural instead of something I have to remember twice.
+    -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Access date for every version below: 2026-09-11 05:40 UTC, from api.nuget.org's flat container index. -->
+    <!-- DECISION-m3-backend-api-003: EF Core 10.0.12 + Npgsql provider 10.0.3. Relational is pinned to match -->
+    <!-- Core rather than left to the provider's minimum, which is what produced the conflict above.          -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+
+    <!-- DECISION-m3-backend-api-008, `proposed` → pins chosen at creation time. Microsoft.NET.Test.Sdk and -->
+    <!-- xunit.runner.visualstudio deliberately stay at the template's tested pair (17.14.1 / 3.1.4) rather -->
+    <!-- than the feed's latest (18.10.0 / 4.0.0): chasing two majors in the commit that creates the project -->
+    <!-- is how a toolchain commit stops being about the toolchain. Deviation recorded, not quietly dropped. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+</Project>

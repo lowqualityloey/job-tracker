@@ -86,7 +86,7 @@ Do not claim success without reporting what was verified.
 
 ### Commit discipline
 
-Seven rules, each earned by a failure that actually happened on this repository:
+Eight rules, each earned by a failure that actually happened on this repository:
 
 - **Gate commits on verification.** Never chain `verify && commit` on one shell line without
   `set -e` — a failing `tsc` does not stop the commit that follows it. A commit was once made
@@ -115,6 +115,14 @@ Seven rules, each earned by a failure that actually happened on this repository:
   `git push origin <branch>` failed loudly on a nonexistent refspec. `git rev-parse --abbrev-ref HEAD` costs
   one call; the assumption costs the whole "phases advance through pull requests" rule. **Same reflex for
   documentation**: state a branch or SHA after reading it, never before.
+- **Reproduce the gate's conditions before quoting its verdict.** The first CI run of the `api` job failed with
+  `error CS8605: Unboxing a possibly null value` on code I had just reported as clean. Two mistakes compounded:
+  my local build was **incremental** over a cached dependency graph, and I filtered the output with
+  `grep -E "Passed!|Failed!|error CS"` — **`warning` was not in the pattern**, so the one line that would have
+  told me was discarded by the act of reading. "0 warnings" was not an observation; it was a claim about a tree
+  I had not rebuilt. Same family as the `pipefail` rule: **filtering a command's output can destroy the only
+  evidence that matters.** When a gate is strict and clean, run it strict and clean — delete `bin/ obj/`, pass
+  the same flags, and read the whole output.
 
 CI (`.github/workflows/ci.yml`) now enforces the **code** half of this list — a commit made over typecheck
 errors can no longer reach `main` unflagged, and neither can a focused test or an orphaned CSS declaration.
