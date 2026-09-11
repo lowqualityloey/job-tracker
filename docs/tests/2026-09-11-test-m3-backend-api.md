@@ -572,3 +572,36 @@ the bracket trick does not save you when the *literal* string is elsewhere in th
 **Cleanup discipline held on the retry**: the probe now deletes its rows in a **`finally`**, and the dev database was
 verified at **0 rows** after every attempt including the failed ones. **Two orphan incidents were recovered by `DELETE …
 LIKE`** — the pattern to copy is not "remember to clean up" but *"cleanup runs no matter how the probe dies."*
+
+## §19 — The render-latency harness (closes §2.8's last "not measured", 2026-09-11 20:10 UTC)
+
+`tests/browser/renderLatency.mjs` — **a measurement harness, not an assertion harness.** It differs from `-042`/`-043` in
+one important way: those *prove a property holds* (cross-tab visibility, persistence) and fail the build; this one
+**produces numbers** and fails only if it observes *nothing* (`no samples observed — the measurement, not the product, is
+broken`). It is deliberately **not wired into CI**: 12 CDP round trips per sample against a live API + Chromium is a
+benchmark, and benchmarks in CI become flakes that everyone learns to ignore.
+
+**Span definition lives in the file header, not just here**, because a latency figure without its two endpoints is a
+rumour: `t0` = `fetch(POST)` starts in tab A · `t1` = response received in tab A · `t2` = marker found in tab B's DOM.
+Both clocks are the browser's `Date.now()` (one Chromium, so no skew term at all). Reporting `t2-t1` separately from
+`t2-t0` matters: the first is what SSE bought, the second is what a human feels, and conflating them would let a slow
+`POST` hide behind a fast notification.
+
+**Why the write goes through `fetch` in the page rather than the form:** taking `t0`/`t1` on the browser clock requires the
+request to originate there. The consequence is stated in the spec's caveat (c) — tab A's own optimistic store update is
+outside the measured span. Only tab B's latency is claimed.
+
+**Cleanup runs in `finally`**, and each delete reads its own `revision` back from the list (a `201` carries no `ETag` —
+gap 10a — and `revision` is a real `xmin` counter, not `1`). Verified: `count(*) … LIKE 'LAT-%'` → **0**, total rows →
+**0**, after a run that created 12.
+
+**Design choices that kept it honest, in order of how much trouble they saved:**
+1. **Verify the capture mechanism before trusting a negative.** §18's probe reported "NOT OBSERVED" eight times because a
+   redirect I'd forgotten about won, and it looked precisely like a product defect. So this harness **asserts
+   `typeof EventSource !== 'undefined'` in tab B and refuses to run** otherwise — an absent-signal failure now announces
+   itself as an instrument failure instead of a finding.
+2. **Match frames by id.** §18's −1195 ms came from reading "the last `data:` line"; `-046`'s frames carry
+   `data: {"id":…}`, so id-matching is free and makes the pairing unambiguous.
+3. **Report warm-up rather than deleting it.** Samples 1–2 (114 ms, 88 ms) are the p95; the tail settles at 26–33 ms.
+   Discarding them would have produced a cleaner number and repeated gap 10b exactly — publishing a claim that cannot
+   fail.
