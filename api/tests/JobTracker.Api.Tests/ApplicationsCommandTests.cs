@@ -16,6 +16,38 @@ namespace JobTracker.Api.Tests;
 public sealed class ApplicationsCommandTests(ApplicationsApiFixture fixture) : IClassFixture<ApplicationsApiFixture>
 {
     [Fact]
+    public async Task Delete_then_missing()
+    {
+        // BEHAVIOR-m3-backend-api-035 (p1): "DELETE → 204, then GET → 404".
+        //
+        // Both halves, because a 204 that deletes nothing and a 404 that arrives because the row never existed are
+        // the two ways this can be wrong, and each is invisible if you assert only one end of the sequence. The id
+        // is created through the API so the test does not depend on the seed helper for the thing being destroyed.
+        await fixture.ExecuteAsync("delete from applications");
+        var id = Guid.NewGuid();
+        var created = await fixture.Http.PostAsJsonAsync("/api/applications", new
+        {
+            id = id.ToString(),
+            companyName = "Baxter Ltd",
+            jobTitle = "Field Engineer",
+            location = "Neo Tokyo",
+            status = "Offer",
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var deleted = await fixture.Http.DeleteAsync($"/api/applications/{id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        // 204 must not lie about having a body: an empty-body response with a Content-Length of 0 is correct, and
+        // a 200-shaped payload smuggled into 204 would parse as corrupt-data on the client.
+        Assert.True(deleted.Content.Headers.ContentLength is null or 0,
+            $"204 carried a body: {await deleted.Content.ReadAsStringAsync()}");
+
+        var after = await fixture.Http.GetAsync($"/api/applications/{id}");
+        Assert.Equal(HttpStatusCode.NotFound, after.StatusCode);
+    }
+
+    [Fact]
     public async Task Retry_of_create_is_idempotent()
     {
         // BEHAVIOR-m3-backend-api-034 (p1). Registered: "Retried POST with the same client id → 409; adapter
