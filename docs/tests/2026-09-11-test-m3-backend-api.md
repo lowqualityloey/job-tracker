@@ -341,3 +341,13 @@ indistinguishable — the refusal gate engages for both.
 **Amendment to `-037` in §7**: executed as twelve table cases plus two guards in the new
 `src/data/httpApplicationRepository.test.ts`. The registered filter `-t "error mapping"` matches the `describe` and
 so selects 14 tests, not 12; the count is left as-is because the two extra assertions belong with the block.
+
+
+### §14 gap 6 — resolved (2026-09-11 11:26 UTC)
+
+Settled toward **§4.3** by the owner's merge of PR #15, whose body presented both readings and the consequences. AC-9's
+wording in the task record now carries the correction and the reasoning; the spec itself is untouched, as approved
+specs are. The remaining consequence is named rather than left implicit: because the provider's refusal gate engages
+on *any* error state, no behaviour observable through the UI distinguishes `unavailable` from `storage-error` for a
+transport failure. `-038` is therefore the test that can be wrong about it, which is the only kind of test that can
+be right.
