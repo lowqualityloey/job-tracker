@@ -60,39 +60,46 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### 3A. Execution-Control Projection
 
-> Synchronised projection, **regenerated whole at each boundary**. Written from `git diff --name-only 84bf560..HEAD`,
-> `gh pr view --json mergeCommit`, live latency probes, and gates run at this boundary — nothing below is quoted from an
-> earlier turn's memory.
+> Synchronised projection, **regenerated whole at each boundary**, written from live commands rather than memory: the
+> probes, gates, `git diff`, and `gh pr view` output quoted below.
 
 - **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution
-  **`in_progress`**, **this record holds the Active Task Pointer**. **M3 is behaviour-complete and evidence-complete**:
-  ladder `-026` … `-046` executed, **14 of 14 ACs verified**, §6's Changed Files filled for every slice, and §2.8's
-  latency targets **measured for the first time in 126 commits**. **What remains is the owner's, not mine**: spec **§7's
-  four sign-off boxes** (each an approval only the Lead Engineer can give — left unchecked and labelled as such) plus
-  gap 10a/10b.
-- **In flight**: **PR #28** `docs/m3-closeout` — §6's changed-files + measured targets, **gap 10**, spec §7's two
-  agent-checkable items, STATE §2's M3 status and the **M4-precedes-public-exposure** ordering note.
-- **Merged**: **#27** `9340996` (gap 9 by (B) → AC-7, **14/14**) · **#26** `a01d8a7` (AC sweep + gap 9) · **#25**
-  `2c0e327` · **#24** `b51d621` · **#23** `650cbd3` · **#22** `baf4397` · **#21** `ad100d3` · **#20** `10db7ad` ·
-  **#19** `d989f28` · **#18** `58b7d02` · **#17** · **#16** · **#15** · **#14** · **#13** · **#12** · **#11**.
-  **`main` is at `9340996`. M3 = 126 commits since spec approval `84bf560`.**
-- **Gap 10 (new — found by measuring rather than restating)**: (a) **`POST` sends no `ETag`** though spec §4's table
-  promises `201` + `Location` + body + `ETag`; harmless only because the client reads `revision` from the **body**, and
-  `-029`'s wording — *"carry an `ETag`/`revision`"* — let a body-only implementation satisfy a header-shaped promise.
-  (b) §2.8's SSE clause names **no threshold**, so it is not falsifiable as written; recorded as an existence claim, not
-  counted as passing. (c) My first POST probe used `body=` instead of `data=`, **failed after creating 25 rows and
-  orphaned them** — the hazard `-042`/`-043` document, reproduced by the person writing the measurement; recovered,
-  count verified **0**.
-- **Measured at this boundary**: `GET` p50 **2.7 ms** / p95 **5.3 ms** (n=40; target 30/80) · `POST` p95 **5.8 ms**
-  (n=25; target 150, includes commit) · API **65 / 0 failed / 0 warnings / exit 0** · frontend **197 / 20, exit 0** ·
-  browser **7/7** and **6/6** · deps **3** · dev DB **0 rows** · `src/pages|components|state` **untouched**.
-  **These are falsification tests that did not fire on a 0–25-row dev database — not capacity figures.**
-- **Documentation-integrity ledger**: five recorded items (AC-13's box, a fabricated SHA, AC-11's box, AC-14's box, three
-  references to a nonexistent §10) + **two still open** — the unreproduced `dotnet test` failure (1/64 once, five clean
-  runs since, test never named) and **gap 10**, which exists only because a command was run instead of a number re-quoted.
-- **Open for the owner** (nothing blocks code; both gap-10 items block *spec truth*): **gap 10a** (send `ETag` or amend
-  §4's table) · **gap 10b** (number the SSE target or move it out of §2.8) · gap 5 · the `notes` ceiling · the `location`
-  null-map · `status` at the seam · gap 7's sweep of §4.3 against the ladder · **spec §7's sign-off**.
+  **`in_progress`**, **this record holds the Active Task Pointer**. **M3 is code-, behaviour-, evidence- and
+  spec-truth-complete**: ladder `-026`…`-046` executed, **14/14 ACs verified**, §6 filled for every slice, **gap 10a and
+  10b resolved**, §2.8's targets measured. **What remains is the owner's, not mine** — spec §7's four approval boxes, the
+  M3 `[/]`→`[x]` flip, and the five carried decisions.
+- **In flight**: **PR #29** `docs/m3-gap10-resolution` — §4's table amended (no `ETag` anywhere; new §4.4 note), §2.8's
+  SSE clause **split into a falsifiable notification-latency claim (measured) and an existence claim (`-042`)**.
+- **Merged**: **#28** `438df82` (close-out: §6 + first measurement of §2.8 + gap 10 filed) · **#27** `9340996` · **#26**
+  `a01d8a7` · **#25** `2c0e327` · **#24** `b51d621` · **#23** `650cbd3` · **#22** · **#21** `ad100d3` · **#20** · **#19**
+  · **#18** … **#11**. **`main` is at `438df82`**; M3 = **126+ commits** since spec approval `84bf560`.
+- **Gap 10 — now closed with numbers, and it stayed the session's best argument for measuring over restating.**
+  **10a**: the API emits no `ETag` (grep `Program.cs` → no match; grep `api/tests` for any response-header read → **zero
+  hits**) while §4's table promised it on `POST` *and* `PUT`. Resolved by **amending the table**, not adding the header:
+  `revision` is the body token by `DECISION-006`'s design, `-033` proves the `If-Match` semantics, and a second source of
+  truth for one counter is what that decision refused. **Mechanism that hid it for 126 commits: `-029` asserted
+  "`ETag`/`revision`" — a test that asserts *A or B* cannot detect the absence of *A*.** **10b**: §2.8's SSE clause named
+  no threshold, so it could not fail; now split — **notification→subscriber p50 9 ms / p95 11 ms / max 35 ms (n=8/8)**
+  against a stated p95 < 250 ms, versus *second tab visibly updates*, which is an existence claim (`-042`, tab B 1
+  navigation entry) whose **timing was never measured**.
+- **Measured at this boundary**: SSE commit→frame **9/11/35 ms** (id-matched; `curl -sN` subscriber, `date +%s.%N` per
+  frame) · `GET` p50 **2.7 ms** / p95 **5.3 ms** (n=40) · `POST` p95 **5.8 ms** (n=25) · API **65 / 0 failed / 0
+  warnings** · frontend **197 / 20, exit 0** · dev DB **0 rows** after every probe including the failed ones · deps **3**.
+- **Three probe failures during the measurement, disclosed because two were load-bearing**: (i) pairing each `POST` with
+  the **previous** frame (reading the last `data:` line instead of matching **its own id**) produced a constant
+  **−1195 ms** — *a suspiciously consistent wrong number means a systematic pairing error*; (ii) the retry captured
+  **zero frames** because the subshell's own `exec >>file` redirect won over the file I polled, so it reported "NOT
+  OBSERVED" — **an absent-signal bug that reads exactly like the defect under test**, and would have been filed as a
+  notification failure in the product; (iii) `pkill -f 'applications/events'` killed my own shell a third time (the
+  pattern is in the command's own cmdline; the bracket trick fails when the literal appears elsewhere) — **kill by
+  recorded PID**. Cleanup now runs in a **`finally`**, which is why the DB is at 0.
+- **Documentation-integrity ledger (7 items)**: AC-13's box · a fabricated SHA · AC-11's box · AC-14's box · three
+  references to a nonexistent §10 · **gap 10a (a header the spec promised and no test read)** · **the two orphaned
+  measurements**. Still open and honestly so: **the unreproduced `dotnet test` failure** (1/64 once, six clean runs since,
+  test never named — a seventh clean run would not name it either).
+- **Open for the owner**: spec §7's four sign-off boxes · the M3 status flip · gap 5 · the `notes` ceiling · the
+  `location` null-map · `status` runtime validation at the seam · gap 7's sweep. **Then M4 (Authentication) is next, and
+  §7 makes M4 a hard ordering constraint on any public exposure of this API.**
 ## 4. Locked Technical Invariants (Do Not Undo)
 
 Agreed decisions that survive any refactor. Deviating requires a new ADR.
@@ -215,6 +222,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-11 19:55 UTC | Assistant (M3 gap 10) | **Gap 10 closed by measuring: no `ETag` exists, and the SSE target now has a number** | **10a** — spec §4 promised `ETag` on `POST` and `PUT`; grep of `Program.cs` finds none, grep of `api/tests` finds **no test that ever read a response `ETag`**, and the design doesn't want one: `revision` is the body token by `DECISION-006`, `-033` proves the `If-Match` semantics, and emitting both puts **two sources of truth on one counter**. Table amended + a §4.4 note recording *why* and the hiding mechanism: `-029` said "`ETag`/`revision"` — **a test asserting *A or B* cannot detect the absence of *A***. **10b** — §2.8's SSE clause named no threshold so it could never fail; **split** into notification→subscriber (**measured: p50 9 / p95 11 / max 35 ms, n=8/8**) versus second-tab-visible (`-042`, existence; **timing still unmeasured**). **10c multiplied into three further probe bugs, disclosed because they are the useful part**: a constant **−1195 ms** from pairing each POST with the *previous* frame (match **your own id**, not the last line); a zero-frame capture caused by the subshell's own redirect winning — **an absent-signal bug that reads exactly like the defect under test**; and a third `pkill -f` self-kill. Cleanup moved into a `finally`; **dev DB verified 0 rows after every attempt, successful or not.** M3 now awaits only the owner's §7 sign-off. |
 | 2026-09-11 19:35 UTC | Assistant (M3 close-out) | **§6 filled, §2.8 measured at last, gap 10 found — M3 waits only on the owner's sign-off** | Two of spec §7's items are agent-checkable and were run rather than re-asserted. **§2.8's latency targets had never been measured in 126 commits** — GET p50 **2.7 ms** / p95 **5.3 ms**, POST p95 **5.8 ms** including commit, inside 30/80/150, method recorded for reproducibility and the caveat stated loudly: a 0–25-row dev database yields *falsification tests that did not fire*, not capacity figures. **Measuring found what restating could not: `POST` sends no `ETag` though spec §4's table promises one** — harmless only because the client reads `revision` from the body, and `-029`'s wording ("`ETag`/`revision`") let a body-only implementation satisfy a header-shaped promise. **Also: §2.8's SSE clause names no threshold**, so it is not falsifiable as written — recorded as an existence claim, not counted as passing, per §7's own "deleted rather than defended". And my own bug, disclosed: the first POST probe used `body=` not `data=`, **failed after creating 25 rows and orphaned them in the dev database** — the hazard `-042`/`-043` warn about, reproduced by the measurer; recovered, count verified **0**. §6's Changed Files now cover Slices 2–4 (they stopped at Slice 1) **derived from `git diff --name-only 84bf560..HEAD`, not from memory**; STATE §2 marks M3 `[/]` and records **M4 must precede public exposure**. **§7's four owner-approval boxes are left unchecked and labelled `agent left unchecked` — M3's evidence is complete; its sign-off is not mine to give.** |
 | 2026-09-11 19:10 UTC | Assistant (M3 close-out) | **Gap 9 closed by (B): AC-7 verified — 14 of 14 ACs checked** | DECISION-007's unimplemented clause is **narrowed to the guarantee that is proven**, inside a new Amendment block that quotes the superseded wording verbatim rather than deleting it — silently rewriting a ratified decision would have been the worse error. Four places in one commit so they cannot drift: DECISION-007's Selected Option, §5's risk-table row, spec §6's `BEHAVIOR-034`, and AC-7's third clause. Rationale recorded: the decision's purpose (no duplicate row) is tested by `-034`; what the clause *additionally* promised — treat the conflict as a silent success — was never built, `-037` asserts the opposite (`create()` **throws** `{code:'conflict'}`, so **the suite is green because create throws**), and it is user-visible, so it needs its own spec pass. **(A)** (~2h, real idempotent create) stays open as M4 polish. **Approval stated as an instruction to amend, not a review** — "do next recommendation" named (B); dissent costs one commit. **Also corrected: three references to a §10 close-out that does not exist** (the record ends at §8; the gate is §6 + spec §7), with a disclosure of the mechanism — a paraphrase hardened into a pointer over turns, and the kind of citation nobody verifies. The repair attempt itself failed its assert first: one occurrence used a **typographic apostrophe** my ASCII pattern could not match, so an unguarded `replace` would have committed "all references fixed" over a file still holding one. Gates: 65 API tests / 0 warnings, 197 frontend, exit 0 both. |
 | 2026-09-11 18:35 UTC | Assistant (M3 AC sweep) | **AC-2 + AC-14 close → 13 of 14 ACs verified; gap 9 found in the last one** | Swept what the ladder left, and the sweep paid for itself immediately. **AC-2**: `VITE_API_BASE_URL= npm run verify` → exit 0, **197/20**, suite *signature* identical to the flagged run — recorded with what the command *cannot* show (jsdom has no `EventSource`, no origin policy), because a green flag-off run is a no-regression claim, not an adapter-equivalence claim. **AC-14**: all six locked invariants checked **by command** as the AC demands → **0 violations each**; no `fetch`/`EventSource` outside `src/data/`, **no `Number(` call anywhere in `src/`** (stronger than the invariant asks), runtime deps still **3** since M0, no `.only`/`.skip`, no `vite.config.js`, `revision` confined to `src/data/`. **AC-7 could not close, and the reason is the finding: it is not missing evidence, it is contradicted by a passing test** — `-037`'s `409 → conflict` row *invokes `repository.create()`* and asserts it throws, while `DECISION-007` promises the adapter re-reads and treats an existing record as success. Filed as **gap 9** with options A/B/C and a recommendation (B: narrow the decision to what is proven, since the *duplicate-row* safety `-037` was protecting is already proven by `-034`; what's missing is a user-visible behaviour, not data safety). **Also corrected: my own #25 review note claimed AC-7 said `201` — it says `409`; the real divergence was a layer down and only appeared once I read the test's `invoke:` line instead of its name.** Fourth checkbox slip of the session (AC-14's box flipped after its prose), caught by printing IDs; the rule now reads *assert `checked + open == 14`* |
