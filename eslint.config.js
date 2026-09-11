@@ -24,7 +24,8 @@ import vitest from '@vitest/eslint-plugin'
  *    `return`. A comment is a memory; `rules-of-hooks` is a gate. React rejects the mismatch at runtime
  *    with a message that names neither the file nor the cause.
  * 3. `@vitest/eslint-plugin`'s focus/disable rules. The Definition of Done currently asks a human to grep
- *    for `.only` and `.skip` (`docs/STATE.md` §6's hygiene scan). A test that reaches `main` disabled is
+ *    for `.only` and `.skip` — the "Hygiene" row every M2 checkpoint evidence table carries, at
+ *    `docs/tasks/TASK-m2-persistence-seam.checkpoint-001.md:45`. A test that reaches `main` disabled is
  *    worse than no test at all, because the run still reports green — and `100 passed` is a number this
  *    repository quotes in evidence lines everywhere.
  */
