@@ -42,9 +42,16 @@ export default tseslint.config(
   // `projectService` reads `tsconfig.app.json`, whose `include` is `["src"]`. Config files at the repo
   // root are therefore linted **without** type information below: asking for types on a file that no
   // tsconfig claims is an error, not a fallback.
-  ...tseslint.configs.recommendedTypeChecked,
+  //
+  // The type-checked preset is applied *inside* this `files` block rather than spread at the top level.
+  // That is not stylistic. Spread unscoped, every file ESLint reads inherits rules that require parser
+  // services, and any file outside `src/` — the root configs, a `.mjs` harness in `docs/` — crashes the
+  // gate with exit 2 instead of reporting anything. Two crashes on 2026-09-11, in the ten minutes after
+  // this config was first written, proved the default was wrong: the rescue had to be enumerated per
+  // file pattern, and a new file type is not something you predict in advance.
   {
     files: ['src/**/*.{ts,tsx}'],
+    extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       globals: { ...globals.browser, ...globals.es2024 },
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
@@ -135,10 +142,18 @@ export default tseslint.config(
     },
   },
 
-  // ---- repo-root tooling: plain JS, Node globals, no type information -------------------------------
+  // ---- plain JS anywhere, plus root TS configs: Node globals, deliberately no type information -------
+  // These files are linted **syntactically only**: `no-undef`, unused variables, shadowing, `js.configs.
+  // recommended` in full. They get no `no-floating-promises` and no `no-unsafe-*`, and that is the correct
+  // outcome rather than a gap — a throwaway harness has no type information to be unsafe with, and
+  // pretending otherwise would require claiming a tsconfig covers `docs/spikes/**`, which none does.
+  // `tseslint.parser` is still needed for `vite.config.ts`, since the default parser is not TypeScript.
   {
-    files: ['*.config.{js,ts}', '.stylelintrc*.js'],
-    languageOptions: { globals: { ...globals.node }, parserOptions: { projectService: false } },
-    extends: [tseslint.configs.disableTypeChecked],
+    files: ['**/*.{js,mjs,cjs}', '*.config.ts'],
+    languageOptions: {
+      parser: tseslint.parser,
+      globals: { ...globals.node, WebSocket: 'readonly', fetch: 'readonly' },
+      parserOptions: { projectService: false, ecmaVersion: 'latest', sourceType: 'module' },
+    },
   },
 )
