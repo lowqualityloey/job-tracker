@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Npgsql;
 using JobTracker.Api.Tests.Infrastructure;
 using Xunit;
 
@@ -45,6 +46,54 @@ public sealed class ApplicationsCommandTests(ApplicationsApiFixture fixture) : I
 
         var after = await fixture.Http.GetAsync($"/api/applications/{id}");
         Assert.Equal(HttpStatusCode.NotFound, after.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("1")] // certainly not this row's version: any write since the dawn of the cluster is newer
+    [InlineData(null)] // grill F-3 made If-Match *required*; a delete carrying nothing cannot prove it is current
+    public async Task Delete_with_stale_revision_is_refused(string? revision)
+    {
+        // BEHAVIOR-m3-backend-api-044 (p0): "DELETE with a stale revision → 409 + code:\"conflict\", and the row
+        // STILL EXISTS". The register carries only the stale case; the missing-header case is added here because
+        // F-3's whole amendment is that the precondition is not optional, and a handler that refuses stale tokens
+        // while accepting absent ones implements a rule nobody wrote. Disclosed as an additive change in §11 of
+        // the test register rather than slipped in.
+        await fixture.ExecuteAsync("delete from applications");
+        var id = Guid.NewGuid();
+        await fixture.Http.PostAsJsonAsync("/api/applications", new
+        {
+            id = id.ToString(),
+            companyName = "Weyland-Ueda",
+            jobTitle = "Xeno Analyst",
+            location = "LV-426",
+            status = "Interview",
+        });
+
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/applications/{id}");
+        if (revision is not null)
+        {
+            // Quoted, exactly as §4.3 spells `ETag: "<xmin>"`. An unquoted comparison would pass this test and
+            // fail the moment a real client echoes a header verbatim, where weak validators and `W/` prefixes
+            // live.
+            request.Headers.TryAddWithoutValidation("If-Match", $"\"{revision}\"");
+        }
+
+        var response = await fixture.Http.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("conflict", problem.RootElement.GetProperty("code").GetString());
+
+        // The half that makes this a safety property rather than a status code: the refused delete must have
+        // changed nothing. A handler that answers 409 *after* removing the row would pass every assertion above
+        // and destroy a user's record in the process.
+        using var stillThere = JsonDocument.Parse(await fixture.Http.GetStringAsync($"/api/applications/{id}"));
+        Assert.Equal("Weyland-Ueda", stillThere.RootElement.GetProperty("companyName").GetString());
+        await using var connection = fixture.OpenConnection();
+        await connection.OpenAsync();
+        await using var count = connection.CreateCommand();
+        count.CommandText = "select count(*) from applications";
+        Assert.Equal(1L, (long)(await count.ExecuteScalarAsync())!);
     }
 
     [Fact]
