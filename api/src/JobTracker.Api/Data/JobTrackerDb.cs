@@ -60,14 +60,20 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
             // column to an existing table made EF write `DEFAULT TIMESTAMPTZ '-infinity'` into the DDL, a
             // placeholder nobody chose that §4.1 does not specify. A missing created_at should either mean
             // "this instant" or be an error — never -infinity, which sorts beautifully and means nothing.
-                        entity.Property(e => e.CreatedAt).HasColumnName("created_at")
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at")
                 .HasDefaultValueSql("now()");
             // HasDefaultValueSql("now()") is here because the schema had something worse: adding a NOT NULL
             // column to an existing table made EF write `DEFAULT TIMESTAMPTZ '-infinity'` into the DDL, a
             // placeholder nobody chose that §4.1 does not specify. A missing created_at should either mean
             // "this instant" or be an error — never -infinity, which sorts beautifully and means nothing.
-                        entity.Property(e => e.UpdatedAt).HasColumnName("updated_at")
-                .HasDefaultValueSql("now()");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at")
+                .HasDefaultValueSql("now()")
+                // The store owns this column on both paths: DEFAULT now() on INSERT, and the trigger added by the
+                // TouchUpdatedAtOnUpdate migration on UPDATE — spec §5 promises "server-generated timestamps only;
+                // updated_at set in the DB, never sent by the client". Declaring it generated is what stops EF
+                // writing back the value it read earlier and returning that stale instant in the 200 body of the
+                // update that just moved it.
+                .ValueGeneratedOnAddOrUpdate();
 
             // §4.1's second statement. Recorded honestly: this index is the one part of the approved DDL that no
             // AC or behaviour asserts — spec guard G-6 covers the CHECK list agreeing with the validator, and

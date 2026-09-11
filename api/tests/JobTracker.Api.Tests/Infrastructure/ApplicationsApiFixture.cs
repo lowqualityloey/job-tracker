@@ -41,6 +41,16 @@ public sealed class ApplicationsApiFixture : IAsyncLifetime
     public ApplicationsApiFactory Factory { get; private set; } = null!;
     public HttpClient Http { get; private set; } = null!;
 
+    /// <summary>
+    /// A **second, independent host** against the same container. Exists for BEHAVIOR-…-030's claim that a record
+    /// created through one client is visible to another: a second HttpClient over the *same* host would only prove
+    /// the response is not cached in the client, and an in-memory list would pass that happily. This spins a new
+    /// <c>WebApplicationFactory</c> — its own <c>Program</c> instance, its own DI container, its own change
+    /// trackers — so the only thing the two can share is PostgreSQL. That is the failure mode worth catching: a
+    /// "backend" that keeps the catalog in process memory would satisfy every other test in this file.
+    /// </summary>
+    public HttpClient CreateIndependentHost() => new ApplicationsApiFactory(ConnectionString).CreateClient();
+
     /// <summary>Valid only after <see cref="InitializeAsync"/>; mapped port, not 5432, by construction.</summary>
     public string ConnectionString => _container.GetConnectionString();
 

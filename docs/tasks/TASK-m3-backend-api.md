@@ -68,8 +68,17 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     and its teeth were proven by mutation (a converter writing `yyyy/MM/dd` made it fail with `Strings differ`). Note
     that the host machine is itself **NZST+12**, so `TZ=Pacific/Auckland` is *not* a UTC+13 run in September — I
     measured `date +'%:z'` under it before correcting to `Etc/GMT-13`, which is +13 with no DST ambiguity. **Result**: Pending · **Evidence**: `BEHAVIOR-…-027` with `TZ=Pacific/Auckland`
-- [ ] **AC-6** — **Conflict detection, with the row untouched.** *Given* two tabs hold the same revision, *When* the second saves, *Then* the API answers `409` with `code:"conflict"` **and the stored row is still the first save's content**. **The "row unchanged" half is the assertion; a 409 that also wrote is the worst bug available in this milestone.** **Result**: Pending · **Evidence**: `BEHAVIOR-…-033`
-- [ ] **AC-7** — **Create is idempotent under retry.** A retried `POST` with the same client-minted id yields `409`, the adapter re-reads and treats it as success, and the table holds **exactly one** row. **Result**: Pending · **Evidence**: `BEHAVIOR-…-034`
+- [x] **AC-6** — **Conflict detection, with the row untouched.** *Given* two tabs hold the same revision, *When* the second saves, *Then* the API answers `409` with `code:"conflict"` **and the stored row is still the first save's content**. **The "row unchanged" half is the assertion; a 409 that also wrote is the worst bug available in this milestone.** **Result**: **Verified** (2026-09-11 08:30 UTC) · **Evidence**: `BEHAVIOR-…-033` (Red `4ed28bb` → Green `bbbc6c9`) and
+   `BEHAVIOR-…-044` (`7f86e66`), each asserting the *row* after the refusal, not only the status: a PUT with a
+   version another write has moved answers 409 with `code:"conflict"` and the winner's `jobTitle`/`status`/`revision`
+   intact, and a DELETE carrying a stale or absent `If-Match` answers the same way with the row still readable and
+   `count(*) == 1`. AC-6's *Given* names two browser tabs; what its *Then* claims — the API's answer and the stored
+   content — is what these two behaviours test, and the tabs arrive with Slice 3's adapter (AC-1).
+- [ ] **AC-7** — **Create is idempotent under retry.** A retried `POST` with the same client-minted id yields `409`, the adapter re-reads and treats it as success, and the table holds **exactly one** row. **Result**: **two of three clauses verified** (2026-09-11 08:30 UTC), AC stays open · **Evidence**: `BEHAVIOR-…-034` (Red
+   `8b491d3` → Green `01b4f77`) proves `409` and `count(*) == 1`; the third clause — "**the adapter re-reads and
+   treats it as success**" — is client behaviour owned by `BEHAVIOR-…-036`/`-037` in Slice 3 and has no evidence yet.
+   Wording learned from the AC-4 retraction: an earlier draft of this line would have said "half-verified" and left
+   the reader to guess which half.
 - [ ] **AC-8** — **The error table is total.** Every documented `HTTP × code` pair maps to its stated `RepositoryError` variant, and an **unrecognised** code maps to `corrupt-data` — no silent default, no throw. **Result**: Pending · **Evidence**: `BEHAVIOR-…-037` table-driven, one case per row of spec §4.3
 - [ ] **AC-9** — **Server unreachable degrades like storage blocked.** A `fetch` rejection maps to `unavailable`, and the provider's existing refusal gate behaves exactly as M2a's tests describe. **Result**: Pending · **Evidence**: `BEHAVIOR-…-038`
 - [ ] **AC-10** — **Out-of-order re-reads cannot repaint stale data** (closes M2b's handed-over **P2-2**). *Given* request 1 is delayed and request 2 resolves first, *When* request 1 lands, *Then* the list still shows request 2's data. **Result**: Pending · **Evidence**: `BEHAVIOR-…-039`
@@ -98,13 +107,37 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (Slice 1 complete)**: **Slice 2** — `BEHAVIOR-…-030` first (create persists and is visible to a
-  second client), and it needs two things this slice left deliberately on the table: `defaultValueSql: "now()"` on
-  `created_at`/`updated_at`, and the **second problem-document factory**, which is the trigger to extract
-  `ApplicationCatalog` (spec §4.1). Slice 2 also remains **blocked on F-1's fixture** for AC-12.
+- **Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared fixture.** Author
+  `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules (empty,
+  whitespace-only, `MAX_TEXT_LENGTH = 120` at max and max+1, unicode, control characters, the 10 kB `notes` probe,
+  all five statuses plus a sixth carrying **per-side** expectations, because `status` has no client runtime check at
+  all), then the xUnit theory that reads it, then the server validator answering `400 validation` with `errors[]`
+  naming field paths, then the vitest case consuming the *same file* — in that order, so neither side can encode its
+  own opinion. Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and
+  `job_title` (deferred item 1), and the `PUT` path's still-unvalidated body.
+  (Preceding text read: "**Next Action (Slice 1 complete)**: **Slice 2** — `BEHAVIOR-…-030` first … and it needs two
+  things this slice left deliberately on the table: `defaultValueSql: now()` on `created_at`/`updated_at`, and the
+  **second problem-document factory**, which is the trigger to extract `ApplicationCatalog` (spec §4.1). Slice 2 also
+  remains **blocked on F-1's fixture** for AC-12." — **delivered, with two corrections to how it was written.** The
+  `now()` default did not wait for `-030`: it arrived early with `-032`, where it was fixing EF's `-infinity`
+  placeholder rather than serving the create path. The second problem-document factory appeared at `-034`, and
+  `ApplicationCatalog`/`Problems` were extracted in the very next commit (`232fabc`), 14 tests green before and after.
+  And **the F-1 clause was too broad**: only `-031` needs the fixture, so Slice 2 split into 2a and 2b and six of its
+  seven behaviours shipped without waiting — an agent scope decision, disclosed here rather than presented as the
+  plan all along.
   (Preceding text read: "**Next Action (Slice 0 complete)**: `BEHAVIOR-m3-backend-api-026` — write the failing test
   that `GET /api/applications` returns `200 []`, then the `DbSet`, the entity, the endpoint and the first real
-  migration" — delivered exactly, and the "first real migration" turned out to be three.)  migration** its Green requires. (Preceding text read "**start Slice 0** — install SDK **10.0.401** and scaffold `api/` + `docker-compose.yml` + the path-gated CI job, under §1.3's exception-verification path (no Red test: there is no behaviour yet). Slices 0–1 are unblocked; **Slice 2 is not** (F-1's fixture must exist first). Gates now closed: `pk:grill` ran at 2026-09-11 03:50 UTC → [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
+  migration" — delivered exactly, and the "first real migration" turned out to be three.)
+- **Gates now closed**: `pk:grill` ran at 2026-09-11 03:50 UTC →
+  [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan
+  amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
+  <!-- Repaired 2026-09-11 08:36 UTC (the bullet above). An earlier scripted edit had spliced a superseded clause
+  into the middle of the Next Action bullet — an orphan beginning with the word "migration" and ending in a stray
+  closing brace — and drawn this "Gates now closed" bullet down into the parenthesis that had been closing the other
+  one, leaving a single damaged bullet where the record had always held two. Found by re-reading the source before
+  regenerating the projection, which is the point of rule 7, and the second time this session that a scripted edit
+  damaged a document in a way no test could observe. The clause is paraphrased here rather than quoted: a file that
+  contains two copies of a sentence, one of them labelled debris, is how the next reader ends up choosing wrong. -->
 
 ### Transition History
 
@@ -139,7 +172,12 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
      `DEFAULT ''`, also EF placeholders. An empty `status` can no longer succeed (the CHECK rejects `''` as a
      sixth value), so only the two text defaults stay permissive; dropping them is fidelity-only and belongs with
      **BEHAVIOR-…-031**, the behaviour that asserts the API rejects an empty company name.
-  2. `ETag` responses and `If-Match` handling → **BEHAVIOR-…-033** and **-044**. `revision` is on the wire now,
+  2. **Resolved differently than deferred, and that needs saying.** `If-Match` handling arrived with 033/044.
+     `ETag` response headers did **not**: no behaviour in the ladder asserts them, the client's adapter reads
+     `revision` from the JSON body (DECISION-m3-backend-api-006's 8th field) and never looks at a header, and
+     emitting a second representation of the same token that must agree with the first is drift risk with no
+     consumer. So either §4.3's `+ ETag` column is retired from the contract or a behaviour is registered for it —
+     raised as a review decision, not silently dropped. Original note: `revision` is on the wire now,
      which is all 029 registered; an `ETag` nothing sends yet would be untested code.
   3. Extracting `ApplicationCatalog` (spec §4.1's deep module) out of `Program.cs` → the **second**
      problem-document factory, i.e. Slice 2's `validation` envelope. Premature abstraction is on the Avoid list.
@@ -254,6 +292,83 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     configuration than you ship is not evidence — the same error I criticised this morning about the PostgreSQL 18
     volume mount, committed by me one slice later. What caught it was reading
     `dotnet ef migrations script --idempotent`, i.e. the SQL that would actually ship, instead of trusting a count.
+
+  **`TDD-EXEC-m3-backend-api-030`** · `BEHAVIOR-…-030` · Red `73c352d` → Green `8d7be3d` · Slice 2
+  - Red: `--filter "~Create_visible_to_second_client"` → `Expected: Created / Actual: MethodNotAllowed` (405: the
+    route exists for GET, not POST).
+  - Green: `MapPost` binding `NewApplicationRequest`; `created_at`/`updated_at` left at CLR default so the store's
+    `now()` fills them — 030 is the behaviour that finally exercises the default 032's Green restored.
+  - "Second client" implemented as a second `WebApplicationFactory` (own `Program`, own DI, own change trackers),
+    sharing only PostgreSQL: an in-memory fake backend passes a second-*client* test and fails this one.
+
+  **`TDD-EXEC-m3-backend-api-034`** · `BEHAVIOR-…-034` · Red `8b491d3` → Green `01b4f77` · Slice 2
+  - Red: `--filter "~Retry_of_create_is_idempotent"` → `Expected: Conflict / Actual: InternalServerError` — the
+    key violation escaped to `UseExceptionHandler`, which the client's table maps to `storage-error`: a doubled
+    retry would tell a user storage failed about a record that saved fine.
+  - Green: `catch (DbUpdateException) when (inner is PostgresException { SqlState: UniqueViolation })`. SQLSTATE
+    matched, not message text (messages vary with constraint names; 23505 does not). The database is the arbiter:
+    a pre-flight `AnyAsync` would be wrong under concurrency and re-derives what the primary key already decides.
+  - Beyond the 409, the test asserts `count(*) == 1` and re-reads the row: a 409 raised *after* duplicating would
+    otherwise be green, with the symptom a phantom record rather than an error.
+
+  **`TDD-EXEC-m3-backend-api-035`** · `BEHAVIOR-…-035` · Red `ea51e4c` → Green `2f1ff95` → amended in `7f86e66` · Slice 2
+  - Red: `Expected: NoContent / Actual: MethodNotAllowed`. Both ends asserted (204 then 404), plus "204 carries no
+    body" — a payload wearing a 204 becomes `corrupt-data` in the adapter.
+  - Green deliberately **ignored `If-Match`**: the minimal implementation of 035 is exactly the blind destroy 044
+    exists to reject, and guarding first would have left 044 with nothing to make fail.
+  - **Amendment**: 044's Green broke 035's own test. The behaviour predates grill **F-3** (If-Match *required* on
+    DELETE), so the test was corrected to read the row's current revision and send it, not the handler weakened.
+    Distinguishing fact: the contract change was written down in F-3 before this code existed. §11 of the register.
+
+  **`TDD-EXEC-m3-backend-api-044`** · `BEHAVIOR-…-044` · Red `ff5cefc` → Green `7f86e66` · p0 · Slice 2
+  - Red: `--filter "~Delete_with_stale_revision_is_refused"` → both cases `Expected: Conflict / Actual: NoContent` — the server
+    deleted a record whose caller had proved nothing about its currency.
+  - Green: `IsCurrent(ifMatch, entity.Revision)` refuses absent, unparseable, `W/`-prefixed and mismatched tokens
+    with the same 409 the create path emits. Weak validators rejected by design: a weak validator explicitly does
+    not guarantee what a precondition on an irreversible write needs.
+  - **Additive to the registered row**: `[InlineData(null)]` (absent header). F-3's amendment is that the
+    precondition is not optional, and a handler rejecting stale while accepting absent implements a rule nobody
+    wrote. Disclosed rather than passed off as planned.
+
+  **`TDD-EXEC-m3-backend-api-033`** · `BEHAVIOR-…-033` · Red `4ed28bb` → Green `bbbc6c9` · p0 · Slice 2
+  - Red: `Expected: OK / Actual: MethodNotAllowed` — dies on the *arrangement's* fresh PUT, so the 409 assertion
+    below it was **never executed by this run**; stated because a Red that fails early can leave its interesting
+    claim unproven (027 met the same condition in Slice 1 and got mutation-checked for it).
+  - Green: PUT as full replacement, field-by-field assignment rather than attaching a detached entity (id,
+    `created_at`, `updated_at`, `revision` are not the client's to replace). §4.3's `428 → mapped to 409` **needed
+    no code**: `IsCurrent` already answers "no" to an absent header.
+  - Test's arrangement *is* a successful PUT, which makes it the only thing in the suite that would notice a broken
+    update — see the register gap below.
+
+  **`TDD-EXEC-m3-backend-api-033+`** · additive assertion on `-033` · Red `9899857` → Green `a50ce71`
+  - Red: `select (updated_at > created_at)::int` after the API update → `Expected: 1 / Actual: 0`.
+  - Green: `create trigger applications_set_updated_at before update` + `ValueGeneratedOnAddOrUpdate()` on the
+    property — the first hand-written DDL in the project, because EF's vocabulary for store-computed columns is
+    annotations, computed columns (cannot call non-immutable `now()`) or rowversion (taken by `xmin`).
+  - Both halves were needed. The trigger alone leaves EF sending the stale instant and **returning it in the 200
+    body of the update that moved it**; the annotation alone promises a store behaviour that does not exist.
+  - Proven outside our code: `update applications set notes='touched'` in psql → `moved=1 created=18.793
+    updated=19.196`. And proven *not* to be a race: three consecutive green runs, plus the discovery that a single
+    `psql -c "insert; sleep; update"` reports `moved=0` because `now()` is the **transaction start** — the trigger
+    had fired correctly and the probe was wrong. `clock_timestamp()` would pass the test and make the data worse.
+  - First attempt failed for the wrong reason: `(long)` cast of `::int` → `InvalidCastException` (Npgsql:
+    `count(*)` is Int64, `::int` is Int32), which looked exactly like the schema defect being tested for.
+
+  **`TDD-EXEC-m3-backend-api-045`** · `BEHAVIOR-…-045` · `0945823` · **no Red phase** · Slice 2
+  - Passed on first run: ASP.NET's JSON binder answers 415 for a non-`application/json` body before the handler
+    executes, so the behaviour grill F-4 registered was already true of the framework. Committed as a regression
+    guard with that stated plainly, because a test that was never allowed to fail is a test of someone else's
+    guarantee.
+  - Carries its own positive control: **the same bytes** re-sent as `application/json` must be `Created` and raise
+    `count(*)` to 1. Without it, a 415 from a malformed payload or a wrong path would satisfy the assertion as well.
+    Falsified after the fact: control pointed at `/api/applications/x` → `Expected: Created / Actual:
+    MethodNotAllowed` (`55e981c` records that the check ran *after* the commit that claimed it had run).
+
+  **Refactor commit `232fabc`** — `ApplicationCatalog` + `Problems` extracted, the trigger condition recorded in
+  Slice 1 ("the second problem-document factory") met by 034's `Conflict`. 14 tests passed before and after, clean
+  rebuild, 0 warnings, **no behaviour changed**: I removed the `detail:` members I had added to the envelopes mid-
+  move, because a commit labelled refactor that alters what the client sees stops the label meaning anything.
+
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — the first `api` job run FAILED, and why it was right**: provider GitHub Actions, workflow
   `ci.yml`, job `verify-api`, commit `47501b6`, 2026-09-11 06:07 UTC:

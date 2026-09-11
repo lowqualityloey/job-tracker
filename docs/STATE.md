@@ -26,7 +26,7 @@
 - [x] **M1 — Engineering OS Integration**: **MERGED as PR #1 (`63d769d`, 2026-09-10)**. Submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed, lockfile tracked
 - [x] **M2a — Persistence seam**: **MERGED as PR #2 (`1ec8fe8`)**. 17 behaviours, AC-1…AC-11, repository seam + failure modes + CRUD UI + error-code contract sweep
 - [x] **M2b — Filters, search, cross-tab reconciliation**: **MERGED as PR #3 (`489cdb9`)**; verified green on `main` the same day. Behaviours 018–026 (9/9), AC-1…AC-10 (10/10), 77 → **100 tests**. Spec `docs/specs/2026-09-10-spec-m2b-filters-cross-tab.md`, record `docs/tasks/TASK-m2b-filters-cross-tab.md`
-- [ ] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · `pk:test` **done** (20 intents, mode reconciled, PR #10) · **Slices 0–1 DONE** (toolchain + read paths: 2 endpoints, the `applications` table, `revision`/xmin, 10 API tests; PR #11 merged, #12 in review) · next: **Slice 2** (commands), still gated on F-1's shared fixture
+- [ ] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · `pk:test` **done** (20 intents, mode reconciled, PR #10) · **Slices 0–2a DONE/in review, 2b next** (toolchain + read paths: 2 endpoints, the `applications` table, `revision`/xmin, 10 API tests; PR #11 merged, #12 in review) · next: **Slice 2** (commands), still gated on F-1's shared fixture
 - [ ] **M4 — Authentication** (**Level 2**: `pk:auth`)
 - [ ] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval)
 
@@ -60,62 +60,76 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### 3A. Execution-Control Projection
 
-> Synchronised projection of the canonical records, **regenerated at each slice boundary rather than patched
-> bullet by bullet**. That is not a style preference: the previous version of this block asserted
-> `Active Task Pointer: None` three lines beneath a bullet saying the pointer is held, and said nothing in M3 had
-> been executed while two slices sat in review — because five turns had each edited the two or three bullets they
-> were about, and nobody re-reads the rest. A projection is worth exactly one thing, which is that it agrees with
-> its source; the source is `TASK-m3-backend-api.md`.
+> Synchronised projection of the canonical records, **regenerated at each slice boundary rather than bullet by
+> bullet**. That is not a style preference: an earlier version of this block asserted `Active Task Pointer: None`
+> three lines beneath a bullet saying the pointer is held, and said nothing had been executed while two slices sat in
+> review — because five turns had each edited only the two or three bullets they were about, and nobody re-reads the
+> rest. A projection is worth exactly one thing, which is that it matches its source; the source is
+> `TASK-m3-backend-api.md`. The whole block below was rewritten from that record at this boundary, not patched.
 >
-> **M2 is closed** (PRs #1–#7 merged). **M3 is executing**: Slice 0 merged as PR #11, Slice 1 in PR #12. `api/` is
-> real code with ten tests against a real PostgreSQL.
+> **M2 is closed** (PRs #1–#7 merged). **M3 is executing**: Slice 0 merged as PR #11, Slice 1 merged as PR #12,
+> Slice 2a in review. `api/` is real code — **19 tests** against a real PostgreSQL, five endpoints, six migrations.
 
 - **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution state
   **`in_progress`**, mapped status `In Progress`, **this record holds the Active Task Pointer**, **Slice 1 of 4
-  complete**. Planning Record
+  complete and Slice 2 partially complete (six of its seven behaviours; `-031` open)**. Planning Record
   [`PLAN-m3-backend-api`](../specs/2026-09-11-spec-m3-backend-api.md#PLAN-m3-backend-api) is `Full`, approved by
   merging PR #7.
-- **In flight**: **PR #12** `feat/m3-slice1-query-endpoints` — the read paths: `GET /api/applications`,
-  `GET /api/applications/{id}`, the `applications` table arriving as three migrations, and `revision` from `xmin`.
-  First code in this repository produced as **separate Red and Green commits**: eight of them, four behaviours.
-- **Merged since the last regeneration**: **PR #11** (`main` @ `e77604f`) — Slice 0: SDK 10.0.401 on the host,
-  `api/` scaffold, Testcontainers harness, and the second CI job, which failed on its first run and is the origin
-  of the eighth commit-discipline rule.
-- **Approval state**: approved-by-merge on PR #7, with an explicit invitation to dissent **before Slice 1**. Slice
-  1 has now run, so dissent costs more than one commit; stated as a fact and not a problem, because nothing
-  Slices 0–1 built is a decision `pk:grill` marked expensive to reverse. The expensive ones — SSE for
-  `subscribe()`, no CORS configuration, no authentication in M3 — arrive in Slices 2–3, and F-1's shared fixture
-  still gates Slice 2.
-- **Execution Scope**: `api/**`, `.github/workflows/ci.yml`, `docs/**`. **`src/**` has not changed since M3
-  opened** (`git diff main --name-only -- src/` → 0 files, re-measured at this boundary).
+- **In flight**: **PR #13** `feat/m3-slice2-commands` — the write paths: `POST`, `PUT`, `DELETE`, optimistic
+  concurrency on `If-Match`, the first hand-written DDL (`create trigger … before update`), the extraction of
+  `ApplicationCatalog` at the trigger recorded in Slice 1, and a regression guard that never had a Red to quote.
+- **Merged since the last regeneration**: **PR #12** (`main` @ `bdcd4b6`) — Slice 1's read paths, fifteen commits,
+  four behaviours as eight Red/Green commits plus `BEHAVIOR-…-032` pulled out of ladder order when its Red proved
+  AC-4's evidence had been a temporary probe table. Also **PR #11** (`e77604f`) — Slice 0: SDK 10.0.401, `api/`
+  scaffold, Testcontainers harness, the second CI job, and the eighth commit-discipline rule.
+- **Approval state**: approved-by-merge on PR #7, with an explicit invitation to dissent. Slices 0–2a have now run;
+  dissent costs more than one commit each time. Stated as a fact, not a problem: nothing built so far is a decision
+  `pk:grill` marked expensive to reverse. The expensive ones — SSE for `subscribe()`, no CORS configuration, no
+  authentication in M3 — are still ahead, in Slices 2b–3.
+- **Execution Scope**: `api/**`, `.github/workflows/ci.yml`, `docs/**`. **`src/**` has not changed since M3 opened**
+  (`git diff main --name-only -- src/` → 0 files, re-measured at this boundary). No new npm package; no new NuGet
+  package since Slice 1 declined `EFCore.NamingConventions`.
 - **Execution State**: **`in_progress`** since 2026-09-11 06:00 UTC — authorised by the owner's merge of PR #10,
   whose reviewer-focus item asked for exactly that promotion. `pk:grill` deliberately did not promote readiness: a
   gate that promotes its own subject is not a gate.
 - **Mapped `pk:tasks` Status**: `In Progress` · **Active Task Pointer**: `TASK-m3-backend-api` (one holder).
 - **Owner / Current Actor**: Lead Engineer (accountable; review, merge, and the Slice 0 authorisation) · Assistant
   (executing).
-- **Verification Status**: API gate from a clean tree with CI's own flags → **0 warnings, 10 passed**. Frontend
-  gate → exit **0**, **100 tests / 13 files**, build ✓. **AC-5 Verified** by command at `TZ=Etc/GMT-13`; **AC-4 Verified**
-  by `BEHAVIOR-…-032`, pulled out of ladder order when its Red inserted `'Escalated'` into the real table and the
-  database **accepted it**. An earlier version of this bullet said AC-4 was "half-verified" by Slice 0's harness —
-  **retracted**: that test asserts the violation on a `create temporary table probe_status`, not on the shipped
-  schema. Every other AC stays `Pending` with a named command, because pre-filled evidence would be fabrication.
-
-- **CI Evidence**: `main` green on every push since the gate existed — `68db873`, `dd6c5ec`, `7149836`, and PR #7's
-  `verify` job SUCCESS; PR #8's run quoted here once it exists
+- **Verification Status**: API gate from a clean tree (`rm -rf bin obj`, CI's `-p:TreatWarningsAsErrors=true`) →
+  **0 warnings, 19 passed**. Frontend gate → exit **0**, **100 tests / 13 files**, build ✓. **AC-4 Verified**
+  (`-032`, out of ladder order, after the AC-4 retraction above), **AC-5 Verified** by command at `TZ=Etc/GMT-13`,
+  **AC-6 Verified** (`-033` + `-044`, both asserting the *row* after the refusal, not just the status). **AC-7
+  annotated as two-of-three clauses** and left open: its third clause — "the adapter re-reads and treats it as
+  success" — is Slice 3's `BEHAVIOR-…-036`/`-037`, with no evidence yet. Every other AC stays `Pending` with a named
+  command, because pre-filled evidence would be fabrication.
+- **CI Evidence**: `main` green on every push since the gate existed. `verify-api` failed its **first** run
+  (Slice 0, `CS8605` + an unobserved `MSB3277`) and has been green on every run since, including PR #12's. AC-13
+  still needs a **docs-only** PR to prove the `if:`-gated job reports *success with skipped steps* rather than
+  nothing; every PR so far has touched `api/**`, so only the executed half has evidence.
 - **Per-commit audit of DEBT-03's branch** (historical, kept where it was filed): `tsc` green at all 9 commits,
   100 tests at all 9, stylelint green at its introducing commit, eslint red at exactly `04e04d5` — the commit that
-  installs the config one step before the commit that clears the 17 findings it reports
-- **Blockers and Resume Condition**: **one internal blocker** — Slice 2 may not start until F-1's fixture exists
-  (unchanged; the correction below narrows *why*, not whether):
-  (F-1: two validators, two stacks, no shared mechanism. Corrected by reading `validation.ts`: the client **does** cap
-  three fields at 120 chars, **`notes` does not**, and **`status` has no runtime client validation** — so AC-12's
-  "sixth status to both validators" was impossible as written and the fixture now carries per-side expectations). **Sequence fixed by the Task Record**: `pk:test`
-  → Slice 0 installs the pinned SDK and scaffolds `api/` → PR #10. If the owner rejects `DECISION-006`, the documented fallback is no optimistic
-  concurrency in M3 — which returns M2b's silent last-write-wins and drops `BEHAVIOR-…-033`
-- **Next Action**: **promote the Task Record to `in_progress` and start Slice 0** (SDK **10.0.401** + `api/`
-  scaffold + compose + path-gated CI), which is the only step that installs anything. Slice 2 stays blocked on
-  **F-1** (the shared validation fixture); Slices 0–1 are unblocked
+  installs the config one step before the commit that clears the 17 findings it reports.
+- **Blockers and Resume Condition**: **F-1 narrowed, not cleared.** "Slice 2 blocked on F-1" was written as if the
+  whole slice needed the shared fixture; it needed exactly one behaviour of it (`-031`/AC-12). Reading the ladder
+  before starting showed 030/033/034/035/044/045 to be independent, so Slice 2 was split: **2a (commands, PR #13)
+  shipped without the fixture; 2b is the fixture itself** — `api/tests/fixtures/validation-cases.json` consumed by
+  an xUnit theory *and* a vitest case, so the C# validator cannot pass its own opinion. That split is an agent
+  scope decision, disclosed here rather than presented as the plan all along. Secondary: `notes` has no client
+  ceiling and `status` has no client runtime validation, so AC-12's original wording ("sixth status to both
+  validators") remains impossible as written; the fixture carries per-side expectations.
+- **Open register gaps, all three unresolved and awaiting the owner**: no behaviour asserts
+  `applications_updated_at_idx` exists; no behaviour covers a **successful `PUT`** (`-033` exercises it as
+  arrangement only, which is why a broken update would currently fail a test named for something else); and
+  §4.3's `ETag` response header is asserted by nobody and — as of Slice 2a — **emitted by nothing**, because the
+  client reads `revision` from the body and a second representation of one token is drift risk with no consumer.
+  Each has two fixes: register `-046`/`-047`, or amend the spec's statements to match what is guarded.
+- **Next Action**: **Slice 2b — `BEHAVIOR-…-031` and F-1's fixture.** Author `validation-cases.json` from
+  `src/domain/validation.ts`'s actual rules (empty, whitespace-only, `MAX_TEXT_LENGTH = 120` at max and max+1,
+  unicode, control characters, the 10 kB `notes` probe, all five statuses plus a sixth with per-side expectations),
+  then the xUnit theory that reads it, then the server validator that answers `400 validation` with `errors[]`
+  pointing at field paths, then the vitest case that consumes the *same file* — in that order, so the shared truth
+  is written before either side can opine about it. After that, Slice 3 (`-036`…`-041`, the adapter) and Slice 4
+  (`-042`/`-043`). **Slice 2b needs no owner decision to start; the three register gaps above do.**
 
 ### 3B. Release-Evaluation Handoff
 
@@ -260,6 +274,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | 2026-09-10 22:25 UTC | Assistant (`pk:checkpoint` continuation) | M2a.4 — CRUD UI | Behaviours 012–017 in 11 commits: `ApplicationsProvider` + `useApplications`, `ApplicationForm` serving create and edit from one page, `data/applicationStore.ts` as the sole composition root, `domain/pipeline.summarise` (first domain module a page uses), provider-scoped details lookup with an honest loading state, and delete behind an inline `role=group` confirmation. **68 tests, 9 files; tsc 0; build 0 with no `vite.config.js`.** Closes DEBT-01/05/07 — 7 of 14 debt rows now shut. AC-1…AC-10 met; AC-11 owed at M2a.5. Five deviations disclosed as D-4…D-8 in the Task Record, of which D-4 matters most: 014 produced no Red because 013 had already wired the behaviour, so it is recorded as coverage rather than staged as a failure. Two scripted patches misapplied and the pre-commit gate caught both, which is the M1 incident finally paid off. |
 | 2026-09-10 23:00 UTC | Assistant (`pk:checkpoint`) | Checkpoint 002 + Handoff 002 | Level 2 checkpoint contract for the M2a.4 milestone: `checkpoint-002.md` (17/17 behaviours, AC-1…AC-10, evidence re-measured *in this checkpoint* rather than carried forward, 9 new invariants, gaps, one next action) and `handoff-002.md` (V1–V10, each executed before being written). Supersedes 001's next action; 001's invariants stand. Execution State stays `in_progress`. Measured here and now: 68 tests / 9 files, tsc 0, build 0, no `vite.config.js`, 0 storage references outside `src/data/`, 0 `Number(id)`, 3 of 14 debt rows countable as closed. Two findings worth more than the bookkeeping: **persistence has never been checked in a real browser** (every claim is jsdom-backed, so DEBT-01's closure carries a named residual), and the **debt register marks closures inconsistently** — DEBT-11…14 say FIXED in prose while still reading `P1`/`P2`, which is why no aggregate count appears anywhere. |
 | 2026-09-11 07:35 UTC | Assistant (M3 Slice 1, same session) | Reading the SQL that would ship instead of trusting a green count | **The AC-4 retraction.** Assembling PR evidence with `dotnet ef migrations script --idempotent` surfaced two things a green suite had hidden: EF had written `DEFAULT TIMESTAMPTZ '-infinity'` and `DEFAULT ''` placeholders into a table whose approved DDL specifies neither, and **`applications` had no status CHECK at all**. So `BEHAVIOR-…-032` ran early — its Red failing with `Assert.Throws() Failure: No exception was thrown` after the real table accepted a sixth status. AC-4 had been annotated "half-verified" an hour earlier from Slice 0's harness test, which asserts the same violation on a `create temporary table probe_status`: **a green test measuring a scratch table**, the identical error I criticised that morning about the PostgreSQL 18 volume mount. Green adds `HasCheckConstraint` + `HasDefaultValueSql("now()")`, verified from the server's own catalog and by watching the insert get rejected; the `''` text defaults are recorded as a *remaining* divergence from §4.1 rather than claimed as fixed. Suite: 12 passed; dev database back to 0 rows via statement-level rollback. Also self-caught in this entry: the commit immediately before this one says STATE §3A/§8 were corrected, and they were not — a scripted edit asserted mid-way and never wrote that file, so a commit message was false about its own contents (rule 2, third instance). |
+| 2026-09-11 08:33 UTC | Assistant (M3 Slice 2a) | Writing the write paths, and getting the sequence wrong twice | **Slice 2a: six behaviours, 12 → 19 API tests, zero changes to `src/`.** `POST`/`PUT`/`DELETE` with optimistic concurrency on `If-Match`, the project's first hand-written DDL (a `before update` trigger), and the `ApplicationCatalog`/`Problems` extraction arriving because the condition stated in Slice 1 ("second problem-document factory") was met — 14 tests green before and after, and the `detail:` fields I added mid-move deleted again, because a refactor that changes what the client sees stops the label meaning anything. Method names taken from the register *before* writing tests this time, so every `--filter` in the plan runs as printed — the §11 drift is now a fixed process, not just a reconciled one. **Two self-caught errors, both about sequence rather than code.** (1) 035's Green ignored `If-Match` on purpose, and 044's Green then broke 035's own test; the fix went to the test, not the handler, because grill F-3 had written the contract change down before this code existed. (2) I committed 045 claiming a mutation check had been run to prove the test can fail — it had not; the check ran *after* the commit and confirmed the prediction (`Expected: Created / Actual: MethodNotAllowed`). The result was true, the verification was later, and a history that cannot tell those two apart is worthless: recorded as its own empty-diff commit instead of amended away. Also found: no behaviour in `026–045` covers a **successful PUT** (`-033` exercises one as arrangement), `ETag` is asserted by nobody and now emitted by nothing, and the `updated_at` assertion is the second §4.1 statement the *schema* silently contradicted — `DEFAULT now()` fires only on INSERT, so the row's `updated_at == created_at` forever and `applications_updated_at_idx` ordered a column that could never move. Slice 2 was **split**: 2a (commands) shipped without F-1's fixture; only `-031` needed it, so "Slice 2 blocked on F-1" was true of one behaviour and written as if it were seven. Dev DB at 6 migrations, 0 rows. |
 | 2026-09-11 07:21 UTC | Assistant (M3 Slice 1) | Writing the first code this repository produced by a failing test | **Slice 1 of M3: the read paths.** `BEHAVIOR-…-026` to `-029` landed as **eight commits, Red and Green separate every time** — the fifth commit-discipline rule exercised for the first time since it was written. Two endpoints, the `applications` table reached through three migrations (id only, then eight columns, then a token that generates no DDL at all), and `revision` from `xmin`. Everything below was measured, not recalled: **EF's default naming emits `CREATE TABLE "Applications" ("Id" uuid)`**, which quietly contradicted §4.1's snake_case DDL until the first real migration was read instead of assumed (fixed in `OnModelCreating`, no new package, the cost named); **Npgsql emits no DDL for an `xmin` rowversion** — `migrations script` showed the whole migration is a history-row INSERT, after I had expected it to fail and nearly hand-edited a correct migration into one that lies about what it does; an ASP.NET **default 404 is already `application/problem+json` carrying a `status`, and what it lacks is `code`** — which the client fails closed on, found by a throwaway probe after a Red that surprised me; **EF's `PendingModelChangesWarning` throws out of `Migrate()`**, so a forgotten migration breaks the test host instead of silently testing a stale schema; and 027's Red failed in *arrangement* (`42703`), proving only that columns are absent, so it earned **four mutation checks** — drop a field, disable the camelCase policy, corrupt the date format, change the CLR type — each watched failing and reverted. AC-5's `UTC+13` became a command instead of an adjective, and my first attempt at it was wrong: this host is **NZST+12**, so `Pacific/Auckland` is not a +13 test in September; `Etc/GMT-13` is. Housekeeping finding: **§3A was self-contradicting** after five turns of bullet-wise patching, so it is now regenerated wholesale and `a projection is regenerated at boundaries, not patched` folded into rule 7 rather than minted as rule 9. `src/` untouched, frontend 100 tests, runtime deps 3. |
 | 2026-09-11 06:12 UTC | Assistant (`pk:fix`, M3 Slice 0) | Executing the first code slice — and being corrected by the gate it created | **Slice 0 of M3: the toolchain.** Reconciled PR #10 (`85a19e8`) → installed SDK **10.0.401** with `dotnet-install.sh` → scaffolded `api/` from `dotnet new web` (not `webapi`, so there is no sample endpoint to delete and forget) → 4 tests green against a real container → first migration applied. Then the `api` job's **first-ever runner attempt failed, and it was right**: `error CS8605` on code I had called clean, because my build was incremental *and* my grep pattern (`Passed!|Failed!|error CS`) omitted `warning` — the evidence was discarded by the act of reading it. Plus `MSB3277` still splitting `EFCore.Relational` 10.0.4 vs 10.0.12, because my earlier "fix" pinned the assembly the first warning named rather than the graph. Fixed both (null-checked unboxing; `Directory.Packages.props` with `CentralPackageTransitivePinningEnabled`), rebuilt from deleted `bin/ obj/` under `TreatWarningsAsErrors` → 0 warnings, `Passed: 4`. **Three findings Slice 0 existed to produce:** (1) NuGet resolves a range *independently per project* and a project reference carries no version, so `DECISION-003`'s pin needed a second edge — "pin the provider" ≠ "pin the graph"; (2) **PostgreSQL 18+ refuses a volume mounted at `/var/lib/postgresql/data`** and wants `/var/lib/postgresql`, so the volume path is part of the version pin — found by the container exiting 1, while my earlier *no-volume* probe had happily "passed", which is the lesson about testing a different configuration than the one you ship; (3) `UNCERTAINTY-008-001` resolved locally, with the runner half answered by this PR's failing run rather than assumed from my machine. The harness now asserts its own freshness via `pg_postmaster_start_time()`, because "4 passed in 337 ms" while my own Postgres squatted on 5432 proved nothing (xUnit's `Duration` excludes fixture startup — a fact I had to discover by distrusting a green). `coverlet.collector` found already in the tree, which retracts one of PR #10's arguments; template `UnitTest1.cs` deleted; **eighth commit-discipline rule** added with the mirror synced in the same commit. `src/` untouched (0 files), frontend still 100 tests, runtime deps still **3**. *Convention note:* the `pk:grill` (03:50) and `pk:test` (05:03) entries are in `TASK-m3-backend-api` §5's Transition History, not here — per-task events live with the task; this table is for sessions. |
 | 2026-09-11 03:34 UTC | Assistant (`pk:tasks`, M3) | Decomposing an approved spec without starting it | PR #7 merged (`84bf560`) — reconciled, tip matched the PR head, `npm run verify` green on `main`, then `pk:tasks` produced `docs/tasks/TASK-m3-backend-api.md` on the **`sdlc-overlay-v1`** profile (M2 used the legacy compact form, so the Adaptation fields — planning/assumption links, Work Type, TDD mode — get used for real here). 14 ACs with named commands, an 18-row behaviour ladder sized 1-4h with priorities and labels, and **every evidence field left `Pending`/`None` by construction** — a Task Record created before execution that arrives with filled evidence is fabrication with a table around it. Execution state stays **`planned`, not `ready`**: readiness needs `pk:test`'s intent register to exist *and* agree with `TDD Enforcement Mode: enabled`, and `pk:grill` to have run. **Two judgement calls written down rather than smoothed over:** (1) GitHub issues deliberately **not** created despite Phase 4.2's completion criterion — the commands are staged in §8 so the owner can run them, because a parallel tracker becomes a second source of truth and M2's precedent is the Local Task Record; (2) the approved spec's bare `BEHAVIOR-026` ids reconciled to the canonical `BEHAVIOR-m3-backend-api-026` **here**, leaving the merged spec unedited rather than quietly amending an artefact the owner already approved — including its off-by-one "Slice 0 → PR #8" reference, which this decomposition consumed. Also corrected the AC-1 framing to name TypeScript's structural check as the *first* line of the seam test rather than the last, and recorded approval as *approved-by-merge* with an explicit invitation to dissent before Slice 1, because that is what merging actually signals. |
