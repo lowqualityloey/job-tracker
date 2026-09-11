@@ -106,6 +106,7 @@ the `DashboardPage` filters.
 | Lint (JS/TS) | `npm run lint` (`eslint . --max-warnings 0`) | ✅ 0 problems. `--max-warnings 0` means a warning fails the gate |
 | Lint (CSS) | `npm run lint:css` (`stylelint "src/**/*.css"`) | ✅ 0 problems. Proven against the real DEBT-15 orphan: `git show f1ae7af:src/styles.css` fails |
 | **All checks, in order** | `npm run verify` | ✅ typecheck → lint → lint:css → test:run → build. **This is what CI runs** — do not hand-roll a chain of the five |
+| Real-browser check — **manual, deliberately not in `verify`** | `docker run` Chromium + `node crosstab.mjs` over raw CDP | ✅ 13/13 on 2026-09-11, first time any page here was rendered by a non-jsdom engine. Needs Docker and a 2.8 GB image, so it cannot be a gate. Recipe, results and limits: `docs/spikes/2026-09-11-real-browser-cross-tab-check.md` |
 | Format | — | ❌ **still no formatter, deliberately.** Prettier would rewrite all 35 TS/TSX files in a commit unrelated to any feature; add it alone or not at all |
 | E2E | — | ❌ not installed (no Playwright/Cypress) |
 
