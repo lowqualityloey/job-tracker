@@ -505,3 +505,45 @@ PR #25's review notes claimed "`-034` asserts 409 where **AC-7 says 201**". **AC
 in the wrong place and guessed at its direction. Both AC and test agree on the status; the disagreement is between the
 test and a decision, one layer down, and surfaced only when I read the test's `invoke:` line rather than its name. A
 hypothesis about *which* clause is wrong does not license acting before the deciding line is read.
+
+## §18 — Gap 10: measuring §2's targets found a contract header that no test asserts (2026-09-11 19:30 UTC, close-out)
+
+Found **because I went to run a measurement rather than re-state one** — the close-out's only new discovery, and the
+argument for why "all ACs verified" is not the same as "the spec is true".
+
+**10a. The API sends no `ETag` anywhere, though spec §4's contract table promises it twice.** §4's rows say
+`POST` → `201` + `Location` + body + **`ETag`** (line 384) and `PUT` → `200` + **new `ETag`** (line 385). Measured:
+a real `POST` returns only `HTTP/1.1 201 Created` + `Location`, and `grep -rn "ETag" api/src/JobTracker.Api/Program.cs`
+→ **no match**: the server never emits the header on any endpoint, and `grep` over `api/tests` for any read of an
+`ETag` response header → **zero hits**. **The system is coherent, just documented as header-based while being built
+body-based**: `revision` rides in the wire body (`-041`'s `WireApplication`), the adapter sends it back as a quoted
+`If-Match`, and `-033` proves the semantics (stale token → `409`, row unchanged). **So the likely fix is to amend §4's
+table, not to add the header** — adding it would create two sources of truth for the same counter, which DECISION-006
+refused when it chose an opaque `revision?: number` over a header-only design. Observed response headers for a create:
+
+```
+HTTP/1.1 201 Created
+Location: /api/applications/0a25bef4-682b-4c6f-82c5-aadec8eb…
+```
+
+No `ETag`. **Nothing broke, because the client reads `revision` from the response *body*** (`-029`/`-041`'s wire shape), so
+no consumer was ever waiting for that header — which is precisely why no test caught its absence: **`-029` asserts that
+list results "carry an `ETag`/`revision`", and the slash let a body-only implementation satisfy a header-shaped promise.**
+Two options, both small: send the header (a one-line `Results.Created` refinement) or amend the table to say
+"`revision` in the body; `ETag` on `GET`/`PUT` where `If-Match` is consumed". **Left open for the owner** — it is a
+contract-text change, the same category as gap 9.
+
+**10b. §2.8's SSE clause is not falsifiable as written.** It reads "SSE notification observed in the second tab", which
+`sits in a list of *measurable targets*` alongside p50/p95 numbers but names **no threshold**. `-042` proves existence
+(the row appears in a never-reloaded tab); no latency figure is claimed anywhere, and none should be implied by §2.8.
+Fix is wording: either give it a number (and measure it) or move it out of the measurable-targets list. **Recording it
+as "✓ for existence" rather than checking it off is the point** — an unmeasurable target is a claim dressed as a metric,
+and spec §7 explicitly says such items are "deleted rather than defended".
+
+**10c. My own instrumentation bug, disclosed for the same reason as the flake.** The first POST-timing run used
+`urllib.request.Request(..., body=…)`; the parameter is **`data=`**. It failed *after* creating 25 rows, so
+**`If-Match`-carrying cleanup never ran and 25 rows were orphaned in the dev database** — the hazard `-042` and `-043`
+both warn about, reproduced by the person writing the measurement. Recovered by `DELETE FROM applications WHERE
+company_name LIKE 'PERF-%'` (25 deleted, count back to **0**, verified). **Lesson: when a probe creates state, clean it
+up in the same command that creates it, or verify the count immediately — an aborted measurement is a state mutation
+with the report missing.**
