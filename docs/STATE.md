@@ -60,46 +60,42 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### 3A. Execution-Control Projection
 
-> Synchronised projection of the canonical records, **regenerated whole at each slice boundary rather than bullet by
-> bullet** — an earlier version asserted `Active Task Pointer: None` three lines beneath a bullet saying the pointer is
-> held. Rewritten below from `TASK-m3-backend-api.md`, `git log`, `gh pr view --json mergeCommit`,
-> `gh run view --json jobs` and a live `psql`, all measured at this boundary.
+> Synchronised projection of the canonical records, **regenerated whole at each boundary rather than bullet by bullet**.
+> Rewritten below from `TASK-m3-backend-api.md`, `docs/tests/…-test-m3-backend-api.md` §16, `git log`,
+> `gh pr view --json mergeCommit`, and commands run for AC-2 and AC-14 at this boundary.
 
 - **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution
-  **`in_progress`**, **this record holds the Active Task Pointer**. **The behaviour ladder is COMPLETE: `-026` … `-046`
-  all executed** (`-042` real Chromium cross-tab, `-043` browser-restart + `psql` were the last two). What remains is an
-  **AC sweep, not features**: AC-2, AC-7, AC-14 — each a check-and-quote, evidence for AC-2 already measured.
-- **In flight**: **PR #25** `feat/m3-slice5-persistence` — `-043`: `tests/browser/persistenceAfterRestart.mjs` +
-  `run-043.sh`. **Closes AC-3.**
-- **Merged since M3 opened**: **#24** `b51d621` (`-042`, real browser) · **#23** `650cbd3` (legible CI skip + AC-13) ·
-  **#22** `baf4397` · **#21** `ad100d3` (CORS) · **#20** `10db7ad` · **#19** `d989f28` · **#18** `58b7d02` · **#17** ·
-  **#16** · **#15** · **#14** · **#13** · **#12** · **#11**. **`main` is at `b51d621`.**
-- **AC tally: 11 of 14 checked** — AC-1, AC-3, AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13 ·
-  **3 open: AC-2, AC-7, AC-14** (plus the task record's §10 close-out). **AC-1, AC-3 and AC-11 are the three that only a
-  browser could close**, and all three waited for one.
-- **AC-11's checkbox was missed and is corrected here.** PR #24 replaced AC-11's *evidence* line but its scripted edit
-  never touched the `- [ ]` box, while the PR body said "closes AC-1, AC-11". The closure was **earned** (`-042` 7/7,
-  tab B `navigation entries: 1`) but **not recorded** — so for one merge cycle `main` carried a checked claim in prose
-  and an unchecked box in the same bullet. Caught only because a *count* was printed and compared (`checked 10 + open 5
-  = 15 ≠ 14`, then the ID list named the absent one). Third instance of this class in the session — AC-13's box, a
-  fabricated SHA, now AC-11's — and the defense that works is **print the tally and read the IDs, never the count
-  alone**; the prose edit you just made is exactly the one you are not looking at.
-- **Measured at this boundary**: `-043` **6/6 checks** (`POST` 201 · `localStorage` `""` · marker present after
-  `docker restart` · `navigation entries: 1` · `psql` row `1` then `remaining = 0` · **negative control absent**) ·
-  API `dotnet test` **65 passed / 0 failed / 0 warnings / exit 0**, full log kept · frontend `npm run verify` **exit 0**,
-  **197 tests / 20 files**, build ✓ · runtime deps **3** · fixture **36 rows** · AC-1 structural diff **0 files**.
-- **`-043` recipe** (extends `-042`'s; both live in the task record's §8 too): bundle built with
-  `VITE_API_BASE_URL=http://<host-ip>:5080`, `docker cp` the harness to `/srv/harness043.mjs`, the static server and
-  Chromium inside one container (the shell **cannot** route into the Docker network; the container **can** route out),
-  then `HOST_IP=<host-ip> bash tests/browser/run-043.sh`. Phases 2 and 4 run from the shell because a container cannot
-  restart its own entrypoint and `psql` is in a different container.
-- **Known-open honesty item**: one `dotnet test` run earlier today reported **1 failed / 64 passed** and cannot be named
-  (my grep discarded the evidence — see the §8 row). Four later runs were 65/65. Disclosed, not dropped; if it recurs,
-  `dotnet test > /tmp/dt.log 2>&1` **first**, then read the file.
-- **Open for the owner** (none blocking): `location` null-mapping is an **interpretation, not ratified**; gap 5
-  (`conflict`'s §4.3 sentence, taken as "M3 ships generic"); the `notes` ceiling; `status` has no runtime validation at
-  the seam; gap 7's precedent — sweep spec §4.3's table against the ladder for server-side obligations a client-half
-  behaviour made look complete.
+  **`in_progress`**, **this record holds the Active Task Pointer**. **The behaviour ladder is complete (`-026` … `-046`)
+  and the AC sweep is done: 13 of 14 acceptance criteria are verified.** The one that is not — **AC-7** — is blocked on a
+  decision, not on work (gap 9). **M3 is otherwise ready for the owner's close-out review.**
+- **In flight**: **PR #26** `docs/m3-ac-sweep` — closes AC-2 and AC-14, files **gap 9**, and corrects my own wrong
+  AC-7 hypothesis from the #25 review notes.
+- **Merged**: **#25** `2c0e327` (`-043` + the AC-11 checkbox correction) · **#24** `b51d621` (`-042`) · **#23** `650cbd3` ·
+  **#22** `baf4397` · **#21** `ad100d3` (CORS) · **#20** `10db7ad` · **#19** `d989f28` · **#18** `58b7d02` · **#17** …
+  **#11**.
+- **AC tally: 13 of 14 checked** — AC-1 … AC-6, AC-8 … AC-14. **Open: AC-7 only**, whose third clause ("the adapter
+  re-reads and treats it as success") is **contradicted by a Green test**, not untested. Asserted `checked + open == 14`
+  by script, and the ID *lists* are printed, not the count alone.
+- **Gap 9 (new, the session's most valuable finding)**: `-037`'s error-table row for `409 conflict` **invokes
+  `repository.create()`** and asserts it throws — but `DECISION-007` says create must re-read and treat the existing row
+  as success. The *safety* purpose (no duplicate on retry) is already proven by `-034`; the unresolved part is a
+  user-visible behaviour change. Options A/B/C in test §16; **recommendation (B): narrow DECISION-007's clause to what
+  is proven**, because turning a conflict into a silent success is a UX decision that deserves its own spec pass rather
+  than a late edit narrowing the table AC-8 exists to lock down.
+- **Measured at this boundary**: AC-2 `VITE_API_BASE_URL= npm run verify` → **exit 0, 197 tests / 20 files**, signature
+  identical to the flagged run · AC-14 **all six invariants 0 violations** (deps **3** = react, react-dom,
+  react-router-dom) · API `dotnet test` **65 / 0 failed / 0 warnings / exit 0** · `src/` and `api/` untouched on this
+  branch.
+- **Standing rule earned by four near-identical slips** (AC-13's box, a fabricated SHA, AC-11's box, AC-14's box — the
+  last three inside ~2 hours, all caught by *arithmetic after the fact*): **after any scripted checkbox edit, print the
+  ID lists and assert `checked + open == expected total`.** Three of the four were `.replace()` calls that hit the
+  prose and never touched the `- [ ]` prefix, which means the *same* edit both succeeds and lies: it returns the
+  modified string, and the diff looks right in isolation.
+- **Known-open honesty item**: the unattributed `dotnet test` failure (1 failed / 64 passed, once; four later runs
+  65/65) is still undisclosed-as-diagnosed — see its own §8 row. Still unreproduced.
+- **Open for the owner**: gap 9 (A/B/C — blocking AC-7 and therefore M3's closure) · gap 5 (`conflict`'s §4.3 sentence) ·
+  the `notes` ceiling · the `location` null-map interpretation · `status` having no runtime validation at the seam ·
+  gap 7's sweep of spec §4.3 against the ladder.
 ## 4. Locked Technical Invariants (Do Not Undo)
 
 Agreed decisions that survive any refactor. Deviating requires a new ADR.
@@ -222,6 +218,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-11 18:35 UTC | Assistant (M3 AC sweep) | **AC-2 + AC-14 close → 13 of 14 ACs verified; gap 9 found in the last one** | Swept what the ladder left, and the sweep paid for itself immediately. **AC-2**: `VITE_API_BASE_URL= npm run verify` → exit 0, **197/20**, suite *signature* identical to the flagged run — recorded with what the command *cannot* show (jsdom has no `EventSource`, no origin policy), because a green flag-off run is a no-regression claim, not an adapter-equivalence claim. **AC-14**: all six locked invariants checked **by command** as the AC demands → **0 violations each**; no `fetch`/`EventSource` outside `src/data/`, **no `Number(` call anywhere in `src/`** (stronger than the invariant asks), runtime deps still **3** since M0, no `.only`/`.skip`, no `vite.config.js`, `revision` confined to `src/data/`. **AC-7 could not close, and the reason is the finding: it is not missing evidence, it is contradicted by a passing test** — `-037`'s `409 → conflict` row *invokes `repository.create()`* and asserts it throws, while `DECISION-007` promises the adapter re-reads and treats an existing record as success. Filed as **gap 9** with options A/B/C and a recommendation (B: narrow the decision to what is proven, since the *duplicate-row* safety `-037` was protecting is already proven by `-034`; what's missing is a user-visible behaviour, not data safety). **Also corrected: my own #25 review note claimed AC-7 said `201` — it says `409`; the real divergence was a layer down and only appeared once I read the test's `invoke:` line instead of its name.** Fourth checkbox slip of the session (AC-14's box flipped after its prose), caught by printing IDs; the rule now reads *assert `checked + open == 14`* |
 | 2026-09-11 18:10 UTC | Assistant | **AC-11's checkbox was never flipped — PR #24 overstated the record** | PR #24's body claimed "closes AC-1 **and AC-11**"; AC-11's evidence prose was written into the task record but its `- [ ]` box was left unchecked, because the scripted edit replaced the *continuation* line only. `main` therefore carried an unchecked box beside a paragraph saying *Verified — including the browser join*. The behaviour itself genuinely passed (`-042` 7/7, tab B 1 navigation entry), so this is a **recording** defect, not a correctness one — which is what makes it easy to ship. Surfaced by printing `checked` and `open` **ID lists** and noticing AC-11 was in neither place it should have been. Fixed here with an HTML comment on the bullet naming the origin, so a future reader of `git blame` sees why the box flipped a commit later than its evidence. **Standing rule restated: after any scripted checkbox edit, print the IDs — a count that adds up can still hide the wrong member.** |
 | 2026-09-11 18:05 UTC | Assistant (M3 Slice 4 close) | **`-043` passes — the behaviour ladder is complete** | A record created **through the real form in Chromium** survived **a real browser restart** (`docker restart` of the container that *is* Chromium's entrypoint: new process, new CDP id), reappeared in a fresh tab with **1 navigation entry**, and `psql` in the database container showed the row — `JT043-… ✅ café`, confirming `-041`'s fidelity claim **at rest**, not just across a wire. **`localStorage` was `` throughout**, so nothing was remembered client-side. **The negative control is the part that makes it evidence:** the row was then deleted over HTTP (`If-Match: "785"` → 204), re-queried (`remaining = 0`), and a fresh tab had to show it **gone** — otherwise "still there after restart" cannot distinguish durability from a cache. Two authoring bugs caught rather than papered over: a `DELETE` without `If-Match` returns **409** (the revision is a `xmin` counter, `785`, not a guessable `1`), and `curl -f` converted that into exit 22 which under `set -e` aborted *after* the row existed, **orphaning the marker in the dev database** — the exact hazard `-042` had just documented. **AC-3 closed; 10 of 14 ACs checked; AC-2/AC-7/AC-14 remain, all check-and-quote.** |
 | 2026-09-11 17:40 UTC | Assistant | **Unreproduced API test failure, disclosed rather than dropped** | One `dotnet test` run in this session reported **1 failed / 64 passed**. Three subsequent runs reported **65/65, exit 0** and I cannot name the failing test, because my first command to find it grepped for `^\s+(Failed|X) `, which is not the shape of the line that `dotnet test` actually prints, so the run's full output was already discarded by `tail -3`. **This is AGENTS.md's own rule applied to me: filtering a command's output can destroy the only evidence that matters** — I quoted that rule earlier in the session and then lost a failure to it. Not written off as a flake: it is one unattributed failure in four runs, with no reproduction. **If it recurs, save the whole log to a file before reading any of it** — `dotnet test > /tmp/dt.log 2>&1`, then search the file — because the second occurrence is the one that will be diagnosable. Candidate causes deliberately not guessed at, since guessing is how false root causes get recorded. |
