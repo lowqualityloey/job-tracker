@@ -149,7 +149,27 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **TDD Intent Register [Required when enabled]**: [`docs/tests/2026-09-11-test-m3-backend-api.md`](../tests/2026-09-11-test-m3-backend-api.md) — 20 `TDD-INTENT-m3-backend-api-<nnn>` rows, one per behaviour, each `ready` with a concrete Red command and expected failing assertion. **Mode reconciliation: `Matches Task Record`** (both say `enabled`), so readiness is no longer blocked on this field. *Filename follows `pk:test`'s template (`YYYY-MM-DD-test-<feature>.md`); the earlier `TEST-m3-backend-api.md` name in this record was mine and is superseded.*
 - **TDD Execution Evidence [Required when enabled]**: `None yet` — one `TDD-EXEC-m3-backend-api-<seq>` block per behaviour, recorded in §7's evidence column as execution proceeds, each retaining its behaviour identity and re-running the same Red command
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
-- **CI Evidence**: `Pending` — Slice 0 **adds the second job** (`api`), so this PR's run resolves the
+- **CI Evidence — the first `api` job run FAILED, and why it was right**: provider GitHub Actions, workflow
+  `ci.yml`, job `verify-api`, commit `47501b6`, 2026-09-11 06:07 UTC:
+  - `error CS8605: Unboxing a possibly null value` — `PostgresHarness.cs:86` cast `ExecuteScalarAsync()`
+    (which returns `object?`) straight to `DateTime`. Locally invisible because my build was incremental **and**
+    my grep pattern was `Passed!|Failed!|error CS` — `warning` was not in it, so the line that would have told
+    me was discarded by the reading. Fixed with `var started = (DateTime?)…` + `Assert.NotNull(started)`, which
+    also converts a null answer into a *test failure* instead of a `NullReferenceException` dressed as one.
+  - `warning MSB3277` survived for `Microsoft.EntityFrameworkCore.Relational` (10.0.4 vs 10.0.12): my earlier
+    "fix" pinned only the assembly the first warning happened to name. Replaced structurally by
+    `api/Directory.Packages.props` with `CentralPackageTransitivePinningEnabled` — one version per package
+    across the graph, so correctness stops depending on my remembering both projects *and* both siblings.
+  - Both then rebuilt from scratch (`bin/ obj/` deleted) with `-p:TreatWarningsAsErrors=true`: **0 warnings,
+    0 errors**, and `dotnet test` → `Passed: 4, Failed: 0`.
+  - **`TreatWarningsAsErrors` earned its place on its first run**: it failed a build my own machine passed.
+    Slice 0's whole purpose was to surface exactly this kind of gap while nothing depends on it.
+  - Second run of this job (post-fix) quoted in the PR comments. AC-13's other half (a docs-only push → job
+    reports success with steps skipped) is asserted on the next docs PR. Disclosed honestly: my first local test
+    of the detection pattern was **vacuous** — `git diff main...HEAD` on an uncommitted tree is empty, and an
+    empty diff and an untriggered gate look identical. Near-miss paths (`api-notes.md`, `global.json.bak`,
+    `src/api/client.ts`) were then verified to yield `false`.
+- **CI Evidence — superseded text**: Slice 0 **adds the second job** (`api`), so this PR's run resolves the
   Docker-on-runners question on the provider that will actually execute it. AC-13's other half (a docs-only push →
   job reports success, steps skip) is asserted on the next docs PR. Disclosed honestly: my first local test of the
   detection pattern was **vacuous** — `git diff main...HEAD` on an uncommitted tree is empty, and an empty diff and
