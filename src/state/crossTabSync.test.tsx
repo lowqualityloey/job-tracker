@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import ApplicationDetailsPage from '../pages/ApplicationDetailsPage'
+import ApplicationFormPage from '../pages/ApplicationFormPage'
 import ApplicationsPage from '../pages/ApplicationsPage'
 import {
   APPLICATIONS_STORAGE_KEY,
@@ -20,6 +22,8 @@ function mount(repository: ApplicationRepository, route = '/applications') {
       <ApplicationsProvider repository={repository}>
         <Routes>
           <Route path="/applications" element={<ApplicationsPage />} />
+          <Route path="/applications/:id" element={<ApplicationDetailsPage />} />
+          <Route path="/applications/:id/edit" element={<ApplicationFormPage />} />
         </Routes>
       </ApplicationsProvider>
     </MemoryRouter>,
@@ -48,6 +52,9 @@ function otherTab() {
 
 /** The rendered cards in the order the page shows them, keyed by job title. */
 const cardTitles = () => screen.getAllByRole('article').map((card) => card.querySelector('h3')?.textContent)
+
+/** A fixed seed id, so "the row another tab deleted" names one specific record. */
+const XERO = 'd36b4d5f-291b-40c0-b96c-c1a61a23bf93'
 
 const fishermend = {
   companyName: 'Fishermend Limited',
@@ -107,6 +114,39 @@ describe('reconciling a write from another tab', () => {
     await screen.findByText('Full Stack Developer')
     expect(cardTitles()).toEqual(['Graduate Software Engineer', 'Software Developer', 'Full Stack Developer'])
     expect(screen.getByRole('status')).toHaveTextContent('3 of 3 applications')
+  })
+
+  // BEHAVIOR-025 — last-write-wins means an in-flight write here can target a row that no longer
+  // exists. The store answers `not-found`; the snapshot must then reconcile, because a row the
+  // store refuses to act on is a row the UI has no business still offering to act on.
+  it('drops the row after a delete the store refused as not-found', async () => {
+    mount(createLocalStorageRepository({ storage: localStorage }), `/applications/${XERO}`)
+    await screen.findByRole('heading', { name: 'Junior Frontend Developer' })
+
+    // Another tab deletes it first. This tab's snapshot still holds it.
+    await otherTab().remove(XERO)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete application' }))
+
+    await screen.findByRole('heading', { name: 'Application not found' })
+
+    fireEvent.click(screen.getByRole('link', { name: /back to applications/i }))
+    await screen.findByText('Datacom')
+    expect(cardTitles()).not.toContain('Junior Frontend Developer')
+    expect(screen.getByRole('status')).toHaveTextContent('4 of 4 applications')
+  })
+
+  it('drops the row after an edit the store refused as not-found', async () => {
+    mount(createLocalStorageRepository({ storage: localStorage }), `/applications/${XERO}/edit`)
+    await screen.findByLabelText(/company name/i)
+
+    await otherTab().remove(XERO)
+
+    fireEvent.click(screen.getByRole('button', { name: /save application/i }))
+
+    await screen.findByRole('heading', { name: 'Application not found' })
+    expect(screen.queryByLabelText(/company name/i)).toBeNull()
   })
 
   it('detaches the listener on unmount (spec B-1)', async () => {
