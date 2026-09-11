@@ -186,49 +186,29 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 14:30 UTC): Slice 3 is complete — `-036`…`-041` and `-046` all shipped. Open the PR and
-  then **Slice 4: `-042`**, the CDP harness from `docs/spikes/…/crosstab.mjs` pointed at an `VITE_API_BASE_URL`-backed
-  build in real Chromium. That behaviour is the milestone's most valuable single artefact and it is the first place the
-  client and server halves of SSE meet for real: **AC-1 and AC-11 both close there**, and neither can be checked
-  honestly before it. Expect to need a running API + Postgres + a built frontend, so budget for wiring rather than
-  tests: `dotnet run` against the dev container, `npm run build`, `vite preview`, and the harness pointed at the
-  preview origin with the API base baked in. Carried into Slice 4: gap 5 (`conflict`'s sentence, taken as "M3 ships
-  generic" unless told otherwise), the `notes` ceiling, the `location` interpretation above, `-041`'s observation that
-  **`status` is the one domain field with no runtime validation at the seam** (a wire `"Bogus"` passes both `-037`'s
-  guard and the type), and gap 7's precedent — sweep §4.3's table against the ladder for other server-side obligations
-  a client-half behaviour made look complete.
-  (Preceding text read: "**Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared
-  fixture.** Author `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules …
-  Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and `job_title` (deferred
-  item 1), and the `PUT` path's still-unvalidated body." — **delivered, including both follow-ups.** The placeholder
-  defaults are gone under `-031+` with an `information_schema` guard, and `PUT` validates through the same
-  `ApplicationValidation.Validate` call as `POST` (§4.3 lists `400 validation` for both verbs) — though no test
-  asserts the `PUT` rejection path, which is the fourth unregistered §4.3 statement and is listed above rather than
-  assumed away. The fixture grew one mechanism the instruction did not anticipate: a per-side `violations` override,
-  because one row turned out to be inexpressible with a single shared list.
-  (Preceding text read: "**Next Action (Slice 1 complete)**: **Slice 2** — `BEHAVIOR-…-030` first … and it needs two
-  things this slice left deliberately on the table: `defaultValueSql: now()` on `created_at`/`updated_at`, and the
-  **second problem-document factory**, which is the trigger to extract `ApplicationCatalog` (spec §4.1). Slice 2 also
-  remains **blocked on F-1's fixture** for AC-12." — **delivered, with two corrections to how it was written.** The
-  `now()` default did not wait for `-030`: it arrived early with `-032`, where it was fixing EF's `-infinity`
-  placeholder rather than serving the create path. The second problem-document factory appeared at `-034`, and
-  `ApplicationCatalog`/`Problems` were extracted in the very next commit (`232fabc`), 14 tests green before and after.
-  And **the F-1 clause was too broad**: only `-031` needs the fixture, so Slice 2 split into 2a and 2b and six of its
-  seven behaviours shipped without waiting — an agent scope decision, disclosed here rather than presented as the
-  plan all along.
-  (Preceding text read: "**Next Action (Slice 0 complete)**: `BEHAVIOR-m3-backend-api-026` — write the failing test
-  that `GET /api/applications` returns `200 []`, then the `DbSet`, the entity, the endpoint and the first real
-  migration" — delivered exactly, and the "first real migration" turned out to be three.)
-- **Gates now closed**: `pk:grill` ran at 2026-09-11 03:50 UTC →
-  [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan
-  amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
-  <!-- Repaired 2026-09-11 08:36 UTC (the bullet above). An earlier scripted edit had spliced a superseded clause
-  into the middle of the Next Action bullet — an orphan beginning with the word "migration" and ending in a stray
-  closing brace — and drawn this "Gates now closed" bullet down into the parenthesis that had been closing the other
-  one, leaving a single damaged bullet where the record had always held two. Found by re-reading the source before
-  regenerating the projection, which is the point of rule 7, and the second time this session that a scripted edit
-  damaged a document in a way no test could observe. The clause is paraphrased here rather than quoted: a file that
-  contains two copies of a sentence, one of them labelled debris, is how the next reader ends up choosing wrong. -->
+- **Next Action (2026-09-11 15:10 UTC, Slice 4 IN FLIGHT, `-042` not yet passing): the browser harness exists at
+  `tests/browser/httpCrossTab.mjs` and has already produced its first finding — **without Chromium's help**.
+  - **`-042`'s reason for existing is now documented evidence, not a prediction.** Against the running API
+    (`dotnet` on :5080, built with `VITE_API_BASE_URL=http://127.0.0.1:5080`, page served on :4173 — the two-origin
+    topology `docs/aws-deployment.md` describes): a preflight **`OPTIONS /api/applications` → 405 Method Not Allowed**,
+    and a cross-origin **`GET` → 200 with no `Access-Control-Allow-Origin`** header. `grep -rn "Cors" api/src` finds
+    **nothing**: no policy, no middleware. So a real browser cannot use this API at all, while **all 197 jsdom tests
+    and all 60 API tests pass** — because jsdom's `fetch` is a stub that enforces nothing, and `WebApplicationFactory`
+    never answers a preflight it doesn't know about. AC-1's "zero changes to any frontend file" has never been
+    exercised across an origin boundary.
+  - **The harness itself is blocked on environment bring-up, not on the application.** Chromium runs in
+    `mcr.microsoft.com/playwright:latest` with `--network=host` (the host has no `libnspr4`; the image's Chromium 128
+    starts and logs `DevTools listening on ws://[::1]:9222`), but launched from `spawn()` inside the harness it never
+    answers `/json/version` on either loopback. Diagnosed to the point of knowing the container is *not* failing on
+    the port (`ss` shows :9222 free immediately before the run), so the next step is capturing the container's stderr
+    instead of `stdio: 'ignore'`. **Stated as unresolved rather than worked around**: an unexplained failure is a lead,
+    and a harness that silently retries into a workaround would be reporting on its own bug.
+  - **The CORS fix is the next commit and it needs its own Red.** It belongs in `api/tests` as a contract test (an
+    OPTIONS request from the frontend origin must return the allow headers, including `If-Match`, which is a
+    non-simple request header the optimistic-write path cannot work without), because the browser harness cannot be CI
+    — the spike's own §"not CI" conclusion still holds. The decision to record when it lands: **which origins, from
+    what config** — a wildcard `Allow: *` is the fast wrong answer that no deployment would accept, and
+    `docs/aws-deployment.md` puts the two halves on different hosts.
 
 ### Transition History
 
