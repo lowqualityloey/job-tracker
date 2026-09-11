@@ -69,6 +69,10 @@ Mirrored from `AGENTS.md` (canonical) — every rule below came from a failure o
 - Keep Red, Green, and Refactor in separate commits so history still shows the test drove the code.
 - `set -e` does not cover a **pipeline**: `verify | head` exits with `head`'s status, so a failing check
   inside the pipe never stops what follows. Use `set -o pipefail`, or `&&`.
+- **Read the ref before writing to it.** Every bash call is a new shell, so a branch created in an earlier
+  turn is not the branch you are on later. On 2026-09-11 a ladder committed to local `main` for exactly that
+  reason while STATE.md named a branch that had never been created. Check `git rev-parse --abbrev-ref HEAD`
+  before committing, and write a ref into a document only after measuring it.
 
 CI (`.github/workflows/ci.yml`) enforces the code half of this list via `npm run verify` on every PR —
 typecheck, eslint, stylelint, tests, build, plus a guard that the build emitted no `vite.config.js`
