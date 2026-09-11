@@ -23,6 +23,29 @@ builder.Services.AddDbContext<JobTrackerDb>(options =>
 // assumption means replacing this class with a Redis backplane or PostgreSQL `NOTIFY`, not rewriting the endpoints.
 builder.Services.AddSingleton<ApplicationEventBus>();
 
+// CORS: the origin list comes from configuration, and an absent list means no cross-origin access at all.
+//
+// The failure this fixes was invisible to every test that existed: `WebApplicationFactory` answers a request without
+// asking permission first, and jsdom's `fetch` is a stub that enforces nothing, so 257 green tests coexisted with an
+// API no browser could use (preflight 405, and no `Access-Control-Allow-Origin` on any response). `BEHAVIOR-…-042` is
+// the behaviour that found it.
+//
+// **Strict on origins, open on headers and methods** — the direction is the decision. `If-Match` must survive
+// preflight or optimistic writes fail only in browsers, AC-7's retry key will want another custom header, and a
+// hand-maintained header allow-list fails on the *next* feature rather than the current one. Headers are a
+// compatibility surface here, not a defence; the origin is the boundary a browser actually enforces.
+//
+// `AllowCredentials` is deliberately absent: M3 sends no cookies, and a wildcard origin combined with credentials is
+// rejected outright by browsers, so adding it later would break this quietly rather than loudly.
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+{
+    var allowed = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+    if (allowed.Length > 0)
+    {
+        policy.WithOrigins(allowed).AllowAnyHeader().AllowAnyMethod();
+    }
+}));
+
 var app = builder.Build();
 
 // Migrations apply at startup. Declared as a decision, not a default, because it has a real failure mode: two
@@ -40,6 +63,11 @@ using (var scope = app.Services.CreateScope())
 // empty 4xx/5xx responses get a problem body too, so the client adapter never parses a bare status code.
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+
+// The **global** policy, not per-endpoint `.RequireCors(...)`. `-046` is the argument: the SSE endpoint was added to
+// the catalog long after the CRUD routes existed, and a per-endpoint policy is exactly the thing someone forgets on
+// the endpoint they add next — which would strand the stream cross-origin while every write kept working.
+app.UseCors();
 
 // Routes and handlers live in ApplicationCatalog (spec §4.1's deep module); Program is composition.
 app.MapApplicationCatalog();

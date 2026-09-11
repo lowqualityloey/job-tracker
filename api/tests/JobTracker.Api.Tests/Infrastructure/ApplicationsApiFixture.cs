@@ -20,10 +20,22 @@ namespace JobTracker.Api.Tests.Infrastructure;
 /// </summary>
 public sealed class ApplicationsApiFactory(string connectionString) : WebApplicationFactory<Program>
 {
+    /// <summary>
+    /// The one origin the test host is configured to trust. Public because <c>CorsContractTests</c> must assert on
+    /// the *same* value the host was given — a test that invents its own origin string is testing the test's memory.
+    /// </summary>
+    public const string AllowedOrigin = "http://allowed.test";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder) =>
         // UseSetting, not environment variables: it lands in the same configuration pipeline the app reads at
         // startup, and it keeps the fixture honest about *what* it is overriding.
-        builder.UseSetting("ConnectionStrings:Default", connectionString);
+        //
+        // The CORS origins are set here for the same reason the connection string is: without it the host would read
+        // `appsettings.Development.json`'s localhost list, and the tests would be asserting that the deployment
+        // config happens to allow a browser on this particular machine. Index-key form because `UseSetting` has no
+        // array overload — and that also proves the app must read the section as an array, not a delimited string.
+        builder.UseSetting("ConnectionStrings:Default", connectionString)
+            .UseSetting("Cors:AllowedOrigins:0", AllowedOrigin);
 }
 
 /// <summary>
