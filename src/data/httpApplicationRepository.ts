@@ -157,6 +157,11 @@ export function createHttpApplicationRepository(baseUrl: string): ApplicationRep
   const root = baseUrl.replace(/\/+$/, '')
   const revisions = new Map<string, number>()
 
+  // Ordering state for `list()`. `issued` counts requests as they go out; `newest` is the freshest *valid* payload
+  // any caller has been handed, tagged with the counter value that produced it.
+  let issued = 0
+  let newest: { token: number; rows: JobApplication[] } | null = null
+
   function transportError(cause: unknown): RepositoryError {
     // Transport, not response: `fetch` rejecting means no HTTP exchange happened at all — nothing listening, DNS
     // failure, CORS refusal. §4.3 maps that here rather than to `unavailable`, because "we could not learn anything"
@@ -224,6 +229,7 @@ export function createHttpApplicationRepository(baseUrl: string): ApplicationRep
     },
 
     async list() {
+      const token = ++issued
       const sent = await send('/api/applications', { method: 'GET' }, null)
       if (!sent.ok) {
         return sent
@@ -242,8 +248,27 @@ export function createHttpApplicationRepository(baseUrl: string): ApplicationRep
         return err({ code: 'corrupt-data', quarantinedAs: null })
       }
 
+      // **BEHAVIOR-039 / AC-10.** This response lost the race: a newer one has already been handed to a caller, so
+      // these rows describe a world that was superseded while the request was in flight. Hand back what won.
+      //
+      // Placed *before* `remember` deliberately. A superseded payload must not enter the revision table either —
+      // `remove()` reads that table with no preceding GET, so believing a loser's `xmin` turns the next delete into a
+      // 409 on a row the user can still see. Discarding the data while keeping its evidence is the half of this that a
+      // "ignore stale responses" summary loses.
+      //
+      // The rule is bounded to valid payloads. Failures — transport, HTTP mapping, an unreadable body — are returned
+      // untouched above, because a failure is the only signal that engages AC-9's refusal gate, and a guard that could
+      // swallow one would trade a stale list for a lost outage. The cost is stated rather than hidden: an old read
+      // that fails *after* a newer read succeeded can still move a UI holding fresh data into the error state.
+      if (newest !== null && newest.token > token) {
+        return ok([...newest.rows])
+      }
+
       // No sort here: §4.3 says "unordered is fine; client sorts", and the client's sort is M2's tested behaviour.
-      return ok(body.map(remember))
+      const rows = body.map(remember)
+      newest = { token, rows }
+      // A copy, so two callers that both lose the race never share the array the winner produced.
+      return ok([...rows])
     },
 
     async get(id) {

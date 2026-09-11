@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ApplicationsProvider, useApplications } from '../state/applicationsProvider'
 import type { ApplicationRepository } from '../domain/applicationRepository'
@@ -30,14 +30,14 @@ const ROW_A = '11111111-1111-4111-8111-111111111111'
 const ROW_B = '22222222-2222-4222-8222-222222222222'
 
 function wire(id: string, revision: number, companyName: string): JobApplication & { revision: number } {
+  // `appliedAt`/`notes` are optional-and-absent rather than null: the wire shape says "no date", and writing null here
+  // would be a claim about the API's JSON that no test in this file is checking.
   return {
     id,
     companyName,
     jobTitle: 'Frontend Engineer',
     location: 'Auckland, NZ',
     status: 'Applied',
-    appliedAt: null,
-    notes: null,
     createdAt: '2026-03-01T09:00:00Z',
     revision,
   }
@@ -60,7 +60,7 @@ function jsonResponse(body: unknown): Response {
 function gatedFetch() {
   const gates: Array<(response: Response) => void> = []
   const failures: Array<(reason: unknown) => void> = []
-  const mock = vi.fn(() => {
+  const mock = vi.fn((..._request: unknown[]) => {
     let succeed: (response: Response) => void = () => undefined
     let fail: (reason: unknown) => void = () => undefined
     const promise = new Promise<Response>((resolve, reject) => {
@@ -87,10 +87,10 @@ function gatedFetch() {
       failures.length = 0
       mock.mockClear()
     },
-    succeed: (index: number, body: unknown) => gates[index]!(jsonResponse(body)),
+    succeed: (index: number, body: unknown) => gates[index](jsonResponse(body)),
     /** §4.3's `DELETE` answer: 204, no body. Parsing it would invent a corrupt-data error for a success. */
-    noContent: (index: number) => gates[index]!(new Response(null, { status: 204 })),
-    fail: (index: number, reason: unknown) => failures[index]!(reason),
+    noContent: (index: number) => gates[index](new Response(null, { status: 204 })),
+    fail: (index: number, reason: unknown) => failures[index](reason),
   }
 }
 
