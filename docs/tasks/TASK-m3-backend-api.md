@@ -72,7 +72,27 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   deliberately: a checked box here would say the adapter has moved real records, and so far it has only ever been
   shown a mocked `fetch`.
 - [ ] **AC-2** — **Flag off changes nothing.** `npm run verify` green with `VITE_API_BASE_URL` unset, exactly as on `main` today. **Result**: Pending · **Evidence**: `npm run verify` exit 0
-- [ ] **AC-3** — **Durability outside the client process.** *Given* a record created in the browser, *When* the browser is closed and reopened, *Then* the record is present **and** `psql -c 'select id from applications'` shows it. **Result**: Pending · **Evidence**: `BEHAVIOR-…-043` + quoted `psql` output
+- [x] **AC-3** — **Durability outside the client process.** *Given* a record created in the browser, *When* the browser is closed and reopened, *Then* the record is present **and** `psql -c 'select id from applications'` shows it. **Result**: **Verified by `BEHAVIOR-…-043`** (2026-09-11 18:00 UTC) — proof deliberately outside both test suites.
+  `tests/browser/run-043.sh` + `persistenceAfterRestart.mjs`: a record is created **by filling the real form in
+  Chromium** (the Given clause is "created in the browser", so a raw `POST` would change what is proved) — `POST` 201,
+  marker visible, **`localStorage` keys `""`** — then **the browser is closed for real**, by `docker restart` of the
+  container that *is* Chromium's entrypoint process (new process, new CDP browser id, nothing shared), then a fresh tab
+  finds the record (`navigation entries: 1`: it loaded once and read it from the server). **PostgreSQL, independent of
+  every client, agrees:**
+
+  ```
+   id                  |          company_name           |          job_title           | status
+  --------------------------------------+---------------------------------+------------------------------+--------
+   d62f5a5a-3a95-413d-84ea-c3cbf82a4b1f | JT043-1789149013-650544 ✅ café | Role JT043-1789149013-650544 | Saved
+  (1 row)
+  ```
+
+  **The negative control is what makes that positive assertion worth anything.** "Still there after a restart" is also
+  what a stale cache, a service worker, or a `localStorage` fallback would print. So the run then deletes the row over
+  HTTP (`If-Match: "785"` → **204**), re-queries (`remaining = 0`), and opens a *fresh* tab in which the marker **must be
+  gone** — `PASS NEGATIVE CONTROL … absent as expected`. Without that phase the visible-check cannot tell "durable in
+  PostgreSQL" from "remembered by the browser", and that is the only distinction AC-3 makes. The `✅ café` in the quoted
+  row additionally confirms `-041`'s fidelity claim **at rest in the database**, not merely across a wire.
 - [x] **AC-4** — **Constraints are real, not advisory.** A status outside the five is rejected **by the database** even when the API validator is bypassed (direct SQL). **Result**: Pending · **Evidence**: `BEHAVIOR-…-032`; the Red runs `INSERT … status='Escalated'` and asserts violation. **Result**: **Verified** (2026-09-11 07:31 UTC) · **Evidence**: `BEHAVIOR-…-032`, executed early —
     `Assert.Throws<PostgresException>` on a direct `insert … values (…,'Escalated')` → `SqlState 23514`, plus the
     five legitimate statuses all inserting. **Retraction**: an earlier edit of this line said AC-4 was
@@ -127,7 +147,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   on rendered text through the real `ApplicationsProvider`, not just on the adapter's return value. **Closes M2b's
   handed-over P2-2.** The guard is adapter-side, so AC-1's diff check still passes: `src/state/` is imported, never
   edited.
-- [ ] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040`
+- [x] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040` <!-- checkbox flipped 18:10 UTC in the -043 records commit: PR #24 wrote AC-11's evidence and claimed the closure, but its own scripted edit replaced only the continuation line and never touched this box -->
   **Result**: **Verified — including the browser join** (2026-09-11 17:25 UTC; `-042` closes what `-040`/`-046` left
   open). **Evidence**: `-046` (server — real bytes off `WebApplicationFactory`, one `event: change` +
   `data: {"id":"…"}` per committed write), `-040` (client — 11 tests over a fake `EventSource`: one re-list per
@@ -167,6 +187,13 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - [x] **AC-13** — **CI jobs are independent.** The API job is gated by an **internal `if:` on changed paths, not by `on.pull_request.paths`** (grill F-10: an excluded job reports *no status*, which is indistinguishable from a check that never ran the day branch protection requires all checks). So the job always reports and only its steps skip. **Result**: **Verified** (2026-09-11 16:05 UTC) — both run lists below are `gh run view --json jobs` output quoted
   verbatim, which is the evidence form this AC asked for and the reason it could not be closed by reading `ci.yml`.
 
+  **The `$GITHUB_STEP_SUMMARY` note's first real sighting, on PR #24's run `34628769977`** (a docs/tests-only branch, so
+  the detector takes the skip path): `verify-api => success` while `Run actions/setup-dotnet@v4 => **skipped**` and
+  `Verify (build with warnings as errors → test against a real PostgreSQL) => **skipped**`. That step list *is* the answer
+  to "what does this green mark assert?" — on that commit, nothing whatsoever about the .NET suite. Captured by reading
+  `gh run view --json jobs` steps rather than inferred, which is the habit the note exists to make unnecessary.
+
+  **Docs-only push — PR #22 @ `9db31b7`, run `34622071963`:** `verify-api => success`, and its steps:
   **Docs-only push — PR #22 @ `9db31b7`, run `34622071963`:** `verify-api => success`, and its steps:
   `checkout => success` · `Detect whether the API surface changed => success` · **`setup-dotnet => skipped`** ·
   **`Verify (build with warnings as errors → test against a real PostgreSQL) => skipped`**
@@ -208,7 +235,14 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 17:25 UTC): `-043`, survives a browser restart with `psql` confirming** — the last
+- **Next Action (2026-09-11 18:00 UTC): the behaviour ladder is **complete** — `-026` … `-046` all executed. What is
+  left before M3 goes to review is an **AC sweep, not features**: **AC-2** (flag off changes nothing — already measured,
+  `VITE_API_BASE_URL= npm run verify` → **197 tests / 20 files**, identical to the flagged run, needing only quoting into
+  the AC line), **AC-7** (a retried `POST` with the same client-generated id returns the original 201 — *trace* whether
+  `-032`/`-034` already prove it before building a third test), **AC-14** (run §8's invariant scan and quote it), then the
+  §10 close-out. Owner items open and non-blocking: gap 5, the `notes` ceiling, the `location` interpretation, `status`
+  having no runtime validation at the seam, and gap 7's sweep of spec §4.3's table against the ladder.
+
   behaviour in M3, and cheap now that `-042` works: same container, same harness, one extra step — create over HTTP,
   close the tab and open a fresh one, assert the row survives, then query PostgreSQL directly and quote the row. That
   quoted `psql` output is the evidence AC-3 asks for and the only proof in the ladder that lives outside both test
@@ -699,6 +733,24 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   - **Cleanup is part of the test**: the marker record is deleted over HTTP (`204`) at the end, because the dev database
     persists across runs and a harness that leaves rows behind turns the *next* run's counts into lies — the same
     reasoning `-039` applied to ordering. A test that can only pass once is not yet a regression test.
+
+  **`TDD-EXEC-m3-backend-api-043`** · `BEHAVIOR-…-043` · `type:test` — **no product code to write and no Red to
+  fabricate** · Green = 6/6 checks + quoted `psql` · p1 · Slice 4, the ladder's last behaviour
+  - **`type:test`, so the ladder's verification column means "harness + quoted `psql` output", not a failing unit test.**
+    Persistence has held architecturally since `-037`/`-038` moved the adapter; this behaviour *proves* it rather than
+    *causing* it, exactly as `-044`/`-045`/`-046` did. The honest substitute for Red is the negative control: the check is
+    shown to fail when the data is absent, which is the property a vacuous pass would lack. Stated plainly instead of
+    staging a fake failure to satisfy the ritual.
+  - **Two authoring failures, both mine, both now warnings in the script's own comments.** (1) A cleanup `DELETE` without
+    `If-Match` returned **409 conflict** — the optimistic-concurrency contract `-033`/`-034` built for `PUT` covers
+    `DELETE` too, and the revision is a Postgres `xmin` counter (`785`, `783`), so it must be *read*: my first guess of
+    `"1"` was absurd. (2) `curl -f` turned that 409 into **exit 22**, and under `set -e` the script aborted *after* the row
+    existed, leaving the marker in the dev database to poison the next run — the hazard `-042` had just recorded. Fixed by
+    dropping `-f` on the `DELETE` and asserting the status, so a failed cleanup is loud rather than silently orphaning.
+  - **Why a shell driver and not one `.mjs`:** two steps are impossible inside the browser container — restarting Chromium
+    means restarting the container's entrypoint, and `psql` lives in a *different* container. Splitting them also makes both
+    pieces of evidence quotable verbatim, which is the form AC-3's Evidence clause demands. Note for whoever reruns this:
+    `docker restart` kills the co-located static server too, so it must be relaunched.
 
 - **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — superseded text**: Slice 0 **adds the second job** (`api`), so this PR's run resolves the
