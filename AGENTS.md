@@ -114,7 +114,10 @@ Eight rules, each earned by a failure that actually happened on this repository:
   written from *intent* rather than from measurement. Nothing reached the remote only because
   `git push origin <branch>` failed loudly on a nonexistent refspec. `git rev-parse --abbrev-ref HEAD` costs
   one call; the assumption costs the whole "phases advance through pull requests" rule. **Same reflex for
-  documentation**: state a branch or SHA after reading it, never before.
+  documentation**: state a branch or SHA after reading it, never before. **And when a section is a projection of
+  another record, regenerate it whole at the boundary** — five turns of editing only the bullets each turn was
+  about left `docs/STATE.md` §3A asserting `Active Task Pointer: None` three lines below the bullet saying the
+  pointer is held. Every individual edit was true; the accumulated block was not.
 - **Reproduce the gate's conditions before quoting its verdict.** The first CI run of the `api` job failed with
   `error CS8605: Unboxing a possibly null value` on code I had just reported as clean. Two mistakes compounded:
   my local build was **incremental** over a cached dependency graph, and I filtered the output with
