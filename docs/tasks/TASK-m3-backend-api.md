@@ -107,13 +107,37 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (Slice 1 complete)**: **Slice 2** — `BEHAVIOR-…-030` first (create persists and is visible to a
-  second client), and it needs two things this slice left deliberately on the table: `defaultValueSql: "now()"` on
-  `created_at`/`updated_at`, and the **second problem-document factory**, which is the trigger to extract
-  `ApplicationCatalog` (spec §4.1). Slice 2 also remains **blocked on F-1's fixture** for AC-12.
+- **Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared fixture.** Author
+  `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules (empty,
+  whitespace-only, `MAX_TEXT_LENGTH = 120` at max and max+1, unicode, control characters, the 10 kB `notes` probe,
+  all five statuses plus a sixth carrying **per-side** expectations, because `status` has no client runtime check at
+  all), then the xUnit theory that reads it, then the server validator answering `400 validation` with `errors[]`
+  naming field paths, then the vitest case consuming the *same file* — in that order, so neither side can encode its
+  own opinion. Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and
+  `job_title` (deferred item 1), and the `PUT` path's still-unvalidated body.
+  (Preceding text read: "**Next Action (Slice 1 complete)**: **Slice 2** — `BEHAVIOR-…-030` first … and it needs two
+  things this slice left deliberately on the table: `defaultValueSql: now()` on `created_at`/`updated_at`, and the
+  **second problem-document factory**, which is the trigger to extract `ApplicationCatalog` (spec §4.1). Slice 2 also
+  remains **blocked on F-1's fixture** for AC-12." — **delivered, with two corrections to how it was written.** The
+  `now()` default did not wait for `-030`: it arrived early with `-032`, where it was fixing EF's `-infinity`
+  placeholder rather than serving the create path. The second problem-document factory appeared at `-034`, and
+  `ApplicationCatalog`/`Problems` were extracted in the very next commit (`232fabc`), 14 tests green before and after.
+  And **the F-1 clause was too broad**: only `-031` needs the fixture, so Slice 2 split into 2a and 2b and six of its
+  seven behaviours shipped without waiting — an agent scope decision, disclosed here rather than presented as the
+  plan all along.
   (Preceding text read: "**Next Action (Slice 0 complete)**: `BEHAVIOR-m3-backend-api-026` — write the failing test
   that `GET /api/applications` returns `200 []`, then the `DbSet`, the entity, the endpoint and the first real
-  migration" — delivered exactly, and the "first real migration" turned out to be three.)  migration** its Green requires. (Preceding text read "**start Slice 0** — install SDK **10.0.401** and scaffold `api/` + `docker-compose.yml` + the path-gated CI job, under §1.3's exception-verification path (no Red test: there is no behaviour yet). Slices 0–1 are unblocked; **Slice 2 is not** (F-1's fixture must exist first). Gates now closed: `pk:grill` ran at 2026-09-11 03:50 UTC → [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
+  migration" — delivered exactly, and the "first real migration" turned out to be three.)
+- **Gates now closed**: `pk:grill` ran at 2026-09-11 03:50 UTC →
+  [`GRILL-m3-backend-api`](../reviews/2026-09-11-m3-plan-grill.md): 12 findings, 2 conditions (F-1, F-7), 4 plan
+  amendments (F-2…F-5). Exactly one action; Slice 0 does not start until the intent register exists.
+  <!-- Reconstructed 2026-09-11 08:36 UTC from text found mangled in the file. An earlier scripted edit had spliced an orphan
+  fragment (" … migration** its Green requires. (Preceding text read …") into the middle of this bullet and absorbed
+  the record's separate "Gates now closed" bullet into its closing parenthesis, leaving one damaged bullet where
+  there had always been two. Found by re-reading the source before regenerating the projection — the point of
+  rule 7 — and the second time this session that a scripted edit damaged a document in a way no test could observe.
+  The fragment is described rather than preserved: keeping two copies of a sentence in one file only moves the
+  confusion to the next reader. -->
 
 ### Transition History
 
