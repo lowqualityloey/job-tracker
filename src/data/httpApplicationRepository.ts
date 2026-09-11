@@ -35,8 +35,21 @@ import type { FieldError } from '../domain/validation'
  * restated in six methods is six chances to forget a row.
  */
 
-/** What the API sends: the domain record plus the concurrency token I-6 keeps out of `src/domain`. */
-type WireApplication = JobApplication & { revision: number }
+/**
+ * What the API actually sends — which is **not** the domain record plus a token, and `-041` is what proved it.
+ *
+ * Three fields differ in nullability, not in name: `location` is a required `string` in `JobApplication` but arrives
+ * `null` when no location was stored, and `appliedAt`/`notes` are *absent* in the domain (`string | undefined`) but
+ * `null` on the wire. Describing the wire with the domain type is how a `null` got laundered into a `string` — the
+ * type said one thing, the database said another, and `toDomain` had nowhere to be told the difference. So the
+ * boundary type states the wire's own contract, and the mapping below is where the two are reconciled on purpose.
+ */
+type WireApplication = Omit<JobApplication, 'location' | 'appliedAt' | 'notes'> & {
+  location: string | null
+  appliedAt: string | null
+  notes: string | null
+  revision: number
+}
 
 /** §4.3's `errors[].pointer` values are wire member names, and only these are legal to highlight in a form. */
 const KNOWN_FIELDS = ['companyName', 'jobTitle', 'location', 'status', 'appliedAt', 'notes'] as const
@@ -53,15 +66,39 @@ function isWireApplication(candidate: unknown): candidate is WireApplication {
     typeof record.jobTitle === 'string' &&
     typeof record.status === 'string' &&
     typeof record.createdAt === 'string' &&
-    typeof record.revision === 'number'
+    typeof record.revision === 'number' &&
+    // `-041`: the three fields whose wire nullability differs from the domain's are checked rather than trusted.
+    // A guard that skips a field does not leave it unverified — it leaves it *asserted*, which is worse, because the
+    // type system downstream believes it. `null` is legal for these three and is mapped, not rejected, below.
+    (record.location === null || typeof record.location === 'string') &&
+    (record.appliedAt === undefined || record.appliedAt === null || typeof record.appliedAt === 'string') &&
+    (record.notes === undefined || record.notes === null || typeof record.notes === 'string')
   )
 }
 
-/** The domain projection: every wire field except `revision`, which stays in this file. */
 function toDomain(wire: WireApplication): JobApplication {
-  const { revision: _revision, ...domain } = wire
-  return domain
+  const { revision: _revision, location, appliedAt, notes, ...rest } = wire
+
+  return {
+    ...rest,
+    // The seam's two normalisations, and the asymmetry between them is the decision, not an accident.
+    //
+    // **`location: null → ''`** because `JobApplication.location` is a required `string` and every consumer — the
+    // form's field, the list's row, the details page — already treats it as one. The rejected alternative was making
+    // `location` optional across the domain, which spreads a null check through every reader to represent a state
+    // only the API can produce. A record with no location is *displayed* as a record with no location: an empty
+    // string is what that looks like in this app.
+    //
+    // **`appliedAt`/`notes: null → absent`** rather than to `''`, because those are genuinely optional in the domain
+    // type and an empty string there would *mean* something else: a date field of `''` is not "no date", it is an
+    // invalid date, and the form would render it as one. Omitting the key is the honest projection.
+    location: location ?? '',
+    ...(appliedAt === null ? {} : { appliedAt }),
+    ...(notes === null ? {} : { notes }),
+  }
 }
+
+/** The domain projection: every wire field except `revision`, with the wire's nulls reconciled (see `toDomain`). */
 
 interface ProblemEnvelope {
   code?: unknown
