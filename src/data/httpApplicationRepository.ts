@@ -153,6 +153,37 @@ function toFieldErrors(errors: unknown): FieldError[] | null {
   return mapped
 }
 
+/**
+ * Opens the push channel, or declines to.
+ *
+ * `subscribe()` is called from inside the provider's mount effect, so an exception here does not fail a request — it
+ * fails the *component*, taking the whole list down with it. Two very different things can stop the channel opening,
+ * and they are kept separate deliberately:
+ *
+ *  - **No `EventSource` in this environment.** A platform gap (jsdom has none; a non-browser runtime will not either),
+ *    not a mistake. Silent, because logging an unavoidable fact on every mount trains everyone to ignore the log —
+ *    which is how the case below stops being visible.
+ *  - **The constructor threw.** In a browser that means a malformed URL, and the only input is
+ *    `VITE_API_BASE_URL` — typed by a human into a `.env`, never validated. That *is* worth a line, because the
+ *    symptom a user reports is "the other tab stopped refreshing", and without this the only way to connect that to a
+ *    stray character in an env var is to read the adapter.
+ *
+ * Either way the degradation is the same and it is safe: pushes are an optimisation over re-reading, and every
+ * mutation path still refreshes what it changed.
+ */
+function openStream(url: string): EventSource | null {
+  if (typeof EventSource === 'undefined') {
+    return null
+  }
+
+  try {
+    return new EventSource(url)
+  } catch (cause) {
+    console.warn(`Could not open the application event stream at ${url}: ${String(cause)}`)
+    return null
+  }
+}
+
 export function createHttpApplicationRepository(baseUrl: string): ApplicationRepository {
   const root = baseUrl.replace(/\/+$/, '')
   const revisions = new Map<string, number>()
@@ -221,11 +252,42 @@ export function createHttpApplicationRepository(baseUrl: string): ApplicationRep
   }
 
   return {
-    subscribe() {
-      // A real no-op, not a placeholder pretending to work: BEHAVIOR `-040` drives the EventSource implementation,
-      // including the "at most one re-list per `open`" bound the grill added as F-8. Until then the app behaves as it
-      // did in M2 — cross-tab changes appear on the next explicit read — and a silent `return` says so.
-      return () => undefined
+    subscribe(onExternalChange) {
+      // BEHAVIOR-040 / AC-11, spec DECISION-005: the stream `-046` serves. The path is a sibling of the collection,
+      // not a member of it, so nothing here is shared with `send` — an event stream is a long-lived GET whose body is
+      // never "complete", and running it through the same helper would mean awaiting a response that never ends.
+      const source = openStream(`${root}/api/applications/events`)
+      if (source === null) {
+        // No channel, and nothing else changes: the app keeps working on explicit reads, which is the M2 behaviour
+        // this adapter was already documented to fall back to.
+        return () => undefined
+      }
+
+      // One bit of state separates "connected" from "re-connected", and the whole bound rests on it. The caller has
+      // already read the catalog — the provider's mount effect does it — so the first `open` needs no re-read; every
+      // later `open` is `EventSource`'s own retry, and the frames dropped during the outage are exactly what a
+      // re-read recovers. Re-reading on `error` instead would fire while the browser is still backing off, which
+      // turns one outage into a request per retry tick per tab.
+      let opened = false
+
+      source.addEventListener('change', () => {
+        onExternalChange()
+      })
+
+      source.addEventListener('open', () => {
+        if (opened) {
+          onExternalChange()
+        }
+
+        opened = true
+      })
+
+      return () => {
+        // Spec B-1: the provider unsubscribes on unmount. Without this the stream outlives the component, and its
+        // callbacks keep firing into a provider that is no longer rendering — M2's `mounted.current` guard, arriving
+        // from the network instead of from a promise.
+        source.close()
+      }
     },
 
     async list() {

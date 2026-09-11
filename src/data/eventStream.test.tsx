@@ -25,8 +25,6 @@ import { createHttpApplicationRepository } from './httpApplicationRepository'
  */
 
 const BASE = 'http://api.test:8080'
-const STREAM_URL = `${BASE}/api/applications/events`
-
 class FakeEventSource {
   static instances: FakeEventSource[] = []
 
@@ -60,7 +58,10 @@ class FakeEventSource {
   }
 
   static last(): FakeEventSource {
-    const instance = FakeEventSource.instances.at(-1)
+    // Indexed rather than `.at(-1)`: `at` needs an `es2022` lib, and widening the app's `target`/`lib` to satisfy one
+    // test line is the config change that outlives the test. The `undefined` check below is what `noUncheckedIndexedAccess`
+    // asks for either way.
+    const instance = FakeEventSource.instances[FakeEventSource.instances.length - 1]
     if (instance === undefined) {
       throw new Error('no EventSource was constructed — subscribe() is not opening a stream at all')
     }
@@ -175,12 +176,18 @@ describe('subscribe — the adapter over Server-Sent Events', () => {
     expect(onChange).toHaveBeenCalledTimes(3)
   })
 
-  it('subscribe opens the stream at the configured base url', () => {
+  it('subscribe opens the stream at the configured base url, trailing slash and path prefix intact', () => {
     createHttpApplicationRepository(`${BASE}/trailing/slash/`).subscribe(() => undefined)
 
-    // The trailing slash is the whole case: `baseUrl` arrives from `VITE_API_BASE_URL`, which a human types into a
-    // `.env`, and a doubled slash in the path yields a 404 from a router that is otherwise behaving perfectly.
-    expect(FakeEventSource.last().url).toBe(STREAM_URL)
+    // The trailing slash is half the case: `baseUrl` comes from `VITE_API_BASE_URL`, which a human types into a
+    // `.env`, and a doubled slash yields a 404 from a router that is otherwise behaving perfectly.
+    //
+    // The path prefix is the half this assertion was wrong about. `/trailing/slash` is not decoration — it is the
+    // shape of an API mounted behind a reverse proxy (`https://example.com/jobtracker`), and the expectation I wrote
+    // demanded that segment be *discarded* to satisfy a URL built off the bare host. So the first Red run caught a
+    // bug in the test, not in the adapter: a case that cannot fail for the right reason is worth nothing, and this one
+    // would have failed for a reason I had to go looking for.
+    expect(FakeEventSource.last().url).toBe(`${BASE}/trailing/slash/api/applications/events`)
   })
 
   it('unsubscribe closes the stream and silences everything that follows', () => {
@@ -200,6 +207,42 @@ describe('subscribe — the adapter over Server-Sent Events', () => {
     // would still hold a live callback into a component that no longer exists — the React warning that M2's
     // `mounted.current` guard was written against, arriving from the network instead of from a promise.
     expect(onChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('subscribe without an EventSource degrades to no push channel, not to a broken page', () => {
+    // jsdom has no `EventSource` at all, which is how three provider tests in other files discovered this path: the
+    // constructor call sat in the provider's mount effect, so the ReferenceError did not fail a request, it took down
+    // the component. A push channel that is unavailable must cost auto-refresh and nothing else — M2 shipped without
+    // one, and every mutation still re-reads what it changed.
+    vi.stubGlobal('EventSource', undefined)
+
+    const onChange = vi.fn()
+    expect(() => createHttpApplicationRepository(BASE).subscribe(onChange)).not.toThrow()
+    expect(FakeEventSource.instances).toHaveLength(0)
+
+    const unsubscribe = createHttpApplicationRepository(BASE).subscribe(onChange)
+    expect(() => unsubscribe()).not.toThrow()
+    expect(onChange).not.toHaveBeenCalled()  })
+
+  it('subscribe warns when the configured url is unusable, because that is a mistake someone made', () => {
+    // The other decline, and the one worth a log line: `VITE_API_BASE_URL` is typed by a human and never validated,
+    // and the browser throws on a malformed URL rather than reporting a failed connection. Without the warning the
+    // symptom is "the other tab stopped refreshing" and the cause is one stray character in a `.env`.
+    class ThrowingEventSource {
+      constructor(_url: string) {
+        throw new SyntaxError('Invalid URL')
+      }
+    }
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.stubGlobal('EventSource', ThrowingEventSource)
+
+    const onChange = vi.fn()
+    const unsubscribe = createHttpApplicationRepository(BASE).subscribe(onChange)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(() => unsubscribe()).not.toThrow()
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]?.[0]).toContain(BASE)
   })
 
   it('unsubscribe is safe to call twice', () => {
