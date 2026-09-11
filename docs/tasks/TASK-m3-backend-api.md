@@ -350,6 +350,43 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   `Program.cs` and `Data/JobTrackerDb.cs`; three new migrations (`CreateApplicationsTable`,
   `AddApplicationFields`, `AddRevisionConcurrencyToken`) with their designers and the model snapshot.
   **`src/**` still untouched**, `npm run verify` green at the slice boundary, runtime deps still **3**.
+- **Changed Files (Slices 2, 2b, 3 and 4 — derived from `git diff --name-only 84bf560..HEAD`, not from memory)**:
+  **126 commits** across merged PRs **#11 … #27**. Surface by area: **`api/src` 28 files** (the endpoints,
+  `ApplicationCatalog.cs`, `ApplicationValidation.cs`, `ApplicationEventBus.cs`, `Data/Application.cs`, the EF
+  `JobTrackerDb`/`JobTrackerDbFactory`, 4 migrations + snapshot, `Program.cs`, `appsettings.Development.json`'s CORS
+  list); **`api/tests` 10** (`ApplicationsQueryTests`, `ApplicationsWriteTests`, `ValidationContractTests` +
+  `fixtures/validation-cases.json` (**36 rows**), `StatusConstraintTests`, `EventStreamTests`, `CorsContractTests`,
+  `ClientGeneratedIdTests`, `PostgresHarness`, `ApplicationsApiFixture`); **`src/data` 8**
+  (`httpApplicationRepository.ts` + its three test files, `eventStream.test.tsx`, `applicationStore.ts/.test.ts`,
+  `encodingFidelity.test.ts`); **`src/domain` 2** (the `RepositoryError` union's eighth variant and `revision`);
+  **`tests/browser` 3** (`httpCrossTab.mjs`, `persistenceAfterRestart.mjs`, `run-043.sh`); `global.json`; and `docs`.
+  **`src/pages`, `src/components`, `src/state`: zero files — AC-1's structural claim, re-measured at every slice
+  boundary and again here.**
+
+- **§2's measurable targets — FALSIFIABLE, and finally MEASURED (2026-09-11 19:30 UTC, dev machine, empty→25 rows)**:
+  | Target (spec §2.8) | Required | Observed | Verdict |
+  | :--- | :--- | :--- | :--- |
+  | `GET /api/applications` p50 | < 30 ms | **2.7 ms** (n=40) | ✓ |
+  | `GET /api/applications` p95 | < 80 ms | **5.3 ms** (max 75.8 ms) | ✓ |
+  | `POST` p95 including commit | < 150 ms | **5.8 ms** (n=25, p50 4.7, max 52.9) | ✓ |
+  | SSE notification observed in a second tab | observed | **observed** (`-042`, tab B never reloaded) | ✓ *for existence*; **no latency figure is claimed — see gap 10** |
+
+  **Spec §7's checklist item ("falsifiable by a command; if any cannot be, it is deleted rather than defended") is now
+  satisfied for the three latency targets** — and the exercise found that a fourth was never actually falsifiable:
+  `-042` proves the SSE notification *arrives*, which is an existence claim, while the spec's §2 sentence reads like a
+  timing claim. Left as gap 10 rather than quietly counted as passing.
+  **Method, so this is reproducible and not a one-off anecdote:** 40 sequential `curl -w '%{time_total}'` GETs sorted
+  client-side; 25 `POST`s with client-minted ids timed around `urlopen` (which includes TCP + commit + response read);
+  percentiles computed in Python, `p95 = v[int(0.95*n)-1]`. **The numbers are single-machine, unwarmed-after-build,
+  0–25-row, and meaningless as a production claim** — §2.8's own framing says the dataset is "deliberately modest so a
+  number is never unfalsifiable", so read them as *falsification tests that did not fire*, not as capacity figures.
+
+- **Completion claim, stated as a gate rather than a feeling**: behaviour ladder **`-026` … `-046` all executed**;
+  acceptance criteria **14 of 14 verified** with commands quoted against each; `dotnet test` **65 / 0 failed / 0
+  warnings**, `npm run verify` **197 tests / 20 files exit 0**, browser harnesses **7/7** and **6/6**; runtime deps
+  **3** (unchanged since M0); **`src/pages|components|state` untouched**. **What is NOT done: spec §7's owner sign-off
+  boxes remain the owner's, and §10 does not exist** (see the §8 disclosure of the phantom reference).
+
 - **Deliberately deferred, each with the behaviour that will force it** — recorded so "not done yet" is never
   mistaken for "not needed":
   1. ~~defaults on `created_at` / `updated_at`~~ → **done in 032's Green**, because EF's placeholder for those

@@ -26,8 +26,8 @@
 - [x] **M1 — Engineering OS Integration**: **MERGED as PR #1 (`63d769d`, 2026-09-10)**. Submodule vendored, rule sets consolidated, intake profiles + this tracker written, DEBT-11/12/13 fixed, lockfile tracked
 - [x] **M2a — Persistence seam**: **MERGED as PR #2 (`1ec8fe8`)**. 17 behaviours, AC-1…AC-11, repository seam + failure modes + CRUD UI + error-code contract sweep
 - [x] **M2b — Filters, search, cross-tab reconciliation**: **MERGED as PR #3 (`489cdb9`)**; verified green on `main` the same day. Behaviours 018–026 (9/9), AC-1…AC-10 (10/10), 77 → **100 tests**. Spec `docs/specs/2026-09-10-spec-m2b-filters-cross-tab.md`, record `docs/tasks/TASK-m2b-filters-cross-tab.md`
-- [ ] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · `pk:test` **done** (20 intents, mode reconciled, PR #10) · **Slices 0–2a DONE/in review, 2b next** (toolchain + read paths: 2 endpoints, the `applications` table, `revision`/xmin, 10 API tests; PR #11 merged, #12 in review) · next: **Slice 2** (commands), still gated on F-1's shared fixture
-- [ ] **M4 — Authentication** (**Level 2**: `pk:auth`)
+- [/] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · `pk:test` **done** (20 intents, mode reconciled, PR #10) · **Slices 0–2a DONE/in review, 2b next** (toolchain + read paths: 2 endpoints, the `applications` table, `revision`/xmin, 10 API tests; PR #11 merged, #12 in review) · next: **Slice 2** (commands), still gated on F-1's shared fixture — **behaviour-complete, 14/14 ACs verified, §6 evidence complete; awaiting the owner's spec §7 sign-off**
+- [ ] **M4 — Authentication** (**Level 2**: `pk:auth`) — **M4 must precede any public exposure of this API** (spec §7's ordering constraint, recorded 2026-09-11 19:35 UTC at M3's close-out; the API binds loopback only and `ASSUMPTION-m3-backend-api-002` assumes a single instance through M5, so this is an ordering rule, not a present hole)
 - [ ] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval)
 
 Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
@@ -60,42 +60,39 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### 3A. Execution-Control Projection
 
-> Synchronised projection, **regenerated whole at each boundary** — a projection is worth one thing: that it matches its
-> source. Written below from `git log`, `gh pr view --json mergeCommit`, `grep -nE "^## "` on both documents, and gates
-> run at this boundary.
+> Synchronised projection, **regenerated whole at each boundary**. Written from `git diff --name-only 84bf560..HEAD`,
+> `gh pr view --json mergeCommit`, live latency probes, and gates run at this boundary — nothing below is quoted from an
+> earlier turn's memory.
 
 - **Active Task**: [`TASK-m3-backend-api`](../tasks/TASK-m3-backend-api.md#TASK-m3-backend-api) — execution
-  **`in_progress`**, **this record holds the Active Task Pointer**. **M3 is behaviour-complete and all 14 acceptance
-  criteria are verified** (`-026` … `-046` executed; AC-1 … AC-14 checked). What remains is the **close-out**: §6's
-  Evidence and Completion Gate (Changed Files / deferred items / test-plan deltas) and spec §7's Sign-off & Grilling
-  Checklist. **There is no "§10" in either document** — three lines said there was, corrected in `e197ed4` with its own
-  disclosure.
-- **In flight**: **PR #27** `docs/m3-gap9-idempotent-create` — closes **gap 9** by option **(B)**: DECISION-007 narrowed
-  to what is proven, **AC-7 checked, 14/14 ACs verified**, plus the §10-correction disclosure.
-- **Merged**: **#26** `a01d8a7` (AC sweep → 13/14 + gap 9 filed) · **#25** `2c0e327` (`-043`) · **#24** `b51d621`
-  (`-042`) · **#23** `650cbd3` · **#22** · **#21** `ad100d3` · **#20** `10db7ad` · **#19** `d989f28` · **#18** … **#11**.
-- **AC tally: 14 of 14 checked, 0 open** — asserted `checked + open == 14` by script, ID lists printed rather than a
-  count read. **AC-7 is the only one whose *wording* changed during closure** (below), so it should be the one the owner
-  re-reads first.
-- **Gap 9 resolved by (B), with the original text preserved**: DECISION-007's clause "…treating an existing record as
-  success" is narrowed to "the duplicate is refused with `409` so no second row can exist", in a new **Amendment block**
-  quoting the superseded wording verbatim; §5's risk row and spec §6's `BEHAVIOR-034` amended in the same commit so the
-  three cannot drift. **Rationale: the decision's purpose (no duplicate row) was already proven by `-034`; what the
-  clause additionally promised — swallowing a conflict as a silent success — was never built, `-037` asserts the
-  opposite, and it is user-visible, so it needs its own spec pass.** Option (A) (~2h) stays open as M4-scale polish.
-- **Approval recorded as an instruction to amend, not as a review**: the owner's "do next recommendation" at 18:50 UTC
-  named option (B); dissent costs one commit and the Amendment block exists so the original can be restored. Stated in
-  AC-7's text because *agent-executed, agent-described* ratification is exactly where drift starts.
-- **Measured at this boundary**: API `dotnet test` **65 / 0 failed / 0 warnings / exit 0** · frontend `npm run verify`
-  **exit 0, 197 tests / 20 files** · `src/` and `api/` untouched on this branch · deps **3** · AC-7's "re-proven by the
-  65-test suite" claim backed by the run above, not assumed.
-- **Documentation-integrity ledger for the session** (five items, four self-caught): AC-13's box · a fabricated SHA ·
-  AC-11's box (PR #24 claimed a closure the record didn't show) · AC-14's box · and **three references to a nonexistent
-  §10**. Standing rule: **print ID lists and assert the total; resolve a reference to its target before writing it.**
-- **Known-open honesty item**: one unreproduced `dotnet test` failure (1/64 once; five later runs 65/65) — still no named
-  test, remedy recorded in §8.
-- **Open for the owner** (none blocking): gap 9 if (B) is not what was agreed · gap 5 · the `notes` ceiling · the
-  `location` null-map · `status` at the seam · gap 7's sweep of spec §4.3 against the ladder.
+  **`in_progress`**, **this record holds the Active Task Pointer**. **M3 is behaviour-complete and evidence-complete**:
+  ladder `-026` … `-046` executed, **14 of 14 ACs verified**, §6's Changed Files filled for every slice, and §2.8's
+  latency targets **measured for the first time in 126 commits**. **What remains is the owner's, not mine**: spec **§7's
+  four sign-off boxes** (each an approval only the Lead Engineer can give — left unchecked and labelled as such) plus
+  gap 10a/10b.
+- **In flight**: **PR #28** `docs/m3-closeout` — §6's changed-files + measured targets, **gap 10**, spec §7's two
+  agent-checkable items, STATE §2's M3 status and the **M4-precedes-public-exposure** ordering note.
+- **Merged**: **#27** `9340996` (gap 9 by (B) → AC-7, **14/14**) · **#26** `a01d8a7` (AC sweep + gap 9) · **#25**
+  `2c0e327` · **#24** `b51d621` · **#23** `650cbd3` · **#22** `baf4397` · **#21** `ad100d3` · **#20** `10db7ad` ·
+  **#19** `d989f28` · **#18** `58b7d02` · **#17** · **#16** · **#15** · **#14** · **#13** · **#12** · **#11**.
+  **`main` is at `9340996`. M3 = 126 commits since spec approval `84bf560`.**
+- **Gap 10 (new — found by measuring rather than restating)**: (a) **`POST` sends no `ETag`** though spec §4's table
+  promises `201` + `Location` + body + `ETag`; harmless only because the client reads `revision` from the **body**, and
+  `-029`'s wording — *"carry an `ETag`/`revision`"* — let a body-only implementation satisfy a header-shaped promise.
+  (b) §2.8's SSE clause names **no threshold**, so it is not falsifiable as written; recorded as an existence claim, not
+  counted as passing. (c) My first POST probe used `body=` instead of `data=`, **failed after creating 25 rows and
+  orphaned them** — the hazard `-042`/`-043` document, reproduced by the person writing the measurement; recovered,
+  count verified **0**.
+- **Measured at this boundary**: `GET` p50 **2.7 ms** / p95 **5.3 ms** (n=40; target 30/80) · `POST` p95 **5.8 ms**
+  (n=25; target 150, includes commit) · API **65 / 0 failed / 0 warnings / exit 0** · frontend **197 / 20, exit 0** ·
+  browser **7/7** and **6/6** · deps **3** · dev DB **0 rows** · `src/pages|components|state` **untouched**.
+  **These are falsification tests that did not fire on a 0–25-row dev database — not capacity figures.**
+- **Documentation-integrity ledger**: five recorded items (AC-13's box, a fabricated SHA, AC-11's box, AC-14's box, three
+  references to a nonexistent §10) + **two still open** — the unreproduced `dotnet test` failure (1/64 once, five clean
+  runs since, test never named) and **gap 10**, which exists only because a command was run instead of a number re-quoted.
+- **Open for the owner** (nothing blocks code; both gap-10 items block *spec truth*): **gap 10a** (send `ETag` or amend
+  §4's table) · **gap 10b** (number the SSE target or move it out of §2.8) · gap 5 · the `notes` ceiling · the `location`
+  null-map · `status` at the seam · gap 7's sweep of §4.3 against the ladder · **spec §7's sign-off**.
 ## 4. Locked Technical Invariants (Do Not Undo)
 
 Agreed decisions that survive any refactor. Deviating requires a new ADR.
@@ -218,6 +215,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-11 19:35 UTC | Assistant (M3 close-out) | **§6 filled, §2.8 measured at last, gap 10 found — M3 waits only on the owner's sign-off** | Two of spec §7's items are agent-checkable and were run rather than re-asserted. **§2.8's latency targets had never been measured in 126 commits** — GET p50 **2.7 ms** / p95 **5.3 ms**, POST p95 **5.8 ms** including commit, inside 30/80/150, method recorded for reproducibility and the caveat stated loudly: a 0–25-row dev database yields *falsification tests that did not fire*, not capacity figures. **Measuring found what restating could not: `POST` sends no `ETag` though spec §4's table promises one** — harmless only because the client reads `revision` from the body, and `-029`'s wording ("`ETag`/`revision`") let a body-only implementation satisfy a header-shaped promise. **Also: §2.8's SSE clause names no threshold**, so it is not falsifiable as written — recorded as an existence claim, not counted as passing, per §7's own "deleted rather than defended". And my own bug, disclosed: the first POST probe used `body=` not `data=`, **failed after creating 25 rows and orphaned them in the dev database** — the hazard `-042`/`-043` warn about, reproduced by the measurer; recovered, count verified **0**. §6's Changed Files now cover Slices 2–4 (they stopped at Slice 1) **derived from `git diff --name-only 84bf560..HEAD`, not from memory**; STATE §2 marks M3 `[/]` and records **M4 must precede public exposure**. **§7's four owner-approval boxes are left unchecked and labelled `agent left unchecked` — M3's evidence is complete; its sign-off is not mine to give.** |
 | 2026-09-11 19:10 UTC | Assistant (M3 close-out) | **Gap 9 closed by (B): AC-7 verified — 14 of 14 ACs checked** | DECISION-007's unimplemented clause is **narrowed to the guarantee that is proven**, inside a new Amendment block that quotes the superseded wording verbatim rather than deleting it — silently rewriting a ratified decision would have been the worse error. Four places in one commit so they cannot drift: DECISION-007's Selected Option, §5's risk-table row, spec §6's `BEHAVIOR-034`, and AC-7's third clause. Rationale recorded: the decision's purpose (no duplicate row) is tested by `-034`; what the clause *additionally* promised — treat the conflict as a silent success — was never built, `-037` asserts the opposite (`create()` **throws** `{code:'conflict'}`, so **the suite is green because create throws**), and it is user-visible, so it needs its own spec pass. **(A)** (~2h, real idempotent create) stays open as M4 polish. **Approval stated as an instruction to amend, not a review** — "do next recommendation" named (B); dissent costs one commit. **Also corrected: three references to a §10 close-out that does not exist** (the record ends at §8; the gate is §6 + spec §7), with a disclosure of the mechanism — a paraphrase hardened into a pointer over turns, and the kind of citation nobody verifies. The repair attempt itself failed its assert first: one occurrence used a **typographic apostrophe** my ASCII pattern could not match, so an unguarded `replace` would have committed "all references fixed" over a file still holding one. Gates: 65 API tests / 0 warnings, 197 frontend, exit 0 both. |
 | 2026-09-11 18:35 UTC | Assistant (M3 AC sweep) | **AC-2 + AC-14 close → 13 of 14 ACs verified; gap 9 found in the last one** | Swept what the ladder left, and the sweep paid for itself immediately. **AC-2**: `VITE_API_BASE_URL= npm run verify` → exit 0, **197/20**, suite *signature* identical to the flagged run — recorded with what the command *cannot* show (jsdom has no `EventSource`, no origin policy), because a green flag-off run is a no-regression claim, not an adapter-equivalence claim. **AC-14**: all six locked invariants checked **by command** as the AC demands → **0 violations each**; no `fetch`/`EventSource` outside `src/data/`, **no `Number(` call anywhere in `src/`** (stronger than the invariant asks), runtime deps still **3** since M0, no `.only`/`.skip`, no `vite.config.js`, `revision` confined to `src/data/`. **AC-7 could not close, and the reason is the finding: it is not missing evidence, it is contradicted by a passing test** — `-037`'s `409 → conflict` row *invokes `repository.create()`* and asserts it throws, while `DECISION-007` promises the adapter re-reads and treats an existing record as success. Filed as **gap 9** with options A/B/C and a recommendation (B: narrow the decision to what is proven, since the *duplicate-row* safety `-037` was protecting is already proven by `-034`; what's missing is a user-visible behaviour, not data safety). **Also corrected: my own #25 review note claimed AC-7 said `201` — it says `409`; the real divergence was a layer down and only appeared once I read the test's `invoke:` line instead of its name.** Fourth checkbox slip of the session (AC-14's box flipped after its prose), caught by printing IDs; the rule now reads *assert `checked + open == 14`* |
 | 2026-09-11 18:10 UTC | Assistant | **AC-11's checkbox was never flipped — PR #24 overstated the record** | PR #24's body claimed "closes AC-1 **and AC-11**"; AC-11's evidence prose was written into the task record but its `- [ ]` box was left unchecked, because the scripted edit replaced the *continuation* line only. `main` therefore carried an unchecked box beside a paragraph saying *Verified — including the browser join*. The behaviour itself genuinely passed (`-042` 7/7, tab B 1 navigation entry), so this is a **recording** defect, not a correctness one — which is what makes it easy to ship. Surfaced by printing `checked` and `open` **ID lists** and noticing AC-11 was in neither place it should have been. Fixed here with an HTML comment on the bullet naming the origin, so a future reader of `git blame` sees why the box flipped a commit later than its evidence. **Standing rule restated: after any scripted checkbox edit, print the IDs — a count that adds up can still hide the wrong member.** |

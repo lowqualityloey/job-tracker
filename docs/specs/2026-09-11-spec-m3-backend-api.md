@@ -478,13 +478,13 @@ Task Record `TDD Enforcement Mode` **proposes `enabled`** (canonical owner: the 
 
 ## 7. Sign-off & Grilling Checklist
 
-- [ ] Owner approves the four answered forks as *written down*, not as remembered
+- [ ] **(`agent` left unchecked — owner-only.)** Owner approves the four answered forks as *written down*, not as remembered
 - [ ] Owner explicitly approves the **eighth `RepositoryError` variant** — the only change here that widens a locked M2a invariant
 - [ ] Owner approves pinning **PostgreSQL 18.6** while `19 Beta 3` exists, and approves `.NET 10 / SDK 10.0.401`
 - [ ] Assumptions 001-003 accepted with their validation actions (they are the parts of this plan we chose not to look up)
 - [ ] Grilling (`pk:grill`) challenges at least: `text + CHECK` vs `ENUM`; client-minted ids; whether an opaque `revision?: number` on the domain type is "leaking transport into the domain" (my answer: it is a row version, and no page may read it — the field is the honest place to put it, and I expect that to be attacked); `date` vs `timestamptz`; single-instance SSE fan-out; whether keeping the local adapter is a bridge or a fork in the product
-- [ ] The measurable targets in §2 are falsifiable by a command; if any cannot be, it is deleted rather than defended
-- [ ] STATE.md §2 records that **M4 must precede any public exposure of this API**
+- [x] The measurable targets in §2 are falsifiable by a command; if any cannot be, it is deleted rather than defended — **checked 2026-09-11 19:30 UTC**: the three latency targets were run and passed (GET p50 **2.7 ms** / p95 **5.3 ms**; POST p95 **5.8 ms** including commit; task §6 has the method), and the fourth (SSE "observed in the second tab") **is not falsifiable as written** — it names no threshold, so it is recorded as an existence claim under **gap 10b** rather than counted as passing.
+- [x] STATE.md §2 records that **M4 must precede any public exposure of this API** — added to STATE §2 alongside the M3 line at the close-out; the API binds loopback only and `ASSUMPTION-m3-backend-api-002` assumes a single instance through M5, so this is a recorded ordering constraint, not a present risk.
 
 ### What this spec could not verify, in one place
 RDS engine availability for 18.6 (Assumption 001) · Npgsql 10.0.3 ⇄ EF Core 10.0.12 compatibility, inferred from matching majors (Uncertainty 003) · `EventSource` semantics in current Chromium and SSE through a future proxy (Uncertainty 005) · Docker availability on CI runners (Uncertainty 008) · test-stack versions, deliberately unpinned (Decision 008 `proposed`). Five unknowns, each with an owner, an impact, and a validation action — **none of them presented as fact.**
