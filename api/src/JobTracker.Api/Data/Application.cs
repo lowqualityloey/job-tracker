@@ -48,4 +48,12 @@ public sealed class Application
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// PostgreSQL's <c>xmin</c>: the transaction id that last wrote this row. Not a column anyone inserts into —
+    /// it exists on every row of every table, which is why the migration for it turned out to be the interesting
+    /// question (see the Green commit). Serialised as <c>revision</c>, the one field the domain type gains in M3
+    /// (DECISION-m3-backend-api-006) and the only reason Slice 2 can answer 409 at all.
+    /// </summary>
+    public uint Revision { get; set; }
 }

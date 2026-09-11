@@ -59,6 +59,11 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
             // because it is approved design, and the gap is an open item in the task record rather than a quiet
             // omission or a fake test.
             entity.HasIndex(e => e.UpdatedAt, "applications_updated_at_idx").IsDescending(true);
+
+            // The optimistic-concurrency token. IsRowVersion() on Npgsql means xmin: concurrency token, generated
+            // on add and on update, so no code path has to remember to bump it and a read cannot bump it by
+            // accident.
+            entity.Property(e => e.Revision).HasColumnName("xmin").IsRowVersion();
         });
     }
 }
