@@ -108,7 +108,12 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   costs one commit. What is *not* amended is AC-9's behavioural claim: the refusal gate must still engage, and it
   does so on any error state (`applicationsProvider.tsx:102`), which is why the contradiction survived review — no
   existing test could distinguish the two labels. `-038` asserts the label and the gate.
-- [ ] **AC-10** — **Out-of-order re-reads cannot repaint stale data** (closes M2b's handed-over **P2-2**). *Given* request 1 is delayed and request 2 resolves first, *When* request 1 lands, *Then* the list still shows request 2's data. **Result**: Pending · **Evidence**: `BEHAVIOR-…-039`
+- [x] **AC-10** — **Out-of-order re-reads cannot repaint stale data** (closes M2b's handed-over **P2-2**). *Given* request 1 is delayed and request 2 resolves first, *When* request 1 lands, *Then* the list still shows request 2's data. **Result**: Pending · **Evidence**: `BEHAVIOR-…-039`
+  **Result**: **Verified** (2026-09-11 12:35 UTC) · **Evidence**: `BEHAVIOR-…-039` — Red `3 failed | 2 passed` →
+  Green `7c37490` `5 passed`, `npm run verify` exit 0 at **168 tests / 18 files**. AC-10's literal sentence is asserted
+  on rendered text through the real `ApplicationsProvider`, not just on the adapter's return value. **Closes M2b's
+  handed-over P2-2.** The guard is adapter-side, so AC-1's diff check still passes: `src/state/` is imported, never
+  edited.
 - [ ] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040`
 - [x] **AC-12** — **Two validators, one truth — by one fixture, not by coincidence** (grill F-1). A single checked-in `api/tests/fixtures/validation-cases.json` is consumed by **both** suites: the xUnit theory and a vitest case read the same `{ input, expect }` rows, so the C# validator cannot pass its own opinion. Boundary values: empty, max, max+1, whitespace-only, unicode, control chars, 10 kB notes, all five statuses + a sixth. **The grill caught a real divergence, and reading `validation.ts` narrowed it further (grill §4):** the client caps `companyName`/`jobTitle`/`location` at `MAX_TEXT_LENGTH = 120`, so **`notes` alone has no client ceiling** — a server limit there is a server-only rule and needs its own case. And **`status` has no runtime client validation at all** (a TS union), so feeding "a sixth status" to both validators was **impossible as written**; the fixture carries a per-side expectation instead. **Result**: Pending · **Evidence**: `BEHAVIOR-…-031` + the contract test named in §8
   **Result**: **Verified** (2026-09-11 09:46 UTC) · **Evidence**: `BEHAVIOR-…-031` against one fixture —
@@ -146,18 +151,13 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 11:40 UTC): `-039`, the out-of-order re-read guard** — which turned out to be a design
-  question with a better answer than the one it looked like. Its obvious home is the provider's `reload()`
-  (`src/state/applicationsProvider.tsx`), and editing that file fails AC-1's own evidence command
-  (`git diff --name-only main -- src/pages src/components src/state` → must be empty). Assuming that conflict was the
-  mistake; the ordering fact lives where the reordering is observable — **inside the adapter**, which knows that a
-  second `list()` overtook a first one. So `-039` is attempted there: a lost race resolves with the payload that won
-  it, rather than with the bytes it personally received, which is the same user-visible guarantee ("a stale response
-  cannot repaint the list") from a file this milestone is allowed to change. If the resulting tests cannot
-  distinguish that from a provider-level guard — specifically, if a caller that ignores resolution order still paints
-  stale data — the provider edit and an AC-1 amendment come back as an owner question, not a silent scope widening.
-  **Then `-040`** (SSE, one re-list per `open`) and **`-041`** (unicode fidelity), both unambiguously `src/data/`.
-  Gap 5 from §14 is still open either way: `conflict` has no registered user-facing sentence.
+- **Next Action (2026-09-11 12:35 UTC): `-040`, `subscribe()` over SSE** — AC-11's three clauses: a `change` event
+  fires the callback and re-lists; after a simulated disconnect and reconnect the adapter re-reads **exactly once**
+  (grill F-8's bound, asserted rather than reasoned); the returned unsubscriber closes the stream and nothing further
+  fires. The adapter's current `subscribe()` is an honest no-op written in `-036`, and `-039`'s `notify()` decorator is
+  the seam that test has been waiting behind. **Then `-041`** (unicode and long-string fidelity through JSON), which is
+  where the `location` asymmetry finally bites. Still open for the owner: **gap 5** (`conflict`'s user-facing sentence)
+  and the `notes` ceiling.
   (Preceding text read: "**Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared
   fixture.** Author `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules …
   Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and `job_title` (deferred
@@ -522,7 +522,31 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     pushed: `1ce8425` → `cbfaa2f`, and the amended message carries the miss. This is rule #1 of the commit-discipline
     list failing on the same day it was cited twice, which is the honest summary of how these rules stay true.
 
-- **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
+  **`TDD-EXEC-m3-backend-api-039`** · `BEHAVIOR-…-039` · Red `e9976d1` → Green `7c37490` · p1 · Slice 3c
+  - `src/data/orderingFaults.test.tsx`. A gated `fetch` (every response held until the scenario releases it, in the
+    interleaving the test describes) with real timers and real promises: the delay belongs in the transport, which is
+    the only place this bug can exist.
+  - **The guard sits before `remember`, not after.** A superseded payload must not be believed as *evidence* after it
+    stopped being believed as data: `remove()` sends `If-Match` straight from the revision table with no preceding GET,
+    so a loser's `xmin` turns the next delete into a 409 on a row the user can still see. The Red proved it
+    independently (`If-Match: "7"` where the accepted response said `"9"`) — which is the argument for the failing test
+    first, since "ignore stale responses" written from a summary would have put that line in the wrong place and no
+    read-path test would ever have shown it.
+  - Bounded to valid payloads: transport failures, mapped HTTP failures and unreadable bodies pass through untouched,
+    because a failure is the only thing that engages AC-9's refusal gate. Cost named in code, not decided silently: an
+    old read that *fails* after a newer read succeeded can still move a UI holding fresh data into the error state.
+    That is a `src/state/` question AC-1 keeps this milestone out of, so it is recorded for the owner.
+  - Provider-level out-of-order needed a way to *cause* a re-read while `subscribe()` is still an honest no-op
+    (`-040`'s work). A decorator captures the callback the provider passes down and exposes `notify()` — a seam
+    standing in for "a change arrived", with the ordering code and the paint both real.
+  - **Two false greens removed before the Red was believed.** `pending()` counted cumulative requests, so one case
+    asserted arithmetic (`expected 3 to be 1`); and the provider case asserted an absence with no flush — a `waitFor`
+    on absence passes on tick one, before the late response is applied, so it was **green against an unguarded
+    adapter**. It now awaits the adapter's own promise inside `act` and only then asserts absence.
+  - Mutation evidence, all three run against the **committed** Green: guard absent → 3 red; over-eager (`suppress
+    anything once one has been seen`) → the in-order control goes red; guard extended to swallow failures → the
+    boundary control goes red. Restored: 5 passed, tree clean.
+: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — the first `api` job run FAILED, and why it was right**: provider GitHub Actions, workflow
   `ci.yml`, job `verify-api`, commit `47501b6`, 2026-09-11 06:07 UTC:
   - `error CS8605: Unboxing a possibly null value` — `PostgresHarness.cs:86` cast `ExecuteScalarAsync()`
