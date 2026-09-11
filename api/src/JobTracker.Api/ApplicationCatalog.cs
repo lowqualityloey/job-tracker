@@ -79,6 +79,29 @@ public static class ApplicationCatalog
             // the Location header is the canonical path 033/044 will address with If-Match.
             return Results.Created($"/api/applications/{entity.Id}", entity);
         });
+        // BEHAVIOR-m3-backend-api-035. Tracks the entity (no AsNoTracking) because it is being removed, and
+        // returns the same 404 as the read path: "no such record" is one fact whether it surfaces on GET or DELETE.
+        //
+        // If-Match is ignored here, which is a known defect and not an oversight — 044's Red turns it into a
+        // failing test first. See that commit's message for why a minimal 035 Green was written blind to it.
+        endpoints.MapDelete("/api/applications/{id}", async (string id, JobTrackerDb db, CancellationToken ct) =>
+        {
+            if (!Guid.TryParse(id, out var guid))
+            {
+                return Problems.NotFound(id);
+            }
+
+            var entity = await db.Applications.FirstOrDefaultAsync(a => a.Id == guid, ct);
+            if (entity is null)
+            {
+                return Problems.NotFound(id);
+            }
+
+            db.Applications.Remove(entity);
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        });
+
         return endpoints;
     }
 
