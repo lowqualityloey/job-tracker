@@ -32,6 +32,7 @@
 // test, because a `location.reload()` would also make it appear and would prove nothing about SSE.
 
 import { spawn } from 'node:child_process'
+import { openSync } from 'node:fs'
 
 const CDP_PORT = 9222
 const APP = 'http://127.0.0.1:4173'
@@ -174,10 +175,15 @@ async function waitUntil(call, sessionId, expression, ms = 10000) {
 const text = (call, sessionId) => evalJs(call, sessionId, 'document.body.innerText').then((r) => String(r.value ?? ''))
 
 async function main() {
+  // stdio captured, not ignored: the last run threw away the only output that could explain a failed CDP bring-up,
+  // which is the same mistake AGENTS.md records about `grep`-filtering a gate's output.
+  // A file descriptor, not a WriteStream: spawn reads stdio synchronously and an unopened stream has fd:null.
+  const log = openSync('/tmp/chrome-cdp.log', 'w')
   const chrome = spawn('docker', ['run', '--rm', '--name', CONTAINER, '--network=host',
     '--shm-size=1g', '--entrypoint', CHROME_BIN, CHROME_IMAGE,
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
-    `--remote-debugging-port=${CDP_PORT}`, 'about:blank'], { stdio: 'ignore' })
+    '--remote-debugging-address=0.0.0.0',
+    `--remote-debugging-port=${CDP_PORT}`, 'about:blank'], { stdio: ['ignore', log, log] })
 
   let call
   try {
