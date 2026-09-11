@@ -239,3 +239,29 @@ register was authored, and once the table existed the CHECK inside it did not. T
 conclusion, reached by inserting a sixth status into the shipped schema rather than by reading a migration file and
 believing it. Slice 0's harness probe (23514 on a `create temporary table`) is now labelled in code as a **premise
 test about PostgreSQL, not evidence about `applications`**, so the confusion cannot be re-made by the next reader.
+
+## §12 — Corrections added by Slice 2 (2026-09-11 08:31 UTC)
+
+Same rule as §11: **nothing above this line is rewritten.** Registered intents stand; this section records where
+execution diverged and why, and every row below is named by its `TDD-INTENT` id.
+
+| Row | What changed | Why it is legitimate |
+| :--- | :--- | :--- |
+| `-035` | The test now reads the row's current `revision` and sends `If-Match` — the registered text says only "`DELETE` → `204`, then `GET` → `404`" | grill **F-3** amended §4.3's DELETE row (If-Match *required*) **after** this intent was registered, and `-044`'s Green broke the test. Fixing the test to match the written-down contract is honest; weakening the handler to keep a green count would have been F-3 rejected on the floor |
+| `-044` | A second theory case, `[InlineData(null)]`: a DELETE with **no** `If-Match` must also be refused | F-3's amendment is that the precondition is *not optional*. A handler that rejects stale tokens while accepting absent ones enforces a rule nobody wrote. The registered row covers stale only |
+| `-033` | An added assertion that `updated_at > created_at` after the winner's PUT | §5's risk table promises "`updated_at` set in the DB, never sent by the client" and §4.1 indexes on it; `DEFAULT now()` fires on INSERT only, so both statements were false of the shipped schema. Found by the update behaviour's own test, since no `-0xx` row covers timestamps |
+| `-045` | **Produced no Red.** Green on first run; committed as a regression guard carrying its own positive control (same bytes as `application/json` → `201`, `count(*) == 1`) | ASP.NET Core's JSON binder refuses a non-`application/json` body with 415 before the handler executes. Stating that the framework already satisfied a registered behaviour is more useful than manufacturing a cycle around it |
+
+**Method names did not drift this slice.** Slice 1 renamed three of four behaviours between register and code, which
+§11 reconciled after the fact; in Slice 2 the registered `--filter` strings (`Create_visible_to_second_client`,
+`Retry_of_create_is_idempotent`, `Delete_then_missing`, `Delete_with_stale_revision_is_refused`,
+`Stale_if_match_conflicts_without_writing`, `Non_json_body_rejected`) were read out of the table *before* the tests
+were written and used verbatim, so every command in §3 above the line runs as printed. That is the process fix the
+§11 note implied, applied instead of merely recorded.
+
+**Register gap opened by Slice 2, unresolved and awaiting the owner**: no behaviour anywhere in `026–045` covers a
+**successful `PUT`**. `-033` performs one as its arrangement (a revision cannot become stale unless something
+advanced it) and asserts its 200, so a broken update would be caught — but by a test whose name says otherwise.
+Options: register `-046` for update round-trip + revision advance, or let `-042`'s browser run own it. Recorded in
+`§7` of the task record alongside the two older gaps (the unasserted index, and `ETag`, which Slice 2 declined to
+emit for want of a consumer).
