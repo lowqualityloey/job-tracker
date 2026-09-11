@@ -131,9 +131,17 @@ requires parsing `event.newValue` → stop: spec §4 forbids it for a data-safet
   `storage` events on its own — the tests dispatch them by hand, which is the correct simulation of
   the browser rule (the event never fires in the writer) but is still a simulation. The manual
   two-tab check (open `/applications` twice, edit in one, watch the other) is the human's 30 seconds.
+  **CLOSED 2026-09-11 — run in real Chromium 128, 13/13.** Both directions passed: a create in tab A appeared
+  in tab B with tab B never reloaded (6 cards, `"Showing 6 of 6 applications"`), and a create in tab B appeared
+  in tab A. Envelope on disk: `schemaVersion: 1`, 7 applications, exactly one key. Limits of the evidence —
+  Chromium only, happy path only — are stated in `docs/spikes/2026-09-11-real-browser-cross-tab-check.md`.
 - **No CSS assertion harness.** 44 px targets and the `:focus-visible` ring were verified by reading
   `src/styles.css` (all three new controls have both), not by rendering. Recorded as DEBT-15's
   sibling: nothing in this repo can fail a build for a missing focus ring.
+  **Measured 2026-09-11 in a real browser** — chip 45px rendered (`min-height: 44px`), input 46px, `:focus-visible`
+  ring `solid 3px rgb(147,197,253)`, first chip reachable in 3 Tab stops. The *tooling* half of this residual
+  stands: that came from a manual harness, so nothing on `main` can fail a build if a later change removes the
+  ring.
 
 ## 7B. Readiness Pointers
 
