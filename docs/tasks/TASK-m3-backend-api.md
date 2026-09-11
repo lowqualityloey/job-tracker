@@ -121,7 +121,17 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
    intact, and a DELETE carrying a stale or absent `If-Match` answers the same way with the row still readable and
    `count(*) == 1`. AC-6's *Given* names two browser tabs; what its *Then* claims — the API's answer and the stored
    content — is what these two behaviours test, and the tabs arrive with Slice 3's adapter (AC-1).
-- [ ] **AC-7** — **Create is idempotent under retry.** A retried `POST` with the same client-minted id yields `409`, the adapter re-reads and treats it as success, and the table holds **exactly one** row. **Result**: **two of three clauses verified** (2026-09-11 08:30 UTC), AC stays open · **Evidence**: `BEHAVIOR-…-034` (Red
+- [x] **AC-7** — **Create is idempotent under retry.** A retried `POST` with the same client-minted id yields `409` **and the table holds exactly one row** — the guarantee that is tested and shipped. *(Third clause **amended 2026-09-11 19:00 UTC per gap 9 / DECISION-007 amendment**: the earlier wording said the adapter "re-reads and treats it as success", which was never built and is contradicted by `-037`'s table.)* **Result**: **two of three clauses verified** (2026-09-11 08:30 UTC), AC stays open · **Evidence**: `BEHAVIOR-…-034` (Red
+
+  **Approval, stated precisely so this is not read as the agent ratifying its own interpretation.** At 18:50 UTC the
+  owner's instruction was *"do next recommendation"*, which in context was gap 9's option **(B)** — narrow the decision
+  to what is proven. **That is an instruction to amend, and I treated it as one.** It is *not* a review of the wording
+  above; if the narrowing misstates what was agreed in DECISION-007, dissent costs one commit and the Amendment block
+  kept the original promise visible precisely so it can be restored. The alternative reading — that "do next
+  recommendation" authorised option **(A)**, building silent re-read — was rejected because I had recommended **(B)**
+  and said it was mine to execute, whereas (A) changes user-visible behaviour that the owner has not yet chosen.
+  **What remains true regardless of which option is later ratified: no retried `POST` has ever created a duplicate row**
+  (`-034`, re-proven by the 65-test suite at this boundary).
 
   **Correction to the 18:00 UTC hypothesis, and why it matters.** I wrote in PR #25's review notes that "`-034` asserts
   409 where AC-7 says 201", i.e. that the wording disagreed. **It does not** — AC-7 says 409 too. The real divergence is

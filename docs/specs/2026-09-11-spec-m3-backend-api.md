@@ -224,11 +224,25 @@ M2a's rule was **"no eighth code"**, made when a write could be refused for exac
 #### Decision Record: `DECISION-m3-backend-api-007`
 - **Decision Statement**: Who mints the `id` of a new application, and how are retried writes made safe?
 - **Considered Options**: **server-mints** (`gen_random_uuid()` column default; conventional REST, but a retried `POST` creates a duplicate unless an `Idempotency-Key` header is invented); **client-mints** in the HTTP adapter (the adapter calls `crypto.randomUUID()` exactly as the localStorage adapter does today, sends the id in the body, and the unique PK makes a retry a 409 rather than a second row).
-- **Selected Option**: **client-mints, with `gen_random_uuid()` kept as the column default** so the API is still correct for a client that omits it; `POST` on an existing id returns **409**, and the adapter resolves that by re-reading the row and treating an existing record as success (idempotent create).
+- **Selected Option**: **client-mints, with `gen_random_uuid()` kept as the column default** so the API is still correct for a client that omits it; `POST` on an existing id returns **409**, and **the duplicate is refused with `409` so no second row can exist** (idempotent create, `DECISION-007` as amended 2026-09-11 19:00 UTC — see `Amendment` below and test §17; the adapter **surfaces** the conflict to the caller rather than silently re-reading) (idempotent create).
 - **Rejected Options**: server-mints alone — it forces either duplicate rows on retry or a bespoke idempotency header, and it would change `create(input)`'s contract while client-mints does not.
 - **Material Claim Links**: `CLAIM-DECISION-m3-backend-api-007-001`
 - **Remaining Uncertainty**: `None` internal; the general risk of client-supplied identifiers is recorded honestly below.
 - **Decision Owner**: Lead Engineer · **Status**: `decided`
+
+> **Amendment (2026-09-11 19:00 UTC, gap 9, owner decision pending ratification of (B))** — the clause
+> *"the adapter resolves that by re-reading the row and treating an existing record as success"* is **narrowed to what is
+> built and proven**, and the original wording is preserved here rather than deleted, so a reader can see what was
+> promised versus what shipped. **Why the change is a narrowing and not a regression:** the decision's *purpose* — a
+> retried `POST` must not create a duplicate — is guaranteed and tested (`-034`: `409` and `count(*) == 1`). What the
+> clause additionally promised, turning the conflict into a **silent success**, was never implemented, and
+> `-037`'s error table asserts the opposite (`create()` throws `{code:'conflict', id}`). Choosing to swallow a conflict
+> silently is a **user-visible** behaviour (a double-submitter stops learning the second submit was refused) and
+> therefore needs its own spec pass with an observable outcome, not a late edit that narrows the §4.3 table AC-8 exists
+> to protect. **Consequence**: `BEHAVIOR-034`'s client clause and `AC-7`'s third clause are amended to match, in the
+> same commit, so the three cannot drift. **Alternative kept open**: implementing it for real is option (A) in
+> `docs/tests/2026-09-11-test-m3-backend-api.md` §17 (~2h), which is M4-scale polish, not an M3 defect.
+
 ##### Fields
 - **Version Selection Fields**: N/A — no external technology.
 - **Risk accepted**: a client-assigned surrogate key means a buggy or hostile client can *choose* an id and collide with an existing row. Mitigation: the unique constraint makes the collision loud rather than silent, M3 has no authentication to evade, and M4's owner column makes cross-user collision worthless. **Recorded so it is not mistaken for an oversight.**
@@ -419,7 +433,7 @@ M3 changes **no existing column** (the table is new: pure expand), so the real E
 | PostgreSQL container down / unreachable at request time | Med / High | `200→503` in API logs; `unavailable` in the client | Catalog catches the connection fault → `503 unavailable`; provider's **refusal gate** engages (already built, M2a) | Operator restarts the container; UI recovers on the next successful read, no client state to clear beyond the error |
 | **Concurrent edit** — two tabs, same record, both save | **High / Med** (M2b made this reachable; today it is silent last-write-wins) | `409` + `conflict` code, visible in the API log | `xmin`/`If-Match`; refusal message; **no auto-merge** — a merged application record would be a lie | User reloads, re-applies the change deliberately |
 | **Re-read lands out of order** (P2-2, handed from M2b and **owned by M3**) | Med / Med | a stale list flashing after a newer one; contract test with a delayed first response | monotonic sequence per `list()`; older responses dropped | The next change re-reads |
-| `POST` retried after a timeout | Med / Low | duplicate id → `409` | idempotent create (`DECISION-007`): adapter re-reads and accepts the existing row | none needed |
+| `POST` retried after a timeout | Med / Low | duplicate id → `409`, surfaced as `conflict` | idempotent create (`DECISION-007`, **amended — gap 9**): the duplicate is refused and no second row exists; the adapter **does not** silently re-read (test §17) | none needed |
 | SSE stream dropped (proxy timeout, laptop sleep) | High / Low | `EventSource` `error` then `open` | browser reconnects; adapter re-reads once on re-open | self-healing; degrades to manual refresh if the API is down |
 | Slow SSE consumer (client cannot drain) | Low / Med | server-side channel backlog | bounded channel; on overflow **drop that subscriber** rather than block writers — a missed notification is a re-read, a blocked writer is an outage | client reconnect + re-read |
 | Body that does not match the contract (200 OK, wrong shape) | Low / High if silent | boundary parse fails | `corrupt-data` refusal; **never** partial-trust the object (same rule M2a applies to `event.newValue`) | operator fixes server; user reloads |
@@ -445,7 +459,7 @@ Task Record `TDD Enforcement Mode` **proposes `enabled`** (canonical owner: the 
 - `BEHAVIOR-031` server rejects the same records the client rejects, with `errors[].pointer` naming the right field
 - `BEHAVIOR-032` status outside the five is rejected **by the database as well as by the validator** (constraint proven real, not advisory)
 - `BEHAVIOR-033` stale `If-Match` → `409 conflict`, and **the row is unchanged** (the assertion that matters: a conflict response that still wrote would be the worst bug in the milestone)
-- `BEHAVIOR-034` retried `POST` with the same id → `409`, and the adapter treats it as success after re-reading
+- `BEHAVIOR-034` retried `POST` with the same id → `409` **(amended, gap 9: the adapter surfaces `conflict`; the ratified guarantee is that no duplicate row exists — re-read-and-succeed was never built and `-037` asserts the throwing behaviour)**
 - `BEHAVIOR-035` `DELETE` → `204`, then `404` on re-read
 
 **Slice 3 — the frontend swap (TDD, and the honest test of "no page changes")**
