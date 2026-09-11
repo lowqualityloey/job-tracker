@@ -115,6 +115,13 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   handed-over P2-2.** The guard is adapter-side, so AC-1's diff check still passes: `src/state/` is imported, never
   edited.
 - [ ] **AC-11** — **`subscribe()` over SSE keeps its contract.** A write from another client triggers the callback and one re-list; after a simulated disconnect+reconnect the adapter re-reads **exactly once**; the returned unsubscriber closes the stream and no further callbacks occur. **Result**: Pending · **Evidence**: `BEHAVIOR-…-040`
+  **Result**: **Verified in two halves; the browser join is `-042`** (2026-09-11 13:55 UTC) · **Evidence**: `-046`
+  (server — real bytes off `WebApplicationFactory`, `event: change` + `data: {"id":"…"}` per committed write) and
+  `-040` (client — Red `ffcd230` = 8 failed / 1 passed → Green `f3b1d77` = **11 passed**). All three clauses are
+  asserted: one re-list per `change`; **exactly one re-read per reconnect, three rapid reconnects tested**; the
+  unsubscriber closes the stream and nothing fires after. What is asserted nowhere: a browser's `EventSource`
+  actually parsing `-046`'s framing — **jsdom implements no `EventSource`**, so the client half is necessarily driven
+  by a fake. The box stays open on AC-1's reasoning: two verified halves are not the joined system.
 - [x] **AC-12** — **Two validators, one truth — by one fixture, not by coincidence** (grill F-1). A single checked-in `api/tests/fixtures/validation-cases.json` is consumed by **both** suites: the xUnit theory and a vitest case read the same `{ input, expect }` rows, so the C# validator cannot pass its own opinion. Boundary values: empty, max, max+1, whitespace-only, unicode, control chars, 10 kB notes, all five statuses + a sixth. **The grill caught a real divergence, and reading `validation.ts` narrowed it further (grill §4):** the client caps `companyName`/`jobTitle`/`location` at `MAX_TEXT_LENGTH = 120`, so **`notes` alone has no client ceiling** — a server limit there is a server-only rule and needs its own case. And **`status` has no runtime client validation at all** (a TS union), so feeding "a sixth status" to both validators was **impossible as written**; the fixture carries a per-side expectation instead. **Result**: Pending · **Evidence**: `BEHAVIOR-…-031` + the contract test named in §8
   **Result**: **Verified** (2026-09-11 09:46 UTC) · **Evidence**: `BEHAVIOR-…-031` against one fixture —
   `api/tests/fixtures/validation-cases.json`, **34 cases**, consumed by **both** suites: `ValidationContractTests.cs`
@@ -151,13 +158,15 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
-- **Next Action (2026-09-11 13:10 UTC): `-040`, the client's half of SSE.** `-046` gave it a server, so
-  `subscribe()` now has something to speak to instead of a 404. AC-11's three clauses: a `change` event fires the
-  callback and **one** re-list; after a simulated disconnect and reconnect the adapter re-reads **exactly once**
-  (grill F-8's bound, asserted rather than reasoned — and `-039`'s `notify()` decorator is the seam that test has been
-  waiting behind); the returned unsubscriber closes the stream and nothing further fires. **Then `-041`**, where the
-  `location` asymmetry finally bites. Still open for the owner: **gap 5** (`conflict`'s user-facing sentence — being
-  taken as "M3 ships generic" unless told otherwise) and the `notes` ceiling.
+- **Next Action (2026-09-11 13:55 UTC): `-041`, unicode and long-string fidelity through JSON** — the last behaviour
+  in Slice 3, and the one that finally exercises the asymmetry deferred twice: the client model types `location` as
+  **required `string`** while the wire and the API treat it as optional, and every test so far either minted a complete
+  record or sent none. `-041` sends real records through a round trip, so the decision has to be made: client-required
+  (the adapter is where that fact is enforced) or wire-optional (then the client model is wrong, and AC-1's "the
+  frontend changes not at all" needs re-reading). **Then Slice 4** (`-042` browser over HTTP, `-043` survives a
+  restart), where AC-1 and AC-11 can actually close. Open for the owner: gap 5 (`conflict`'s sentence — being taken as
+  "M3 ships generic" unless told otherwise), the `notes` ceiling, and **gap 7 as a precedent worth acting on** — sweep
+  §4.3's table against the ladder for any other server-side obligation a client-half behaviour made look complete.
   (Preceding text read: "**Next Action (Slice 2a complete)**: **Slice 2b — `BEHAVIOR-…-031` and F-1's shared
   fixture.** Author `api/tests/fixtures/validation-cases.json` from `src/domain/validation.ts`'s *actual* rules …
   Two follow-ups it must not absorb: the `DEFAULT ''` placeholders still on `company_name` and `job_title` (deferred
@@ -572,6 +581,27 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
     of the detection pattern was **vacuous** — `git diff main...HEAD` on an uncommitted tree is empty, and an
     empty diff and an untriggered gate look identical. Near-miss paths (`api-notes.md`, `global.json.bak`,
     `src/api/client.ts`) were then verified to yield `false`.
+
+  **`TDD-EXEC-m3-backend-api-040`** · `BEHAVIOR-…-040` · Red `ffcd230` → Green `f3b1d77` · p1 · Slice 3e
+  - `src/data/eventStream.test.tsx`, named to mirror the server-side `EventStreamTests.cs`: two halves of one
+    contract, in two languages, one file each.
+  - **Enabling `subscribe()` broke three tests in two files that never mention SSE.** jsdom implements no
+    `EventSource`, and the constructor call sat inside the provider's mount effect — so the failure was a component
+    blowing up, not a request failing. Found by the full gate, never by the behaviour's own file.
+  - The guard separates the two ways a channel can fail to open: **no `EventSource` here** (a platform gap — silent,
+    because logging the unavoidable on every mount trains people to ignore the log) versus **the constructor threw**
+    (a malformed `VITE_API_BASE_URL`, typed by a human and never validated — one `console.warn`, because the symptom a
+    user reports is "the other tab stopped refreshing" and there is otherwise no trail). Both decline to the no-op
+    `-036` already documented: a push channel is an optimisation over re-reading and must never cost the page.
+  - **The Red caught a bug in the test, not the code.** A base URL carrying a *path prefix*, plus an expectation built
+    off the bare host, demanded that `/trailing/slash` be discarded — the exact defect you would ship behind a reverse
+    proxy. Checked which side was wrong before editing; the case now pins slash-stripping *and* prefix-preservation.
+  - `.at(-1)` is ES2022; the app targets **ES2020** (read from `tsconfig.app.json` rather than recalled). Indexed
+    instead of bumping `lib` — a production compiler target widened for one test line outlives the test.
+  - Mutations against the committed Green: **re-read on `error`** → 3 red; **re-read on every `open` including the
+    first** → 3 red. Restored: 11 passed.
+
+- **TDD Exception Verification**: `N/A - Code Work`, **except** Slice 0's configuration steps (`SDK install`, CI wiring), which use the exception path with reason `Configuration Work: no observable behaviour to assert before the stack exists; evidence is command output`
 - **CI Evidence — superseded text**: Slice 0 **adds the second job** (`api`), so this PR's run resolves the
   Docker-on-runners question on the provider that will actually execute it. AC-13's other half (a docs-only push →
   job reports success, steps skip) is asserted on the next docs PR. Disclosed honestly: my first local test of the
@@ -641,6 +671,20 @@ gh issue create --title "test(m3): BEHAVIOR-m3-backend-api-033 stale If-Match co
   --body "AC-6 / spec DECISION-m3-backend-api-006 · slice 2 · p0 · area:backend type:test" \
   --label "priority:p0,area:backend,type:test"
 ```
+
+**Reference audit for quoted commits** (run at each slice boundary; added 2026-09-11 after two fabricated SHAs were
+found in one session — a slice-3 Red quoted as `73b0e25` when the commit is `ffcd230`, and PR #15's merge written as
+`cda2fdf` when it is `cda2fd1`):
+
+```bash
+grep -rhoE '`[0-9a-f]{7}`' docs/ | tr -d '`' | sort -u \
+  | while read -r sha; do git cat-file -e "$sha^{commit}" 2>/dev/null || echo "UNRESOLVABLE: $sha"; done
+```
+
+**145 tokens on this repository today, one legitimate hit**: `a1eb608`, which is `.promptkit`'s submodule gitlink and so
+is not an object in *this* repo. Any new unresolvable token is a transcription error in a provenance claim — which is
+worse than a missing reference, because it reads like evidence. Cheap enough to run every boundary, and the only
+defence against a document that cites commits nobody can check out.
 
 **Invariant scan for AC-14** (run at each slice boundary; output quoted into §6, no paraphrasing):
 
