@@ -46,6 +46,18 @@ public sealed class ApplicationsApiFixture : IAsyncLifetime
 
     public NpgsqlConnection OpenConnection() => new(ConnectionString);
 
+    /// <summary>
+    /// Arrange-and-clean escape hatch. Public on purpose: tests need the table in a known state and the API has
+    /// no create endpoint yet (and even once it does, see 027's comment on why GET is not proven with POST).
+    /// </summary>
+    public async Task ExecuteAsync(string sql)
+    {
+        await using var connection = OpenConnection();
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
+        await command.ExecuteNonQueryAsync();
+    }
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
