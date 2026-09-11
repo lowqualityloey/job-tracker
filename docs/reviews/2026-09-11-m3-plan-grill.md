@@ -25,6 +25,10 @@ mechanism is a wish written as an acceptance criterion — and AC-12 would have 
 independent test files that *happen* to encode different opinions, which is exactly the failure mode the AC exists
 to prevent.
 
+> **CORRECTED — read §4 before relying on this paragraph.** Reading `src/domain/validation.ts` while writing the test
+> plan showed the claim below is **wrong in part**: `MAX_TEXT_LENGTH = 120` *is* enforced on `companyName`,
+> `jobTitle` and `location`. The original wording is preserved, not rewritten.
+
 - **Discovery during the grill**: the frontend's own rules are **not** length-based for `location`/`notes` — the
   domain type is optional-or-non-empty (invariant 3: `""` fails, `"   "` passes). So "max length" boundaries in
   AC-12 would have tested a rule **that does not exist**, and a server limit of 500 would be a server-only
@@ -192,3 +196,32 @@ Nothing structural — which is why the findings above are all *falsifiable by a
    `pk:review` on the spec as a *second reader* — the cheapest substitute with real external structure.
 4. **F-11**: do you want the dual-adapter expiry written as a **hard gate** (M4's Task Record may not start until
    the removal slice is scheduled), or is the current owner-gate enough pressure to keep it from calcifying?
+
+---
+
+## 4. Correction to F-1 (added 2026-09-11 05:03 UTC, by `pk:test`)
+
+While writing `docs/tests/2026-09-11-test-m3-backend-api.md` I read `src/domain/validation.ts` — which is what
+AGENTS.md working-style step 2 asks for *before* changing anything, and which I owed F-1 before asserting what the
+client validates. **F-1's supporting claim was wrong in part**, so it is corrected here rather than quietly dropped:
+
+- **Wrong**: "the client has no length ceiling on `location`/`notes` at all." `MAX_TEXT_LENGTH = 120` is enforced
+  on `companyName`, `jobTitle` and `location` (`validation.ts:74–85`). Invariant 3 was cited loosely — the real
+  code is both non-empty *and* length-capped for those three fields.
+- **Right, and narrower**: **`notes` alone has no client-side ceiling**, so a server limit on `notes` is a genuine
+  server-only rule needing its own fixture case.
+- **New, and it invalidates part of AC-12's own wording**: `status` has **no runtime client validation at all** — it
+  is a TypeScript union (`types/application.ts:14`) and nothing else. So "feed a sixth status to *both* validators"
+  is impossible as written: the client has no verdict to return. The fixture must carry a **per-side expectation**
+  (`expect.server`, and `expect.client: "not-applicable"` where the type system is the only gate) instead of
+  pretending both sides answer every case. `BEHAVIOR-…-032` covers the DB side; `-031` covers what each side can
+  actually answer.
+
+**The mechanism F-1 prescribed is unchanged** (one shared fixture read by both suites) and remains the fix; only its
+justification was inaccurate. Effect on the plan: **none** on scope, one correction to AC-12's phrasing (now made in
+the Task Record), and one more reason the fixture must be explicit about *which side* answers each row.
+
+**Process note, since this record is about scrutiny:** this is the fourth time this session that narration outran the
+artefact, and the first one inside a document whose subject was scrutiny itself. The correct step was reading the
+file *before* writing the claim; it happened one step late. That is not a reason to soften the grill — it is the
+reason the grill's findings are required to be falsifiable by a command, which is how this was caught.
