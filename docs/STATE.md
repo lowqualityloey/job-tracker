@@ -19,7 +19,7 @@
   `api/Directory.Packages.props` with central **transitive** pinning — and rebuilt from deleted `bin/ obj/`
   under `-p:TreatWarningsAsErrors=true`: 0 warnings, `Passed: 4`. That failure mode is now the **eighth**
   commit-discipline rule: an incremental build plus a grep pattern that omitted `warning` discarded the only
-  evidence that mattered. Timestamps from `date -u`, measured not inferred
+  evidence that mattered. **Then the second run passed on the runner** — `2026-09-11 06:16 UTC`, commit `bf8095a`: `Build succeeded. / 0 Warning(s) / 0 Error(s)`, `Passed: 4, Failed: 0`, quoted from the runner's own log. That closes `UNCERTAINTY-m3-backend-api-008-001` on GitHub's provider rather than by inference from my machine, and it means AC-13 is now half-demonstrated (an `api/**` change *does* run the .NET steps); the docs-only-skip half waits for the next docs PR. Timestamps from `date -u`, measured not inferred
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
