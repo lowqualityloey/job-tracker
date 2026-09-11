@@ -24,4 +24,10 @@
     <ProjectReference Include="..\..\src\JobTracker.Api\JobTracker.Api.csproj" />
   </ItemGroup>
 
+  <!-- AC-12 / grill F-1: the shared validation fixture is authored once at api/tests/fixtures/ and copied into
+       both test outputs. A second checked-in copy would be two sources of truth, which is the exact thing this
+       behaviour exists to prevent. -->
+  <ItemGroup>
+    <Content Include="../fixtures/validation-cases.json" Link="validation-cases.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
