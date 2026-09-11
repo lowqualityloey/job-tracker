@@ -6,7 +6,7 @@
 - **Execution State**: `in_progress` · **Active Task Pointer**: `TASK-m2b-filters-cross-tab`
 - **Mode**: Gated · **TDD Enforcement Mode**: `enabled` (carried forward from M2a by the same reasoning:
   the persistence layer ships silently broken data if its edge cases are wrong)
-- **Estimates**: soft ~50 min, hard ≤80 min. **`Host Timer Capability`: none** — this agent has no
+- **Estimates**: soft ~50 min, hard ≤80 min. <!-- Actual elapsed time is unmeasurable here: POLICY_LIMITATION, no wall-clock timer. --> **`Host Timer Capability`: none** — this agent has no
   wall-clock timer, so these are estimates only and no elapsed-time claim appears in any evidence line
   (`POLICY_LIMITATION`).
 
@@ -74,7 +74,7 @@ requires parsing `event.newValue` → stop: spec §4 forbids it for a data-safet
 | `npm run build` | **exit 0**, 52 modules transformed |
 | `vite.config.js` / `vite.config.d.ts` after build | **absent** — DEBT-11 stays closed |
 | `git diff main -- package.json package-lock.json` | **empty** — zero new dependencies |
-| Per-commit audit (separate clone, 25 commits) | **0 typecheck failures**; the only failing commits are exactly the 8 Reds, at 2/6/1/1/1/2/1/1 failures |
+| Per-commit audit (separate clone, **29 commits** — re-run after the docs and refactor commits landed) | **0 typecheck failures**; the only failing commits are exactly the 8 Reds, at 2/6/1/1/1/2/1/1 failures |
 | storage references outside `src/data/` | 0 code hits (3 prose mentions in comments) |
 | `.only` / `.skip` / `console.log` / `TODO` / `Number(id)` | 0 hits |
 
