@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ApplicationsPage from '../pages/ApplicationsPage'
 import { createInMemoryRepository } from '../data/localStorageApplicationRepository'
@@ -138,6 +138,28 @@ describe('the result count region', () => {
     const region = screen.getByRole('status')
     expect(region).toHaveTextContent('1 of 5 applications')
     expect(region.querySelector('button')).toBeNull()
+  })
+
+  it('puts every control in a named search region, the input behind a real label', async () => {
+    setup(createInMemoryRepository(seedApplications))
+    await screen.findByText('Datacom')
+
+    const search = screen.getByRole('search', { name: 'Filter applications' })
+    const input = screen.getByRole('searchbox')
+
+    // An aria-label would satisfy the accessible name but not this check: AC-10 asks for an
+    // explicit label, so assert the `for`/`id` pairing exists in the document. Probing the DOM
+    // for the label also keeps the element typed as HTMLElement — `input.labels` would need a
+    // cast, and a cast in a test is a lie about what the query returned.
+    expect(search.contains(input)).toBe(true)
+    const label: HTMLLabelElement | null = document.querySelector(`label[for="${input.id}"]`)
+    expect(label).not.toBeNull()
+    expect(label).toHaveTextContent('Search applications')
+    expect(input.id).not.toBe('')
+
+    // Status is selected, not toggled off: exactly one chip is ever pressed, so "All" is the clear.
+    expect(within(search).getAllByRole('button', { pressed: true })).toHaveLength(1)
+    expect(within(search).getAllByRole('button', { pressed: false })).toHaveLength(5)
   })
 })
 
