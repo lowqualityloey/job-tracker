@@ -148,4 +148,7 @@ should be taken first so `-065` stays computable.
 spec §6's amendment. They previously read 19 behaviours / 15 ACs; **a plan that moves the ladder must move all four
 projections of it**, or the plan itself becomes the drift. The failure this prevents is the one STATE §3A produced
 once already: five turns of locally-true edits accumulating into a globally-false block.**
-*Re-check command:* `grep -rn '19 behaviours\|15 ACs' docs/` → **0 matches** (verified at commit time, not asserted).
+*Re-check command, scoped on purpose:* `grep -cE '19 behaviours|15 ACs' docs/STATE.md docs/tasks/TASK-m4-authentication.md docs/specs/2026-09-12-spec-m4-authentication.md` → **0 / 0 / 0**. **It must exclude this file**: the sentence above it
+*mentions* the old numbers to say they are gone, so a repo-wide grep returns **2 matches here** — a re-check command
+that matches its own prose is a permanent failure by construction. **Verified 0/0/0 at commit time; the two in this
+file are describing, not asserting.**
