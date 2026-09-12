@@ -60,13 +60,15 @@ public sealed class ApplicationsQueryTests(ApplicationsApiFixture fixture) : ICl
         {
             await connection.OpenAsync();
             await using var insert = connection.CreateCommand();
+            // -056: rows now belong to an account, so arranging one with SQL must name the owner too. The
+            // subselect resolves to the fixture's bootstrap account -- the same one its HttpClient logs in as.
             insert.CommandText = """
                 insert into applications
-                  (id, company_name, job_title, location, status, applied_at, notes, created_at, updated_at)
+                  (id, company_name, job_title, location, status, applied_at, notes, created_at, updated_at, owner_id)
                 values
                   (@id, 'Globex GmbH', 'Staff Engineer', 'Berlin', 'Interview',
                    date '2026-03-07', 'Second round, with the founder',
-                   timestamptz '2026-03-07T09:15:00Z', timestamptz '2026-03-07T09:15:00Z')
+                   timestamptz '2026-03-07T09:15:00Z', timestamptz '2026-03-07T09:15:00Z', (select id from users order by created_at limit 1))
                 """;
             insert.Parameters.AddWithValue("id", id);
             Assert.Equal(1, await insert.ExecuteNonQueryAsync());
@@ -141,7 +143,7 @@ public sealed class ApplicationsQueryTests(ApplicationsApiFixture fixture) : ICl
         // states the instant itself, which keeps 028 about "can a known row be found by id" and not about who
         // fills in audit columns.
         await fixture.ExecuteAsync(
-            $"insert into applications (id, company_name, job_title, status, created_at, updated_at) values ('{id}', 'Initech', 'Engineer', 'Saved', timestamptz '2026-01-05T10:00:00Z', timestamptz '2026-01-05T10:00:00Z')");
+            $"insert into applications (id, company_name, job_title, status, created_at, updated_at, owner_id) values ('{id}', 'Initech', 'Engineer', 'Saved', timestamptz '2026-01-05T10:00:00Z', timestamptz '2026-01-05T10:00:00Z', (select id from users order by created_at limit 1))");
 
         var response = await fixture.Http.GetAsync($"/api/applications/{id}");
 
@@ -171,7 +173,7 @@ public sealed class ApplicationsQueryTests(ApplicationsApiFixture fixture) : ICl
         var id = Guid.NewGuid();
         await fixture.ExecuteAsync("delete from applications");
         await fixture.ExecuteAsync(
-            $"insert into applications (id, company_name, job_title, status, created_at, updated_at) values ('{id}', 'Umbrella Co', 'Engineer', 'Saved', timestamptz '2026-02-01T00:00:00Z', timestamptz '2026-02-01T00:00:00Z')");
+            $"insert into applications (id, company_name, job_title, status, created_at, updated_at, owner_id) values ('{id}', 'Umbrella Co', 'Engineer', 'Saved', timestamptz '2026-02-01T00:00:00Z', timestamptz '2026-02-01T00:00:00Z', (select id from users order by created_at limit 1))");
 
         var first = await RevisionAsync();
         var repeated = await RevisionAsync();

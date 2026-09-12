@@ -53,11 +53,12 @@ public sealed class ApplicationConstraintTests(ApplicationsApiFixture fixture) :
     [Fact]
     public async Task Status_check_constraint_rejects_sixth_value()
     {
+        // -056: arranging rows by SQL now requires naming their owner; the subselect is the fixture account.
         await fixture.ExecuteAsync("delete from applications");
 
         var error = await Assert.ThrowsAsync<PostgresException>(() => fixture.ExecuteAsync(
-            $"insert into applications (id, company_name, job_title, status, created_at, updated_at) " +
-            $"values ('{Guid.NewGuid()}', 'Hooli', 'Engineer', 'Escalated', now(), now())"));
+            $"insert into applications (id, company_name, job_title, status, created_at, updated_at, owner_id) " +
+            $"values ('{Guid.NewGuid()}', 'Hooli', 'Engineer', 'Escalated', now(), now(), (select id from users order by created_at limit 1))"));
 
         // 23514 = check_violation, from the server, not from a library that read the spec. The SQLSTATE is what
         // the client's adapter would see as a 500/storage-error path, so this number is the contract; matching on
@@ -78,8 +79,8 @@ public sealed class ApplicationConstraintTests(ApplicationsApiFixture fixture) :
         foreach (var status in new[] { "Saved", "Applied", "Interview", "Rejected", "Offer" })
         {
             await fixture.ExecuteAsync(
-                $"insert into applications (id, company_name, job_title, status, created_at, updated_at) " +
-                $"values ('{Guid.NewGuid()}', 'Hooli', 'Engineer', '{status}', now(), now())");
+                $"insert into applications (id, company_name, job_title, status, created_at, updated_at, owner_id) " +
+                $"values ('{Guid.NewGuid()}', 'Hooli', 'Engineer', '{status}', now(), now(), (select id from users order by created_at limit 1))");
         }
 
         await using var connection = fixture.OpenConnection();

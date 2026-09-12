@@ -55,5 +55,13 @@ public sealed class Application
     /// question (see the Green commit). Serialised as <c>revision</c>, the one field the domain type gains in M3
     /// (DECISION-m3-backend-api-006) and the only reason Slice 2 can answer 409 at all.
     /// </summary>
+    /// <summary>
+    /// The account this row belongs to. <b>Nullable in the <i>expand</i> stage of AC-9's migration pair, non-nullable
+    /// after the contract</b> — which is the whole point of splitting it: 36 existing rows have no owner, and an
+    /// <c>NOT NULL</c> column cannot be added to a table that has rows without one. The column's nullability in the model
+    /// is therefore a checkpoint in a sequence, not a design opinion, and it is documented as such so nobody "tidies" it.
+    /// </summary>
+    public Guid OwnerId { get; set; }
+
     public uint Revision { get; set; }
 }
