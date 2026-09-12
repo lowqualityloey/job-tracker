@@ -43,7 +43,6 @@
 //   · `SameSite=Lax` is doing the work in case 2, on a two-origin topology. Under `-071`'s same-origin serving there is
 //     no "cross-site" request to make from the app at all, which is the trade recorded alongside that row.
 
-import { spawn } from 'node:child_process'
 
 const CDP_PORT = 9222
 const APP = process.env.E2E_APP ?? 'https://127.0.0.1:5443'
