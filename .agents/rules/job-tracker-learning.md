@@ -79,6 +79,9 @@ Mirrored from `AGENTS.md` (canonical) — every rule below came from a failure o
   `error CS8605` in code I had called clean: my build was incremental and my grep pattern omitted
   `warning`, so the evidence was thrown away by the reading. Delete `bin/ obj/`, pass the same flags CI
   passes, read the whole output.
+- **Never put backticks in `git commit -m`** — inside double quotes bash runs them as command substitutions and the
+  message quietly loses the quoted text. Use `-F <file>` or single quotes. Earned 2026-09-11, when a commit recording a
+  defect lost the exception names that were its evidence.
 
 CI (`.github/workflows/ci.yml`) enforces the code half of this list via `npm run verify` on every PR —
 typecheck, eslint, stylelint, tests, build, plus a guard that the build emitted no `vite.config.js`

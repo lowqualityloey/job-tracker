@@ -86,7 +86,7 @@ Do not claim success without reporting what was verified.
 
 ### Commit discipline
 
-Eight rules, each earned by a failure that actually happened on this repository:
+Nine rules, each earned by a failure that actually happened on this repository:
 
 - **Gate commits on verification.** Never chain `verify && commit` on one shell line without
   `set -e` — a failing `tsc` does not stop the commit that follows it. A commit was once made
@@ -126,6 +126,13 @@ Eight rules, each earned by a failure that actually happened on this repository:
   I had not rebuilt. Same family as the `pipefail` rule: **filtering a command's output can destroy the only
   evidence that matters.** When a gate is strict and clean, run it strict and clean — delete `bin/ obj/`, pass
   the same flags, and read the whole output.
+- **Never put backticks in `git commit -m`.** Inside double quotes, bash **executes** them as command substitutions, so the
+  message silently loses whatever was quoted — and the commit message is the artifact that is supposed to be the permanent
+  record. On 2026-09-11 a commit documenting a new defect lost the exception names that *were* its evidence, leaving
+  `server log reads  ->  Root cause:` with the substitution errors discarded to stderr. Use `git commit -F <file>`, or
+  single quotes. **The damage is invisible in `git log` unless you look for it**: the message still reads as fluent prose
+  with a hole in the middle, which is why it survived the commit that carried it. Same family as the `pipefail` and
+  grep-pattern rules above — **a tool that swallows stderr turns a loud failure into a quiet one.**
 
 CI (`.github/workflows/ci.yml`) now enforces the **code** half of this list — a commit made over typecheck
 errors can no longer reach `main` unflagged, and neither can a focused test or an orphaned CSS declaration.
