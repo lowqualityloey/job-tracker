@@ -605,6 +605,30 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   rebuild, 0 warnings, **no behaviour changed**: I removed the `detail:` members I had added to the envelopes mid-
   move, because a commit labelled refactor that alters what the client sees stops the label meaning anything.
 
+  **`TDD-EXEC-m3-backend-api-046`** · `BEHAVIOR-…-046` · Red `9f15f50` → Green `1f93c57` · p1 · Slice 3
+  - **⚠️ Reconstructed 2026-09-12, not written at the time.** Every other block in this register was authored in the turn
+    that earned it; this one is the ladder's single missing record (21 behaviours, 20 blocks) and the omission was found by
+    *counting* rather than recalling. **The SHAs, the Red output and the test names are quoted from git and from a run made
+    today; the prose below is a reconstruction, and is labelled as such rather than dressed up as a contemporaneous note.**
+  - **Red's evidence, from the commit itself:** `dotnet test --filter "FullyQualifiedName~EventStreamTests"` →
+    **`Failed: 4, Passed: 0`**, all four failing with **404** — the endpoint did not exist. `212` lines of test added, no
+    product code. **That is a real Red, which is why line 837's grouping of `-046` with the "no Red" behaviours was
+    corrected in this same commit**: the behaviour *caused* its implementation, it did not merely prove it.
+  - **Why it entered the ladder late:** `DECISION-m3-backend-api-005` (owner-approved) reads "SSE at
+    `GET /api/applications/events` … one `event: change` message per committed write", and §4.3's contract table carries the
+    same promise — **but no behaviour had been written against it.** The gap was the spec asserting a mechanism the ladder
+    had forgotten, the same shape as gap 9 (`DECISION-007`'s unimplemented clause): **a decision recorded in prose is not
+    a behaviour until something fails without it.**
+  - **Green (`1f93c57`)**: `ApplicationEventBus` — an in-memory bounded `Channel` per subscriber, one `event: change` frame
+    per committed write, `data: {"id":…}` so a client can match a frame to a record. **That `id` in the frame is the reason
+    `renderLatency.mjs` can pair a write to its notification at all** — gap 10b's measurement was only possible because
+    `-046`'s framing was id-bearing rather than a bare "something changed".
+  - **Re-run at this boundary** (the reconstruction's own verification): `dotnet test --filter
+    "FullyQualifiedName~EventStreamTests"` → **4 passed / 0 failed**, on the tree that includes gap 12's discovery.
+    **Known limit, now named in grill Q16:** the bus is per-process, so `-042`'s cross-tab proof is same-process and
+    **cannot see a cross-instance miss**. Single instance is `ASSUMPTION-002` through M5; the fix when it matters is PG
+    `NOTIFY`, not Redis.
+
   **`TDD-EXEC-m3-backend-api-031`** · `BEHAVIOR-…-031` · Red `a7ec076` → Green `dd501ef` · p0 · Slice 2b ·
   client half `b8a4318` · **count corrected by `0dd3aa2`**
   - Red's shape is the part worth re-reading: **17 failures, and the set was derivable before reading a single
@@ -834,7 +858,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
   fabricate** · Green = 6/6 checks + quoted `psql` · p1 · Slice 4, the ladder's last behaviour
   - **`type:test`, so the ladder's verification column means "harness + quoted `psql` output", not a failing unit test.**
     Persistence has held architecturally since `-037`/`-038` moved the adapter; this behaviour *proves* it rather than
-    *causing* it, exactly as `-044`/`-045`/`-046` did. The honest substitute for Red is the negative control: the check is
+    *causing* it — **a claim this record's own commit history contradicts, corrected while writing `-046`'s missing block on 2026-09-12: `-044` has Red `ff5cefc` → Green `7f86e66`, and `-046` has Red `9f15f50` ("Failed: 4, Passed: 0 — all four: 404") → Green `1f93c57`. Both therefore *caused* their implementation; only `-045` is genuinely the no-Red regression guard (its behaviour was already true of the framework, per its own block). Grouping three behaviours as "no Red because they merely prove" was shorthand that hardened into a statement of fact, and two of the three were wrong — the same paraphrase-hardening as the phantom §10.** The honest substitute for Red, where there genuinely is none, is the negative control: the check is
     shown to fail when the data is absent, which is the property a vacuous pass would lack. Stated plainly instead of
     staging a fake failure to satisfy the ritual.
   - **Two authoring failures, both mine, both now warnings in the script's own comments.** (1) A cleanup `DELETE` without
