@@ -18,12 +18,9 @@
 - **Specification**: [`docs/specs/2026-09-12-spec-m4-authentication.md`](../specs/2026-09-12-spec-m4-authentication.md)
 - **Assumption Record Links**: `ASSUMPTION-m4-auth-001` (localhost `__Host-`) · `002` (single user) · `003` (no rate limiter)
 - **Decision Records**: `DECISION-m4-auth-001…006`, all in the spec; provenance of approval recorded in §8 below
-- **Grill record**: `Pending` — spec §7 requires an adversarial pass over seven listed challenges **before Slice 1 is
-  treated as settled** (M3's grill found F-4, F-8 and the `DELETE` asymmetry; the M4 grill has already been promised the
-  enumeration statistic and the no-new-dependency habit as targets)
-- **Test plan**: `Pending` — `docs/tests/2026-09-12-test-m4-authentication.md` is created by `pk:test` as the first act of
-  Slice 1, carrying the intent register. **Deliberately not stubbed now**: an empty table invites a row to be added
-  retrospectively to match whatever got built, which is the `-037`/gap 9 failure shape.
+- **Grill record**: **`Done`** — [`docs/reviews/2026-09-12-m4-plan-grill.md`](../reviews/2026-09-12-m4-plan-grill.md) (Q1–Q9, merged in #36 at `f0ff049`). **Reversed `DECISION-003`**: its no-new-dependency premise was an **npm** count applied to backend code, and `PasswordHasher<TUser>` ships in the shared framework (compile-proved: `CS5001` only, no `CS0246`). Narrowed `002` to Identity's stores, corrected `001`'s "impossible" to "expensive", restated AC-3, raised **Q4** (cross-site harness topology) as an open decision gating Slice 2.
+- **Test plan**: **`Created 2026-09-12`** — [`docs/tests/2026-09-12-test-m4-authentication.md`](../tests/2026-09-12-test-m4-authentication.md): 21-row intent register, seam allocation, mock boundaries (never-mocked: PostgreSQL, the cookie path, the auth pipeline, `PasswordHasher`), a risk→seam table naming what only a browser can see, CI allocation (**three behaviours deliberately NOT enforced in CI, recorded as a gap**), and two named blockers. **`-057` begins from a reproduced Red** (gap 12's live 500) — the rarest useful position a ladder can start in.
+
 - **External Reference**: `N/A` — the Local Task Record is authoritative; no GitHub issue mirrors it (project convention)
 - **Owner / Actor**: Lead Engineer (accountable; approves, merges, signs) · Assistant (executing)
 - **Execution Scope**: **New** `api/src/JobTracker.Api/Auth/*`, one EF migration set (`users`, `sessions`,
@@ -64,7 +61,7 @@
 
 **Each carries the command that proves it.** An AC whose command cannot be run yet is marked `Pending` — never `Verified`
 on the strength of intent. *(M3's AC-11 and AC-14 both had prose claiming closure over an unticked box; every status
-below is asserted from the file, and the tally is checked as `checked + open == 15`.)*
+below is asserted from the file, and the tally is checked as `checked + open == 17`.)*
 
 - [ ] **AC-1** — **Every data route rejects anonymity, the stream included.**
   · `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5080/api/applications` → `401`; **same for
@@ -136,6 +133,11 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · Plus: **the app refuses to boot with default credentials in `Production`** — a startup guard, because a seeded
   account is the failure mode of a published one.
 
+- [ ] **AC-16** — **Credentialed CORS is explicit, not incidental.** Preflight echoes `Access-Control-Allow-Credentials: true` with the **exact** origin and never `*`.
+  · *Why it exists:* `Program.cs:38` promised that adding credentials later would "break quietly rather than loudly," and it was right — browsers reject the wildcard+credentials pair and ASP.NET will not stop you configuring it. Grill **Q3**.
+- [ ] **AC-17** — **Sessions expire, and expired rows are pruned.** An idle window **and** a hard cap both end a session; expired/revoked rows are removed opportunistically at login.
+  · *Precondition (test plan §3.2):* needs an injected `TimeProvider`; otherwise `-066` can only be tested by sleeping or mutating the system clock across a shared fixture. The clock seam is therefore decided at Slice 2's start, and if refused the behaviour degrades to "a column nobody reads" — stated rather than papered over. Grill **Q5/Q6**.
+
 ## 4. Invariants
 
 - **I-1** — No state-changing `GET`, ever. `SameSite=Lax` safety is a consequence of this, so breaking it silently breaks
@@ -151,15 +153,15 @@ below is asserted from the file, and the tally is checked as `checked + open == 
 
 **Reconciled against spec §6 on 2026-09-12 04:30 UTC — the record defers to the spec.** A first draft of this section gave Slice 0 a behaviour ID and ran the ladder to `-066`: **20 behaviours where the spec defines 19.** Silent renumbering between a spec and its task record is how M3's phantom section reference was made — a paraphrase hardening into a pointer nobody checked. Spec §6 read **whole, without truncation** (gap 10b's exact mechanism), gives:
 
-**Slice 0 = no behaviour ID** (Configuration/Documentation: its evidence is the recorded baseline bytes, filed under §6, not a behaviour) · **`-047`…`-050`** Slice 1 · **`-051`…`-054`** Slice 2 · **`-055`…`-059`** Slice 3 · **`-060`…`-062`** Slice 4 · **`-063`…`-065`** Slice 5 = **19 behaviours**, continuing after M3's `-046`.
-· *Count command, run:* `awk '/^## 6\./,/^## 7\./' docs/specs/2026-09-12-spec-m4-authentication.md | grep -oE '\`-0[0-9]{2}\`' | tr -d '\`' | sort -u | wc -l` → **19**, with the range head/tail asserted as `-047` / `-065`. **The count is derived from the spec's own lines, not from this paragraph's intention.**
+**Slice 0 = no behaviour ID** (Configuration/Documentation: its evidence is the recorded baseline bytes, filed under §6, not a behaviour) · **`-047`…`-050`** Slice 1 · **`-051`…`-054`** Slice 2 · **`-055`…`-059`** Slice 3 · **`-060`…`-062`** Slice 4 · **`-063`…`-065`** Slice 5 · plus **`-066`** (Slice 2) and **`-067`** (Slice 3), **appended** by the §6 amendment = **21 behaviours** (`-047`…`-067`), continuing after M3's `-046`.
+· *Count command, run:* `awk '/^## 6\./,/^## 7\./' docs/specs/2026-09-12-spec-m4-authentication.md | grep -oE '\`-0[0-9]{2}\`' | tr -d '\`' | sort -u | wc -l` → **21**, range `-047` / `-067`. **The count moved 19 → 21 by a documented spec amendment (`-066`, `-067`), not by this record drifting** — that distinction is why the derivation is printed: an unexplained count is a bug report waiting to be filed against the document. **The command itself was corrected once**: a `-0[0-9]{2}` scan double-counts M3's `-037` reference in §6 prose and reports 22. **The count is derived from the spec's own lines, not from this paragraph's intention.**
 
 Each gets a `TDD-EXEC-m4-authentication-NNN` block **written in the turn that earns it**; M3 finished with 21 behaviours
 and 20 blocks, and writing the missing one exposed a false claim about two others. **The count is asserted, not recalled.**
 
 ## 6. Evidence and Completion Gate
 
-`Pending` — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 15` (M3 had
+`Pending` — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had
 four checkbox slips where scripted edits hit prose and never the prefix); regenerate §3A of STATE **whole** at each
 boundary; read spec lines **without truncation** before asserting anything about them.
 

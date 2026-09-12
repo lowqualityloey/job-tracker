@@ -303,6 +303,8 @@ return · `-062` SSE `401` handled as a session probe, not an infinite retry.
 accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-browser proof, jsdom cannot attempt it) ·
 `-065` bundle delta vs Slice 0's baseline, from the build output.
 
+> **§6 amendment — `pk:test`, 2026-09-12.** The grill deferred five items to the test plan; two are real behaviours and land here as **`-066` (Slice 2: expiry via idle window AND hard cap, plus opportunistic prune)** and **`-067` (Slice 3: CORS echoes the exact origin with `Allow-Credentials`, never `*`)**. **Appended, not renumbered into the slices above** — rewriting ratified IDs is precisely how M3's phantom cross-references were created, so the stable IDs keep their meaning and this note carries the change. **Ladder is now `-047`…`-067` = 21 behaviours**, derived by the command printed in the test plan's header — **which had to be corrected once: a naive `-0[0-9]{2}` scan of §6 returns 22, because §6 cites M3's `-037` pattern in prose.** The other three deferred items are not behaviours: the harness-origin question (Q4) is an open decision gating Slice 2, the `404`-gone-vs-not-yours split (Q7) is M5 residue, and the AGENTS.md layer-scoping amendment (Q9) is a separate chore with its own DEBT-12 mirror sync.
+
 ## 7. Sign-off & Grilling Checklist
 
 - [ ] **Owner decides `DECISION-001` (cookie vs Bearer) as written down.** This one is load-bearing: **`EventSource`'s
