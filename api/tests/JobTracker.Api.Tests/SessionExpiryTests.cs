@@ -188,11 +188,38 @@ public sealed class SessionExpiryTests(PostgresFixture postgres)
         var http = factory.CreateClient();
         var cookie = await LoginAsync(http);
 
-        clock.Advance(TimeSpan.FromMinutes(29));
-        Assert.Equal(HttpStatusCode.OK, await ReadAsync(http, cookie));
-
-        clock.Advance(TimeSpan.FromMinutes(2));
+        // The first draft of this case read the API at 29 minutes, asserted 200, then advanced two more minutes and expected
+        // 401. The product answered 200 and was RIGHT: at 29 minutes only one minute of a 30-minute window remains, which is
+        // inside SessionPolicy.SlideThreshold, so the read slid the window and there was no expiry left to find. A test that
+        // performs the thing it is trying to exclude measures something else, so silence — no reads at all — is the stimulus
+        // here, and the slide/no-slide boundary is asserted separately below where it can be seen without touching expiry.
+        clock.Advance(TimeSpan.FromMinutes(31));
         Assert.Equal(HttpStatusCode.Unauthorized, await ReadAsync(http, cookie));
+        Assert.True(await RowExistsAsync(SessionIdFrom(cookie)),
+            "an expired session vanished with no login in between: something other than the prune is deleting rows");
+    }
+
+    [Fact]
+    public async Task A_use_early_in_the_window_does_not_move_the_expiry_and_a_use_late_does()
+    {
+        // The threshold is the price of sliding: without it every authenticated request writes to sessions, and AC-10's
+        // whole argument for the owner index is that reads here should be cheap. So the boundary is asserted from both sides
+        // on a session that is nowhere near expiring -- which is also the only way to see it without a 401 in the way.
+        var clock = Clock();
+        using var factory = new ClockFactory(Email, Password, postgres.ConnectionString, clock);
+        var http = factory.CreateClient();
+        var cookie = await LoginAsync(http);
+        var id = SessionIdFrom(cookie);
+        var minted = await ExpiryOfAsync(id);
+
+        clock.Advance(TimeSpan.FromMinutes(10)); // 20 left: no slide expected
+        Assert.Equal(HttpStatusCode.OK, await ReadAsync(http, cookie));
+        Assert.Equal(minted, await ExpiryOfAsync(id));
+
+        clock.Advance(TimeSpan.FromMinutes(15)); // now 5 left: inside the threshold
+        Assert.Equal(HttpStatusCode.OK, await ReadAsync(http, cookie));
+        Assert.True(await ExpiryOfAsync(id) > minted,
+            "the window never slid, so an active session dies 30 minutes after login no matter what the user is doing");
     }
 
     [Fact]

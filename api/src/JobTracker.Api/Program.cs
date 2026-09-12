@@ -16,6 +16,11 @@ builder.Services.AddProblemDetails();
 // with 404 without it, and not earlier because nothing needed a database until a test asked the API one.
 // BEHAVIOR-047's service, registered now rather than at -047: the seam had no production caller until seeding needed
 // one, and registering an unused service would have implied a wiring that no test yet required.
+// BEHAVIOR-066 / spec 3.2: the clock, as a dependency rather than a static. Registered explicitly (not left to the host's
+// own default) because who may read the time is now a question with a production answer and a test answer, and the place
+// they differ should be visible in the composition root rather than in a test's last-write-wins override.
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+
 builder.Services.AddSingleton<IPasswordService, PasswordService>();
 
 builder.Services.AddDbContext<JobTrackerDb>(options =>
