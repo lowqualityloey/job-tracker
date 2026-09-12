@@ -29,6 +29,9 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
     /// <summary>M4's single bootstrap account (spec DECISION-m4-auth-002, ASSUMPTION-m4-auth-002).</summary>
     public DbSet<User> Users => Set<User>();
 
+    /// <summary>Server-side sessions, one row per login (spec DECISION-m4-auth-002).</summary>
+    public DbSet<Session> Sessions => Set<Session>();
+
     /// <summary>
     /// Naming is explicit, and it earned its keep: EF's default is the CLR name verbatim, so the first real
     /// migration this context produced was `CREATE TABLE "Applications" ("Id" uuid)`. The approved DDL
@@ -105,6 +108,26 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
             entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             entity.HasIndex(e => e.Email, "users_email_idx").IsUnique();
+        });
+
+        modelBuilder.Entity<Session>(entity =>
+        {
+            entity.ToTable("sessions");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.Property(e => e.ExpiresAt).HasColumnName("expires_at");
+            entity.Property(e => e.RevokedAt).HasColumnName("revoked_at");
+
+            // CASCADE, because a session without its user is not a session — and deleting a user is the only way M4 can
+            // ever remove one (there is no account-deletion UI), so leaving 401-producing orphans behind would be the
+            // design rather than the accident.
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.UserId, "sessions_user_id_idx");
+            // Reads by expiry are the shape of the prune -056's login-time cleanup needs, and of every "is this dead"
+            // check; index the column the queries range on, not the one they filter by equality after.
+            entity.HasIndex(e => e.ExpiresAt, "sessions_expires_at_idx");
         });
     }
 }

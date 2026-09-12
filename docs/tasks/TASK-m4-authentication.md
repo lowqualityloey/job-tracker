@@ -68,7 +68,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   `/api/applications/events`, `…/{id}`, and for `POST`/`PUT`/`DELETE`.**
   · *Why the stream is named:* an attribute typo on one endpoint is invisible to every other test.
 
-- [ ] **AC-2** — **The session cookie carries all four attributes, asserted on the header.**
+- [x] **AC-2** — **The session cookie carries all four attributes, asserted on the header.**  *(verified 2026-09-12: `-051`'s header assertions AND the AC's own curl gate on a real Kestrel; see §6)*
   · `curl -i -s -X POST …/api/auth/login -H 'content-type: application/json' -d @/tmp/creds.json | grep -i '^set-cookie'`
   → contains `__Host-JTSession`, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, **and no `Domain=`**.
   · *Artifact discipline:* these are **header-only** properties. A body assertion cannot detect their absence — that is
@@ -339,6 +339,36 @@ configuration**, and states which literal it used; a delta quoted without its UR
 - **`AC-15` flipped on this evidence** — no new runtime dependency, no credential literal in source, boot guard live, and
   the seeded account it describes now exists. It had been left unchecked in the guard-half commit precisely because its
   rationale was an account that did not exist yet.
+
+**`TDD-EXEC-m4-authentication-051`** · `BEHAVIOR-051` · Red `13d003d` → Green *(this commit)* · p0 · **Slice 2 begins**
+- **Red:** `Failed: 4, Passed: 0` — `Expected: NoContent / Actual: NotFound` (route absent), `no Set-Cookie header`, and the
+  DB-link test with no cookie to correlate. Weakest Red shape (like `-046`), named as such; three of the four assertions
+  still bite after Green because they pin attribute strings and a row, not a status code.
+- **Green:** focused **4/4**, full **`Failed: 0, Passed: 88, Skipped: 0`** (18 s), 0 warnings. `sessions` table via
+  tool-generated `AddSessionsTable` (FK `ON DELETE CASCADE`, index on `expires_at`), `AuthCatalog.MapPost("/api/auth/login")`,
+  `Problems` gained `unauthorized` (DECISION-005's ninth variant) and an optional validation title.
+- **`AC-2`'s gate is a curl against a running server, so it was run — and the first run measured the wrong machine's process.**
+  `dotnet run` applies `launchSettings.json`, which **overrides `ASPNETCORE_URLS`**: my app logged `Now listening on:
+  http://localhost:5039` while **a 15-hour-old API binary from an earlier session (PID 636600) owned :5080**. Every curl
+  returned `404 Not Found` from *that* pre-M4 server, and the log's own `Seeded bootstrap user` line — from my process —
+  made it look like the new code was serving and refusing the route. **A 404 I could easily have reported as "AC-2 fails",
+  or waved away as "the tests pass anyway".** Fixed by killing the stale PID explicitly (never `pkill -f`, per the hygiene
+  rule) and passing `--no-launch-profile`. Same family as `-049`'s parallel-suite timing: **the measurement was of the
+  wrong target, and nothing in the output said so.**
+- **AC-2, verified on the wire:**
+  `HTTP/1.1 204 No Content` · `Set-Cookie: __Host-JTSession=081ea7a0-…; Secure; HttpOnly; SameSite=Lax; Path=/` — **no
+  `Domain=`, no `Expires=`/`Max-Age=`**, and `SELECT count(*) FROM sessions` → **1** in the *real* dev database. Empty body
+  → `400` with `code: validation`; wrong password → `401 unauthorized`.
+- **Unplanned evidence for `-050`'s non-overwrite rule:** the second boot against the persistent dev DB logged no seed line
+  at all, because the account already existed — so the configured password was *not* re-applied, verified across a real
+  process restart rather than only inside a Testcontainers lifecycle.
+- **Why login works but nothing is protected yet:** `-051` deliberately ships **no** gate on `/api/applications*` (AC-1
+  stays open). Landing global 401 with the credential route would have turned M3's 65 tests red for reasons unrelated to
+  the change, and you need a working login before you can write the test that says "this route now requires it".
+- **`LoginRequest(string?, string?)` is nullable on purpose**, and the reason is DECISION-m3-backend-api-004: with
+  `required` non-nullable members, `{}` dies in the JSON binder and the framework answers with a problem document that
+  carries **no `code`** — an envelope that looks machine-readable but isn't. Missing values are now a validation finding
+  this handler controls, which is also why the empty-body test is here and not parked with `-053`.
 
 ---
 

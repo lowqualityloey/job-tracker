@@ -38,8 +38,9 @@ internal static class Problems
     /// resubmit, and be told about the second. Order comes from the validator, which the fixture pins by
     /// comparing lists rather than sets.
     /// </summary>
-    public static IResult Validation(IReadOnlyList<FieldError> errors, string instance) => Results.Problem(
-        title: "The application record is not valid.",
+    public static IResult Validation(IReadOnlyList<FieldError> errors, string instance,
+        string title = "The application record is not valid.") => Results.Problem(
+        title: title,
         detail: errors.Count == 1 ? "One field failed validation." : $"{errors.Count} fields failed validation.",
         statusCode: StatusCodes.Status400BadRequest,
         type: "https://job-tracker.local/probs/validation",
@@ -49,4 +50,22 @@ internal static class Problems
             ["code"] = "validation",
             ["errors"] = errors.Select(error => new { pointer = $"#/{error.Field}", detail = error.Message }).ToList(),
         });
+
+    /// <summary>
+    /// The <c>unauthorized</c> code of DECISION-m4-auth-005 — the ninth RepositoryError variant, added because a 401 must
+    /// be distinguishable from every other 4xx the client already maps, and because "log in again" is a different user
+    /// action from "your input was wrong" or "that record isn't yours".
+    ///
+    /// <b>Deliberately vague, and that is the point.</b> One title, no field names, no hint whether the email or the
+    /// password failed: <c>BEHAVIOR-053</c> asserts wrong-email and wrong-password are byte-identical. A message that said
+    /// "no such email" would be a user-experience courtesy and an enumeration oracle at the same time, and DECISION-004
+    /// already settled which way this app leans (404 rather than 403 for records that aren't yours).
+    /// </summary>
+    public static IResult Unauthorized(string instance) => Results.Problem(
+        title: "Those credentials were not accepted, or the session is no longer valid.",
+        statusCode: StatusCodes.Status401Unauthorized,
+        type: "https://job-tracker.local/probs/unauthorized",
+        instance: instance,
+        extensions: new Dictionary<string, object?> { ["code"] = "unauthorized" });
+
 }
