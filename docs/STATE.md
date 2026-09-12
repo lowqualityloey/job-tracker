@@ -80,16 +80,21 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #65** `feat/m4-065-bundle-delta` — **`-065`: AC-14 verified**, the login-route bundle delta
-  measured against a **rebuilt** Slice 0 baseline: **1,242 B under a 3,072 B gate**, flag-off **1,022 B** printed beside
-  it, and both baseline figures reproduced **to the byte**. Commit ladder: **harness `ddaf7f2` → its own `printf`
-  defect fixed `b489f18` → record `82cd12f` → the AGENTS rule that failure earned `2b1201b`**. Every number was taken at
-  `b489f18` on a clean tree — the harness aborts on a dirty one, because its output is pasted into a record that cites a
-  SHA, and `b489f18` is the last commit that touches anything a build reads. No product code moves, and **CI measured the consequence instead of
-  assuming it**: `verify` pass 56 s, `verify-api` pass **7 s** with steps 4 and 5 concluded `skipped` — the docs-only
-  detector firing correctly, the mirror image of #64, where step 5 ran and printed `Passed: 186`. Both reads come from
-  the job's step list, because **a `pass` conclusion is identical whether the suite ran or was skipped**; only the
-  duration differs, and a duration is a hint rather than evidence.
+- **In flight**: **PR #66** `feat/m4-065-bundle-delta` — two docs commits that the merge of #65 left behind, which is
+  itself the incident this bullet describes: **`4a70e9a` was pushed after #65 merged**, into a branch GitHub had already
+  deleted, and reported `* [new branch]` on a branch that existed an hour earlier. That phrase is this repository's
+  recorded tell (PR #60, and the rule "a merged PR is a closed door on its branch"), and it fired again today on a
+  commit I wrote *about* not losing work. Carried here: (a) the `-065` integrity ledger entry naming the fabricated SHA
+  that reached #65's published body, and (b) this bullet's reconciliation.
+  **PR #65 (`-065`, AC-14) is MERGED** — `e4d1d2f` at 21:54:49Z, verified both ways: `state:MERGED` with head `5ec41b5`
+  equal to the pushed HEAD, **and** in `main` itself the `TDD-EXEC-m4-authentication-065` marker, AC-14's tick, and
+  `tests/build/bundleDelta.sh` (139 lines). Local `main` fast-forwarded to `e4d1d2f`, tree clean. **Numbers re-derived
+  on the merged tree rather than carried from the projection**: ladder **27** rows · ACs **16 verified + 1 open** (the
+  open id read out, not inferred: **AC-3**) · EXEC records **24** distinct · commit-discipline rules **10**.
+  The measurement #65 stands on, restated so the record survives the branch: **flag-on 62,610 B against a baseline
+  rebuilt in the same run at 61,368 B — a delta of 1,242 B under the 3,072 B gate**, flag-off **+1,022 B** reported
+  beside it, the baseline reproduction **byte-exact (`+0 / +0`)**, and both trees verified to share a
+  `package.json`/`package-lock.json` before anything was built.
   **PR #64 (`-063`, the antiforgery gate) is MERGED** — `893038f` at 21:29:05Z, verified both ways: `state:MERGED` with
   head `f5687e3` equal to the local HEAD, **and** the `TDD-EXEC-m4-authentication-063` marker, `AntiforgeryGate.cs`
   (167 lines), and AC-11's tick all present in `main` itself. Local `main` fast-forwarded to the merge commit; CI green
@@ -202,7 +207,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   [`checkpoint-001` §2](../tasks/TASK-m4-authentication.checkpoint-001.md).
 - **Merged this session**: **#55** `ee994f5` (`-066`) · **#56** `538c77e` (`-067`) · **#57** `fea085c` (`-068`) ·
   **#58** `47852a4` (`-069`) · **#59** `f2b8a3b` · **#60** `7e13914` · **#61** `1819bbb` · **#62** `21f1f45` (`-071`) ·
-  **#63** `9d4a2f7` (`-064`) · **#64** `893038f` (`-063`). Each merge verified twice before anything was built on it: `gh pr view --json
+  **#63** `9d4a2f7` (`-064`) · **#64** `893038f` (`-063`) · **#65** `e4d1d2f` (`-065`). Each merge verified twice before anything was built on it: `gh pr view --json
   state,mergedAt,mergeCommit` **and** the `TDD-EXEC-m4-authentication-0NN` marker present in `main`.
 - **M3 residue still live**: gap 12 (`{"id":"not-a-guid"}` → 500) is **closed** by `-057`; `ASSUMPTION-m3-backend-api-002`
   (single instance) holds and **M5 must revisit the in-process bus** — the fix is PG `NOTIFY`, not Redis (grill Q16), and
@@ -217,7 +222,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   or (c) an interaction with the shared-container fixture — and guessing is how false root causes get recorded. **If it
   recurs, `dotnet test > /tmp/dt.log 2>&1` and dump that row's `created_at`/`updated_at` verbatim from the log before
   reading anything else.** It is AC-13's own net, so it is a real risk to the net's credibility, not a nuisance.
-- **Documentation-integrity ledger (17)**: M3's ten (AC-13's box · a fabricated SHA · AC-11's · AC-14's · refs to a
+- **Documentation-integrity ledger** — *(no number in this title, deliberately: it asserted **17** while its own items add to 20 under one reading of "two false Reds" and 19 under another, and every boundary since has appended an entry without recomputing the total — the exact behaviour its own AC-ledger item warns about: "a counter guards a number; only a re-derived list guards an identity". The number is withdrawn rather than corrected, because restating it would be the same error at a later date.)* **M3's ten** (AC-13's box · a fabricated SHA · AC-11's · AC-14's · refs to a
   nonexistent §10 · gap 10a · two orphaned measurements · **gap 10b's false charge, bought an approval and was retracted in
   #31** · §7's "four boxes" miscount and `-046`'s missing block · marking the grill "done" on a record grep proves never
   mentioned it) **plus six from this span**: two false Reds that were harness holes (missing `[Collection]`; a
@@ -234,7 +239,15 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   the agent writing this line**: `dotnet test 2>&1 | tail -40`, which reported **exit 0 on a run that had failed** (AGENTS.md's
   `pipefail` rule, broken while executing the handoff that states it), and an invented `ConnectionStrings__Default` because
   H4 elides the value — harmless only because Testcontainers builds its own database. Root cause of every one: **writing
-  from intent instead of measurement.**
+  from intent instead of measurement.** **One more, from the `-065` boundary, and it is the same species again:** PR #65's
+  body was published with a rollback list containing **`8e18377`, a commit that does not exist**. The mechanism matters more
+  than the typo: a scripted edit named a SHA for a commit that the *same* command chain was about to create; that
+  `git commit` then failed on an assert whose anchor I had copied from memory instead of from the file (a two-space indent
+  read as three); and the publishing step was separated by `;` rather than `&&`, so it ran regardless and the fabricated
+  identifier reached a reviewed artifact. It surfaced only while re-deriving an unrelated count from
+  `git log --format=%h main..HEAD` — **which is the sole reason this entry exists instead of the phantom shipping in the
+  merge**. A SHA is read, never predicted; rollback instructions should be generated from `git log`, and this PR's list now
+  is. 
 - **Measured at the `-065` boundary, 2026-09-13 01:20 UTC** (every figure produced by this run, none quoted from an
   earlier one): bundle **61,140 B** flag-off and **62,610 B** flag-on at the head, against **60,118 B** / **61,368 B**
   rebuilt from `41b32af` in the same run — the reproduction is **byte-exact**, `+0 / +0`, and that is the fact that
