@@ -41,11 +41,29 @@ namespace JobTracker.Api.Auth;
 /// on deployed instances for free". It does not. The default ring is **ephemeral per process**: two instances of this
 /// app, or one instance restarted, cannot read each other's tokens, and every write routed to the "wrong" one answers
 /// `403`. `OwnershipTests` discovered it by building a fresh test host per request and watching six of its own cases
-/// turn into antiforgery refusals. Single-instance dev cannot see this; the deployed shape in `docs/aws-deployment.md`
-/// can. Making the ring survive is a deployment configuration step — `PersistKeysTo*` over a store every instance can
-/// reach — and it is `TDD-PRACTICE-m4-authentication-074`, named here because a reader of this file is the reader who
-/// needs it. Until then, the honest statement of behaviour is: **a session may only be written to by the instance that
-/// issued it.**
+/// turn into antiforgery refusals. Single-instance dev cannot see this; the deployed shape in <c>docs/aws-deployment.md</c>
+/// can. Making the ring survive is a deployment configuration step — <c>PersistKeysTo*</c> over a store every instance can
+/// reach — and it is <c>TDD-PRACTICE-m4-authentication-074</c>, named here because a reader of this file is the reader who
+/// needs it. Until then, the honest statement of behaviour is: <strong>a session may only be written to by the instance that
+/// issued it.</strong>
+///
+/// <b>That paragraph was wrong four times, and <c>-074</c> is why each is corrected here rather than left.</b>
+/// (1) <em>"Single-instance dev cannot see this"</em> — it can, and immediately: log in, write (201), restart the process
+/// against the same database, replay the token (<c>403</c>). Measured that way on 127.0.0.1 with one scratch database.
+/// Framing it as a multi-instance concern made a row that was breaking users on every deploy look hypothetical.
+/// (2) <em><c>docs/aws-deployment.md</c></em> — that file has never existed in this repository
+/// (<c>git log --all --diff-filter=A -- docs/aws-deployment.md</c> returns nothing); it is cited as a source in six places
+/// across four documents and corrected where each is maintained. (3) <em><c>PersistKeysTo*</c></em> — no such extension is
+/// in the shared framework: reflection over <c>Microsoft.AspNetCore.DataProtection.dll</c> finds only the two
+/// <c>AddDataProtection</c> overloads, because the persistence family is separate packages. (4)
+/// <em><c>TDD-PRACTICE-m4-authentication-074</c></em> — that ID series does not exist either; the row lives in the behaviour
+/// register as <c>-074</c> and its record is <c>TDD-EXEC-m4-authentication-074</c>.
+///
+/// <b>And the last sentence is now false in the present tense, deliberately kept.</b> The ring is persisted:
+/// <see cref="PostgresKeyRing"/> stores it in <c>data_protection_keys</c>, the database the sessions already live in, so a
+/// token survives a restart and crosses instances that share a database. Read the sentence above as what was true at
+/// <c>-063</c>, because the reasoning that produced it — a claim about a framework, corrected by an experiment rather than
+/// by rereading the claim — is the part worth keeping.
 /// </summary>
 public static class Antiforgery
 {
