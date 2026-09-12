@@ -80,7 +80,8 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **`feat/m4-071-spa-hosting`** (`Red 964fdc6 → Green 77ab86d → this record commit`) — **the first product
+- **In flight**: **PR #62** `feat/m4-071-spa-hosting` (`Red 964fdc6 → Green 77ab86d → record 1ef21c7`, head verified
+  against `git rev-parse HEAD` at 19:27 UTC) — **the first product
   code of Slice 5**: the API serves the built front end from its own origin under `DECISION-m4-auth-007 (a′)`. This one
   **does move `api/` files, so `verify-api` runs rather than skipping** — the 179/0 evidence below is local, and CI's is the
   independent copy. **PR #61 is MERGED** (`1819bbb`, 18:47:03Z, verified both ways), which is what reconciled `main` before
