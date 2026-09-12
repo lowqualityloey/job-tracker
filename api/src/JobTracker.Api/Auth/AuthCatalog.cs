@@ -59,7 +59,17 @@ public static class AuthCatalog
             var email = request!.Email!;
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
 
-            if (user is null || !passwords.Verify(user.PasswordHash, request.Password!))
+            // BEHAVIOR-053 / spec 2.4 -- the short-circuit IS the oracle. `user is null || !Verify(...)` returns the same
+            // 401 body either way, but the absent path never pays for PBKDF2, so it answers ~300 ms early and an attacker
+            // with a stopwatch has a member list. Absent users now get a full verify against an envelope that belongs to
+            // nobody (see DummyCredential for why that envelope is generated rather than pasted).
+            if (user is null)
+            {
+                passwords.Verify(DummyCredential.Envelope, request.Password!);
+                return Problems.Unauthorized("/api/auth/login");
+            }
+
+            if (!passwords.Verify(user.PasswordHash, request.Password!))
             {
                 // One response for both causes, with no dummy verify yet: byte-parity between "no such account" and "wrong
                 // password" -- including the structural proof that a comparison happened either way -- is -053's claim, and
