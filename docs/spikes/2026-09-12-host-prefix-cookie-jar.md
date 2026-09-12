@@ -79,7 +79,7 @@ context allowance, because it was written to be stricter than it.**
 
 | | Shape | Cost |
 | :--- | :--- | :--- |
-| **(a′)** | same-origin **and HTTPS in dev**: `dotnet dev-certs https` (trusted) or the API's own `https` profile, harness at `https://127.0.0.1:<port>` | Keeps `__Host-JTSession` byte-identical to production — the property AC-2 exists to pin. One dev-cert step, and the CDP harness must either trust it or call `Security.setIgnoreCertificateErrors`, which is a **harness** concession, not a product one, and must be disclosed wherever the run is quoted |
+| **(a′)** | same-origin **and HTTPS in dev**: the API's own `https` Kestrel endpoint, harness at `https://127.0.0.1:<port>` | Keeps `__Host-JTSession` byte-identical to production — the property AC-2 exists to pin. Needs a certificate the browser will serve (not necessarily trust), **and `dotnet dev-certs` is unavailable here — see below** |
 | **(b′)** | Option (b)'s reverse proxy, but **terminating TLS** in front of the API | Same cert question plus a moving part existing only in Development |
 | **(d)** | Ship AC-11/AC-12/AC-14 unverified, documented | Honest, and it is what the ladder has been doing all along |
 | ~~(a)~~ | same-origin over plain http | **Closed by the measurement above** |
@@ -87,6 +87,34 @@ context allowance, because it was written to be stricter than it.**
 
 **Recommendation: (a′).** It is the only row of the table that leaves the shipped cookie attributes untouched, which is the
 thing this milestone was built to get right. The cert concession belongs in the harness and must be visible in the record.
+
+## Measured straight after: the obvious way to get that certificate does not work here
+
+`(a′)` says "HTTPS in dev", and every .NET guide's first answer is `dotnet dev-certs https`. **Tried, and it fails on this
+machine** (2026-09-12 ≈17:47 UTC, minutes after commit `03241b0` — this repository's wall clock is **NZST, UTC+12**, so every
+timestamp in these records is converted with `date -u` rather than read off `git log`, whose `%cd` renders
+`2026-09-13T05:45:35+12:00` for what this file calls 17:45 UTC):
+
+```
+$ dotnet dev-certs https
+There was an error saving the HTTPS developer certificate to the current user personal certificate store.   [exit 2]
+$ dotnet dev-certs https --check
+No valid certificate found.
+```
+
+`~/.dotnet/dev-certs` does not exist and the user personal store cannot be written, so the documented path is closed —
+a recommendation of "`dotnet dev-certs https` and run `-064`" would have died ten minutes into `-064`, in the middle of a
+slice, with the failure reading as an environment mystery. **The alternative is to skip the store entirely and hand Kestrel a
+PEM directly** (`Kestrel__Certificates__Default__PemPath` + `KeyPath`, .NET 8+), which is exactly what
+`openssl req -x509 … -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"` produced above and which
+Chromium accepted once cert errors were bypassed over CDP.
+
+**Deliberately *not* measured further.** Proving PEM loading end-to-end would mean booting the real app against
+`api-db-1` — the developer's own database, holding applications rows — and the startup path runs the migration **and the
+`-050b` seed**, whose Development placeholder *rotates the dev account's password on every boot*. Using a decision-support
+probe as the excuse to mutate that state is not a trade worth making silently; it is one to name and ask about. So the claim
+recorded here is exactly: **dev-certs is unavailable (measured), PEM is the likely route (unverified against Kestrel), and
+verifying it needs the app booted, which is a decision, not a probe.**
 
 ## Harness findings, because three of them nearly became product findings
 
@@ -113,8 +141,16 @@ thing this milestone was built to get right. The cert concession belongs in the 
   inference from an identical wire shape and is labelled as such.
 - **Any Chromium newer than 128.** Loopback handling of `__Host-` could change; the image pin is what makes this a
   reproducible claim, and the re-measurement instruction is in the table above.
-- **Whether `dotnet dev-certs https --trust` works in this sandbox** (the container cannot route into the Docker network, and
-  trust is per-user on the host). That is the first thing (a′) would have to establish, before any `-064` code is written.
+- ~~Whether `dotnet dev-certs https --trust` works in this sandbox~~ — **answered while this section was being written:
+  it never reaches the trust step, because creating the certificate fails** (the section above). The replaced unknowns are:
+  - **Whether Kestrel loads a PEM pair from configuration on this runtime** (`Kestrel__Certificates__Default__PemPath` /
+    `KeyPath`). Node's `https.createServer` proved the *browser* half; the *server* half is unverified.
+  - **Whether the container can reach a host `https` port.** M3 reached the host at `http://172.23.124.252:5080`, so the
+    routing exists for TCP; TLS on top is the new part, and the address is non-loopback, which the measurement above says is
+    **fine over `https` and fatal over `http`**.
+  - **The boot cost of the above**, which is the reason it is not measured here: exercising either one means running the real
+    app against the developer's database, whose startup path rotates the dev account password (`-050b`'s Development
+    placeholder seed).
 
 ## Reproduce
 

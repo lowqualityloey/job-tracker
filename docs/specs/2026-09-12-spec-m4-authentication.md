@@ -218,9 +218,12 @@ worth more than AC-16's browser redundancy.** Recorded so nobody later finds the
 > **Two things this retro-actively corrects in the owner's own trade.** (1) Option **(c)**, `SameSite=None; Secure` in dev,
 > was rejected as "more permissive than production" — right conclusion, **wrong mechanism**: it was never a candidate at all,
 > because `None` governs *cross-site sending* and the measured failure is *storage* on a same-origin request. (c) would have
-> changed nothing. (2) The recommendation that (a) needed only "**one dev-server change**" understated it; (a′) needs a
-> certificate decision, and whether `dotnet dev-certs https --trust` works in a sandbox that cannot route into the Docker
-> network is **not yet established** — it is the first thing to measure before any `-064` code is written.
+> changed nothing. (2) "One dev-server change" understated (a′): it needs a **certificate**, and the obvious mechanism is
+> **measured unavailable here** — `dotnet dev-certs https` fails with *"error saving the HTTPS developer certificate to the
+> current user personal certificate store"* and never reaches `--trust`. The live route is a PEM handed to Kestrel directly
+> (`Kestrel__Certificates__Default__PemPath` / `KeyPath`), which the spike proves the **browser** accepts and the **server**
+> half of which is unverified — verifying it means booting the app against the developer's own database, whose startup seed
+> rotates the dev account password. **That is a decision, not a probe, so it is asked rather than taken.**
 >
 > **A fourth consequence, outside the harness:** `launchSettings.json`'s default `http` profile is
 > `http://localhost:5039`, so **a human running `dotnet run` today gets a `204` from login and a browser that silently keeps

@@ -168,11 +168,15 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   > [`docs/spikes/2026-09-12-host-prefix-cookie-jar.md`](../spikes/2026-09-12-host-prefix-cookie-jar.md), which also
   > **falsifies `ASSUMPTION-m4-auth-001`** and amends `DECISION-007`. Over `https://127.0.0.1` with a self-signed cert the
   > cookie **is** accepted, so the sufficient shape is **(a′): same-origin *and* HTTPS in dev**. **What (a) alone unblocks is
-  > `-065` only; `-064` needs (a′) first.** Two further consequences: **(c) was rejected for the wrong reason** —
-  > `SameSite=None` governs cross-site *sending*, not *storage*, so it would have fixed nothing here; and, **not yet measured
-  > against the real endpoint**, `launchSettings.json`'s default profile is `http://localhost:5039`, so a human running
-  > `dotnet run` gets `204` from login and a browser that keeps no session — a development-experience defect in M4's own
-  > deliverable, found by a measurement that was about test topology.
+  > `-065` only; `-064` needs (a′) first.** And (a′)'s obvious mechanism is already **measured dead**: `dotnet dev-certs https`
+  > fails on this machine (*"error saving the HTTPS developer certificate to the current user personal certificate store"*,
+  > `--check` → "No valid certificate found"), so the route is a PEM via `Kestrel__Certificates__Default__PemPath`/`KeyPath` —
+  > browser half proven by the spike, **Kestrel half unverified, because verifying it means booting the app against the
+  > developer's database whose seed rotates the dev password.** Two further consequences: **(c) was rejected for the wrong
+  > reason** — `SameSite=None` governs cross-site *sending*, not *storage*, so it would have fixed nothing here; and,
+  > **not yet measured against the real endpoint**, `launchSettings.json`'s default profile is `http://localhost:5039`, so a
+  > human running `dotnet run` gets `204` from login and a browser that keeps no session — a development-experience defect in
+  > M4's own deliverable, found by a measurement that was about test topology.
   **Not** unblocked: `-063`/AC-11, which under (a) needs a **restatement** — a cross-site `Lax` POST carries no cookie, so
   the antiforgery check is never reached and the probe would prove the wrong thing; `-063` has to become **two cases, each
   with a positive control** (same-site write without the token → header check bites; cross-site write → `401`, the `Lax`
