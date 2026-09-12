@@ -70,7 +70,16 @@ need one of: token-in-query-string (leaks into logs and `Referer`; refuse), a `f
 
 **Recommendation: (A).** Note the reversal worth stating plainly: **JWT is the fashionable answer and the wrong one here** —
 server-side sessions give revocation *and* the only credential form `EventSource` can carry, at the cost of CSRF work.
-*Chosen: — · Rejected alternatives: — · Consequences: —*
+> **Chosen: (A) — `__Host-` prefixed HttpOnly session cookie with server-side sessions.**
+> **Rejected:** **(B)** Bearer + a `fetch`/`ReadableStream` reader — rewrites `-040`’s adapter and its automatic
+> reconnect; **(C)** Bearer + dropping SSE — removes the feature M3 built `-040`/`-042`/`-046` to prove.
+> **Consequences:** CSRF work becomes mandatory (`DECISION-006`, Slice 5’s `-063`); CORS must send `AllowCredentials`
+> **with a specific origin, never `*`**; sessions become server-side state that must expire and be revocable; and
+> **the browser, not jsdom, is the only place this credential format can actually be proven.**
+>
+> **Approval provenance:** filled 2026-09-12 04:30 UTC as **inferred from the merge of PR #34 (`fa4ed7d`)**, which
+> landed before this field was written. §7’s owner checkboxes remain physically unchecked in `main`. **Dissent costs
+> one commit** — but the field should not read as undecided when the process has decided it.
 
 ### DECISION-m4-auth-002 — Identity: **two tables, not ASP.NET Core Identity** · **Owner decision required**
 

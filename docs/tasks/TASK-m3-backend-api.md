@@ -275,7 +275,7 @@ Every AC is objectively checkable and names its command. `Result: Pending` until
 - **Execution State**: `in_progress` — claimed by the owner's merge of PR #10, whose reviewer-focus item was
   explicitly "promote to `in_progress`, which authorises Slice 0"
 - **Mapped `pk:tasks` Status**: `In Progress`
-- **Active Task Pointer**: `TASK-m3-backend-api` (this record holds it; Slice 0 is executing, not complete)
+- **Active Task Pointer**: `None` — **moved to `TASK-m4-authentication` on 2026-09-12.** M3 has no agent work left: the ladder, the evidence and the retracted gap are all closed, and what remains (spec §7's five boxes, the `[/]`→`[x]` milestone flip) is the owner's. Holding the pointer here while a decomposed milestone waited was the drift; the field is a projection of who is active, so it is stated as moved, not left stale.
 - **Start Time**: 2026-09-11 06:00 UTC — the first measured timestamp *inside* the slice. It began after the 05:03 reconciliation
   of PR #10 and no earlier value was captured, so this is a bound, not false precision.
 - **Current Actor**: Lead Engineer (review/approval) · Assistant holds no execution authority from this record until Slice 0 begins
