@@ -1,106 +1,103 @@
 using System.Diagnostics;
 using JobTracker.Api.Auth;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 
 namespace JobTracker.Api.Tests;
 
 /// <summary>
-/// BEHAVIOR-049 — the cost chosen in <c>-048</c> is **asserted by measurement**, so it cannot drift out from under us.
+/// BEHAVIOR-049 — the password cost is asserted by measurement, and <b>the assertion is now relative because the absolute
+/// one broke in exactly the way this file predicted.</b>
 ///
-/// Why this is a test and not a comment: `IterationCount` is a constant, but the wall-clock cost of hashing is a property
-/// of the runtime, the CPU, and whatever `PasswordHasher`'s defaults become in a future framework release. A change that
-/// silently made login 5× slower — or 1000× cheaper — would be invisible to every other assertion in the suite, because
-/// they all only check that verification *succeeds*.
+/// ## What happened to the first version
 ///
-/// ## The numbers, measured before they were asserted (2026-09-12, this machine, .NET 10.0.401)
+/// The original committed guard asserted an absolute envelope (150–3000 ms per observation, median 200–800 ms) and
+/// <c>-051</c>'s record says out loud that an in-suite timing assertion measures the scheduler, not the hasher. Then the
+/// suite grew and it flaked for real — median <b>1012.4 ms</b> against an 800 ms band, with the same test passing in 302 ms
+/// when run alone:
 ///
-/// 13 iterations each of `Hash` and `Verify` at the then-current 350,000 iterations; the first observation is **reported,
-/// not silently discarded**:
+///     Assert.InRange() Failure: Range: (200 - 800)  Actual: 1012.4146
 ///
-/// | | warm-up (excluded) | n | min | p50 | p95 | max |
-/// | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-/// | `Hash` | 273.5 ms | 12 | 247.6 | 279.1 | 314.8 | 336.0 |
-/// | `Verify` | 316.2 ms | 12 | 251.5 | 271.2 | 312.2 | 330.3 |
+/// PR #40's reviewer notes promised: <i>"if it goes red, the correct response is not to raise the ceiling again — it's to
+/// conclude latency cannot be asserted in a parallel suite at all."</i> The word arrived, so the ceiling was not moved.
 ///
-/// **Both ratified §2.3 targets pass as written** — `Hash` p95 314.8 < 1000 ms, `Verify` p50 271.2 inside 200–800 ms —
-/// measured in a dedicated run, which is the only place a percentile means anything.
+/// ## What is asserted instead, and why it is stronger rather than weaker
 ///
-/// **And the paragraph that used to sit here was falsified by this test failing.** It claimed the warm-up "was not slower
-/// than the steady state", because in the dedicated bench the excluded first observation (273.5 ms) landed inside the
-/// observed range. In the full suite the first `Hash` cost **1108.9 ms** — over the ceiling. Both statements were true of
-/// their own run, and only the second one matters: **xUnit runs test collections in parallel, so an in-suite timing
-/// assertion measures the scheduler and whatever else is on the CPU, not the hasher.** The dedicated bench has no such
-/// neighbour; the test does. That is why the two now have different jobs (see the ceiling).
+/// <b>A ratio against a reference hasher running adjacently in the same conditions.</b> A <c>PasswordHasher</c> configured
+/// to the same iteration count as <see cref="PasswordService"/> is timed immediately beside ours, and their costs must be
+/// within 2× of each other. Contention multiplies <i>both</i> observations, so it cancels out — the assertion is now about
+/// <b>work done</b> rather than <b>wall-clock on a quiet machine</b>, which is the thing -049 was ever for.
 ///
-/// ## Why the assertion below is an envelope and not a percentile
+/// It also catches the regression the absolute bound caught: swap the service for a demo-friendly 1,000-iteration hasher and
+/// the ratio collapses to roughly 0.003, whether the CPU is idle or fully loaded. The failure mode it no longer catches is
+/// "the entire machine got slower", which was never a product defect and is precisely the false alarm that fired today.
 ///
-/// A p95 needs samples this suite cannot afford — the 13-run bench above costs ~7 seconds, and CI runs the whole API suite
-/// for every commit. **At n=5 a "p95" is the fourth-best observation with a statistics name attached to it**, which is the
-/// same mistake as calling 12 samples a distribution. So this test asserts per-observation bounds, and states the estimator
-/// it uses when it needs a middle value (index 2 of 5 sorted — the literal median, not a percentile interpolation).
+/// The absolute figures stay where they belong: the dedicated bench recorded in <c>docs/tasks/TASK-m4-authentication.md</c>
+/// §6 (<c>Hash</c> p95 314.8 ms, <c>Verify</c> p50 271.2 ms at 350,000 iterations), which is a single-process run with no
+/// other collection competing. Spec §2.3 carries the same annotation. <b>Percentiles need a quiet machine; ratios need a
+/// correct one.</b>
 /// </summary>
 public sealed class PasswordCostBandTests
 {
     private const int Samples = 5;
 
-    /// <summary>
-    /// Upper bound, and it is coarse on purpose. The ratified §2.3 target (`Hash` p95 &lt; 1000 ms) is satisfied by the
-    /// dedicated bench above — **314.8 ms measured, with the margin to spare** — and asserting that same 1000 ms inside a
-    /// parallel suite is asserting a number the suite cannot produce: the observed first-call cost under contention was
-    /// 1108.9 ms for a hash that measures 280 ms alone. A flaky guard nobody trusts protects nothing, so this bound holds
-    /// the job the in-suite test can honestly do: **catch a gross change in cost**, which is 10×-shaped in both directions
-    /// (a demo-iteration count lands near 25 ms, an accidental Argon2 default near 1 s+ per call before contention).
-    /// </summary>
-    private const double MaxAcceptableMs = 3_000;
-
-    /// <summary>
-    /// Lower bound, and the one that actually earns its place. The regression this suite would otherwise never see is the
-    /// cost going **down** — an iteration count quietly dropped to a demo-friendly value, or a hasher swapped for something
-    /// cheap. Measured floor is 247.6 ms; 150 ms is far enough below it to be stable and high enough to catch a 10× slip
-    /// (which lands near 25 ms).
-    /// </summary>
-    private const double MinAcceptableMs = 150;
-
     [Fact]
-    public void Hash_and_Verify_costs_stay_inside_the_measured_envelope()
+    public void Our_hasher_costs_what_a_reference_hasher_at_the_same_iteration_count_costs()
     {
-        var svc = new PasswordService();
+        var service = new PasswordService();
+        var reference = new PasswordHasher<AppUser>(
+            Options.Create(new PasswordHasherOptions { IterationCount = PasswordService.IterationCount }));
 
-        // Discarded warm-up, and it is here rather than in the numbers because the first PBKDF2 call in a test process
-        // pays JIT and first-touch costs while every other collection is already running: measured 1108.9 ms in-suite
-        // against 280 ms alone. Excluding it is not hiding an outlier — the claim being asserted is steady-state cost.
-        // Unlike the bench's precaution, this one is load-bearing.
-        svc.Verify(svc.Hash("warm-up-only-discarded"), "warm-up-only-discarded");
+        // Discarded warm-up on both paths, in the same order as the loop below, so neither side pays first-call cost inside
+        // the comparison. In-suite the first PBKDF2 call was measured at 1108.9 ms against ~280 ms steady state.
+        var warm = service.Hash("warm-up-only-discarded");
+        service.Verify(warm, "warm-up-only-discarded");
+        var warmRef = reference.HashPassword(new AppUser(), "warm-up-only-discarded");
+        reference.VerifyHashedPassword(new AppUser(), warmRef, "warm-up-only-discarded");
 
-        var hashMs = new List<double>(Samples);
-        var verifyMs = new List<double>(Samples);
-
+        var ours = new List<double>(Samples);
+        var theirs = new List<double>(Samples);
         for (int i = 0; i < Samples; i++)
         {
             var sw = Stopwatch.StartNew();
-            var stored = svc.Hash("correct horse battery staple");
+            var stored = service.Hash("correct horse battery staple");
             sw.Stop();
-            hashMs.Add(sw.Elapsed.TotalMilliseconds);
+            ours.Add(sw.Elapsed.TotalMilliseconds);
+            Assert.True(service.Verify(stored, "correct horse battery staple"),
+                $"sample {i}: Verify returned false, so the ratio below compares a broken path");
 
             sw = Stopwatch.StartNew();
-            var verified = svc.Verify(stored, "correct horse battery staple");
+            reference.HashPassword(new AppUser(), "correct horse battery staple");
             sw.Stop();
-            verifyMs.Add(sw.Elapsed.TotalMilliseconds);
-
-            // Correctness inside the loop, because a cost assertion on a verifier that has stopped working is a number
-            // about nothing — and this is the one place where -047's property and -049's meet.
-            Assert.True(verified, $"sample {i}: Verify returned false, so the timing below measures a broken path");
+            theirs.Add(sw.Elapsed.TotalMilliseconds);
         }
 
-        // Assert.All, not Assert.InRange(collection, ...): xUnit's InRange is InRange<T>(T, T, T), and handing it the list
-        // produced CS0411 instead of the per-item check intended -- the compiler caught a test that would have asserted
-        // nothing had the types been looser.
-        Assert.All(hashMs, ms => Assert.InRange(ms, MinAcceptableMs, MaxAcceptableMs));
-        Assert.All(verifyMs, ms => Assert.InRange(ms, MinAcceptableMs, MaxAcceptableMs));
+        ours.Sort();
+        theirs.Sort();
+        // Medians, not means: one scheduler preemption is an outlier and there are only five observations. Index 2 of 5 is
+        // the literal middle value -- stated rather than called a p50, which would imply more information than n=5 carries.
+        double oursMedian = ours[2];
+        double theirsMedian = theirs[2];
+        double ratio = oursMedian / theirsMedian;
 
-        // The literal median: index 2 of 5 sorted. Deliberately not called a p50 with interpolation, which would imply
-        // more information than five samples carry.
-        hashMs.Sort();
-        verifyMs.Sort();
-        Assert.InRange(verifyMs[2], 200, 800); // §2.3's ratified Verify p50 band, asserted on a defined estimator
+        Assert.True(ratio is > 0.5 and < 2.0,
+            $"our hasher costs {oursMedian:F1} ms against {theirsMedian:F1} ms at the same declared iteration count "
+            + $"(ratio {ratio:F2}). Either the configured cost moved or the service stopped using PasswordHasher.");
+    }
+
+    [Fact]
+    public void The_reference_and_ours_agree_because_both_read_the_same_declared_count()
+    {
+        // Not a timing assertion -- this is what makes the ratio above meaningful rather than a coincidence of two
+        // identical code paths: the reference hasher verifies our stored envelope as Success, which can only happen if
+        // -048's configured count is the one actually written. Fails loudly if IterationCount changes in one place only.
+        var service = new PasswordService();
+        var reference = new PasswordHasher<AppUser>(
+            Options.Create(new PasswordHasherOptions { IterationCount = PasswordService.IterationCount }));
+        var stored = service.Hash("correct horse battery staple");
+
+        Assert.Equal(
+            PasswordVerificationResult.Success,
+            reference.VerifyHashedPassword(new AppUser(), stored, "correct horse battery staple"));
     }
 }

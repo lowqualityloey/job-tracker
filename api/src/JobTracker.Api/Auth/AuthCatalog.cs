@@ -67,6 +67,26 @@ public static class AuthCatalog
                 return Problems.Unauthorized("/api/auth/login");
             }
 
+            // BEHAVIOR-052 / AC-5 -- session rotation. <b>The id the client arrived with never outlives this login.</b>
+            //
+            // Why <i>here</i>, at the moment credentials are proven, and not in the gate: fixation is defeated only if the
+            // superseded id dies in the same transaction that creates its replacement. Revoked in the gate, a stale id
+            // keeps working until someone's next request happens to be a read. Revoked at logout, it works forever, which
+            // is the bug -051 shipped without meaning to: it issued a fresh Guid per login and left every earlier one
+            // valid, and "the id changed" is precisely the property a fixation attack survives.
+            //
+            // Revoked rather than deleted, so the audit question stays answerable: when did this session stop working, and
+            // was that logout, expiry, or a second login? ExecuteUpdate so the sweep is one statement and cannot be
+            // reordered against the insert below -- and filtered on RevokedAt == null, because re-logging in with an
+            // already-dead cookie must not overwrite the moment it first died.
+            var superseded = http.Request.Cookies[SessionCookieName];
+            if (!string.IsNullOrWhiteSpace(superseded) && Guid.TryParse(superseded, out var supersededId))
+            {
+                await db.Sessions
+                    .Where(s => s.Id == supersededId && s.RevokedAt == null)
+                    .ExecuteUpdateAsync(set => set.SetProperty(s => s.RevokedAt, DateTime.UtcNow));
+            }
+
             var session = new Session
             {
                 Id = Guid.NewGuid(),
