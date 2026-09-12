@@ -1402,7 +1402,12 @@ open acceptance criterion left, and it is gated on an owner decision, not on wor
 **What was actually wrong.** `-063` protected the session id with the data-protection stack, and its own code comment said
 the ring was shared "for free" on deployed instances. It is not — `AddDataProtection()` hands every process an ephemeral
 ring. That got filed as a deployment worry, which made it sound hypothetical. Measuring it removed the framing: one
-process, one scratch database (`jobtracker_p074`, created empty, dropped after).
+process, one scratch database (`jobtracker_p074`, created empty, dropped after) — retained as
+`tests/build/restartKeyRingProbe.sh`, because a record citing restart numbers that nobody can re-produce is how this
+repository acquired its "two orphaned measurements" ledger entry in M3. It cannot become a CI job: a test hosting the app
+in-process has no way to arrange dying and coming back, which is why the two-host equivalence lives in
+`KeyRingPersistenceTests` instead. Its header carries what it printed on both sides of the fix, and it requires the two
+dev credentials as environment variables rather than literals — AC-15 counts credential strings in source.
 
     login, write with the issued token                       -> 201
     restart the process against the same database
