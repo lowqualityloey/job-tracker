@@ -27,6 +27,11 @@ function describeError(error: RepositoryError): string {
       return 'Saved data could not be read, so nothing was overwritten. The unreadable copy was kept for recovery.'
     case 'unsupported-version':
       return `Saved data was written by a newer version of this app (format ${error.found}), so this version refused to change it.`
+    // Named rather than left to `default`, because the difference is the whole point of the ninth variant: every other
+    // sentence here ends with an invitation to try again, and trying again is precisely what a 401 forbids.
+    case 'unauthorized':
+      return 'You have been signed out, so nothing was changed. Sign in again to continue.'
+
     default:
       return 'Something went wrong while saving. Nothing was changed.'
   }

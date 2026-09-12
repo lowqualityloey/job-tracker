@@ -82,12 +82,16 @@ describe('the problem-code table is row-for-row with the API contract (BEHAVIOR-
     expect(PROBLEM_CODE_TABLE.conflict(withoutId)).toEqual({ code: 'corrupt-data', quarantinedAs: null })
   })
 
-  it('unauthorized has a row, and the row is provisional until DECISION-m4-auth-005', () => {
+  it('unauthorized maps to its OWN variant -- DECISION-m4-auth-005 approved by the owner on 2026-09-12', () => {
     const row = rowFor('unauthorized')
     expect(row, 'the 401 code must be declared, not caught by the fallback').toBeTypeOf('function')
-    // Provisional by design: see the class comment. Asserted rather than assumed so that approving the ninth variant makes
-    // THIS test fail, which is the signal that the client half of the decision has landed.
-    expect(row?.(withId)).toEqual({ code: 'corrupt-data', quarantinedAs: null })
+    // This assertion is the one -060 left failing on purpose: it pinned the PROVISIONAL mapping (corrupt-data) so that the
+    // owner's approval would break it rather than slide past it unnoticed. It broke, which is the mechanism working.
+    expect(row?.(withId)).toEqual({ code: 'unauthorized' })
+    // And the point of the distinct variant, stated here because this is where a reader arrives looking for it: a 401
+    // must not be retried. corrupt-data and unavailable both invite the user to try again, and retrying a 401 is how you
+    // turn a sign-out into a lockout. -061 builds the screen that this value redirects to.
+    expect(row?.(withId)).not.toEqual({ code: 'corrupt-data', quarantinedAs: null })
   })
 
   it('a code nobody has declared still fails closed', () => {

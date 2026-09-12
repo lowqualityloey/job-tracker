@@ -36,6 +36,15 @@ export type RepositoryError =
       quarantinedAs: string | null
     }
   | { code: 'unsupported-version'; found: number }
+  /**
+   * The ninth variant. DECISION-m4-auth-005, approved by the owner on 2026-09-12 — the second widening of the union M2a
+   * froze at seven, made on an explicit yes exactly as DECISION-006's first widening was. It exists because a 401 is none of
+   * the other eight: `corrupt-data` says the response was unparseable, `unavailable` says the server could not be reached,
+   * and `validation` says the user's input was wrong. Only this one means "what you are looking at belongs to a session that
+   * has ended", and the behaviour that depends on the distinction — stop, do not retry, go and sign in — is exactly the
+   * behaviour a retrying variant would break. `-060` is the row in the table; `-061` is the screen it redirects to.
+   */
+  | { code: 'unauthorized' }
   | { code: 'storage-error'; detail: string }
 
 export type Result<T, E = RepositoryError> = { ok: true; value: T } | { ok: false; error: E }
