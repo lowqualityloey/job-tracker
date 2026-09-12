@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using JobTracker.Api.Auth;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -7,58 +8,53 @@ namespace JobTracker.Api.Tests;
 /// <summary>
 /// BEHAVIOR-048 — the password cost is **chosen**, not inherited.
 ///
-/// <c>PasswordHasher&lt;TUser&gt;</c> ships a default iteration count. Using it means every hash this app stores was made at
-/// a number decided by a framework release, and the spec's target was explicit: the count is configured, so raising it is a
-/// one-line change with an audit trail rather than an accident of upgrades.
+/// **The first version of this file asserted something that is not true, and the correction is the interesting part.**
+/// It asked a default-configured <see cref="PasswordHasher{TUser}"/> to verify one of our hashes and expected
+/// <c>SuccessRehashNeeded</c> on a count mismatch. Measured (probe, 2026-09-12): the verifier takes the iteration count
+/// *from the envelope* and answers <c>Success</c> whether we declare 100,000 or 350,000 — **a cost difference does not
+/// raise the rehash signal in this format.** The observable was invented from a belief about the framework instead of a
+/// look at it, which is the exact habit this project's whole integrity ledger is about.
 ///
-/// **Deliberately absent, and the absence is the honest part:** no assertion here pins *which* number is right. A magic
-/// constant in a test would be exactly the unmeasured threshold this project has already been punished for twice (an
-/// unrun §2.8 latency target; a 5 ms enumeration bound that may have been noise). <c>BEHAVIOR-049</c> measures the
-/// <c>Verify</c>/Hash cost band, and **that measurement is what turns the number in -048's Green from a guess into a
-/// decision** — with the standing tension recorded: a higher count is a stronger hash and a slower login, and one of the
-/// two has to give.
+/// What is left is the assertion the behaviour actually makes: the count written into the stored envelope is not the
+/// framework's inherited default. It costs a decode — coupling the test to Identity's layout — and the version-byte guard
+/// below is what buys that coupling back: if the layout changes, this test fails loudly rather than reading iterations
+/// out of the salt.
 /// </summary>
 public sealed class PasswordCostTests
 {
     private static readonly IPasswordService Service = new PasswordService();
     private const string Password = "correct horse battery staple";
 
-    [Fact]
-    public void Our_hashes_are_not_at_the_framework_default_cost()
-    {
-        // A hasher built with no options carries the framework's inherited default. Asked to verify one of *our* hashes, it
-        // can only answer SuccessRehashNeeded if our stored envelope declares a *different* iteration count — which is the
-        // entire property under test, observed through behaviour rather than by reaching into the envelope format.
-        //
-        // It is a Red today for the plainest possible reason: -047's Green constructed `new PasswordHasher<AppUser>()` with
-        // no options at all, so our hashes are at the default and the probe answers Success.
-        var frameworkDefault = new PasswordHasher<AppUser>();
-        var ourHash = Service.Hash(Password);
+    /// <summary>The default Identity ships today, **measured** on this machine rather than recalled from a blog post.</summary>
+    private const uint FrameworkDefaultIterations = 100_000;
 
-        Assert.Equal(
-            PasswordVerificationResult.SuccessRehashNeeded,
-            frameworkDefault.VerifyHashedPassword(new AppUser(), ourHash, Password));
+    [Fact]
+    public void Our_hashes_do_not_declare_the_framework_default_cost()
+    {
+        var envelope = System.Convert.FromBase64String(Service.Hash(Password));
+
+        // Guard the offset before trusting it: byte 0 is the format marker (measured = 1 for a current hash). If Identity
+        // changes its layout, this assert fires and someone re-reads the format — instead of the test quietly decoding
+        // iterations out of the salt and passing on nonsense.
+        Assert.Equal(1, envelope[0]);
+        var declared = BinaryPrimitives.ReadUInt32BigEndian(envelope.AsSpan(5, 4));
+
+        Assert.NotEqual(FrameworkDefaultIterations, declared);
     }
 
     [Fact]
-    public void A_hash_made_at_a_lower_cost_still_verifies_while_needing_rehash()
+    public void A_hash_declaring_a_lower_cost_still_verifies_because_the_count_travels_with_the_envelope()
     {
-        // The decision -047 recorded in prose and could not test: SuccessRehashNeeded counts as verified.
-        //
-        // It earns its place as a test now because -048 is precisely the change that would otherwise make it a lockout —
-        // raising the configured cost means every existing account's envelope suddenly declares a lower count, and an
-        // implementation treating that as failure would reject correct passwords on the strength of them being *older*.
-        // `Options.Create` rather than the options object: PasswordHasher's constructor takes IOption<PasswordHasherOptions>
-        // (CS1503 said so, and a compile error is not a Red — it proves nothing about behaviour, which is exactly the
-        // distinction -047's commit message drew when it made its stub throw instead of leaving the type unknown).
+        // The property -048 actually buys: raising the configured cost does not invalidate a single stored hash, because
+        // verification derives from the *declared* count. That is also why the probe in the test above returned Success
+        // rather than the rehash signal I expected.
         var cheap = new PasswordHasher<AppUser>(
             Options.Create(new PasswordHasherOptions { IterationCount = 1_000 }));
         var cheapHash = cheap.HashPassword(new AppUser(), Password);
 
         Assert.True(Service.Verify(cheapHash, Password));
 
-        // And the wrong password is still wrong at a mismatched cost: the rehash path must not become a back door where
-        // "needs rehash" is answered before the subkey is compared.
+        // And a mismatched cost is not a back door: "older envelope" must not be answered before the subkey is compared.
         Assert.False(Service.Verify(cheapHash, "not the password"));
     }
 }
