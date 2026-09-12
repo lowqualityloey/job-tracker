@@ -805,6 +805,47 @@ configuration**, and states which literal it used; a delta quoted without its UR
   **Next:** `-062` (an `EventSource` failure probes the session once rather than retrying forever), which the ninth variant
   finally makes expressible.
 
+**`TDD-EXEC-m4-authentication-062`** · `BEHAVIOR-062` (verifies no AC) · Red `d762473` → Green `4aebfbd` · p1 · **Slice 4** (seam Unit FE)
+- **Red:** `npx vitest run src/data/streamSessionProbe.test.tsx` → **`Failed 5, Tests 5 failed | 2 passed (7)`** — the five
+  new-behaviour cases, and two that already pass because they assert M3 behaviour (a change event reloads; unmount closes the
+  stream). Those two stay: `-062` edits exactly those functions, so the regression is the likely casualty.
+  **Green:** focused **7/7**; **`npm run verify` exit 0** — **221 FE tests / 23 files**; API **`Failed: 0, Passed: 144, Skipped: 0`**, 0 warnings.
+- **The loop:** `EventSource` retries forever and fires `error` on every attempt. Pre-M4 a stream that wouldn't open was an
+  optimisation lost; post-M4 a **401 is a permanently failing connection** — one `GET /api/applications/events` per backoff
+  tick per tab, while the UI shows rows from a dead session under a spinner that never resolves.
+- **This narrowed an M3 decision, and the decision was right.** `subscribe`'s own comment refuses to re-read on `error`
+  because *"one outage turns into a request per retry tick per tab"* — sound, and it predates auth. So the bound moved from
+  **zero reports per subscription to one**, counted **in the adapter** (where the ticks land), and the provider acts only on
+  the verdict. `-040`'s unbounded-probing concern survives intact.
+- **`probeSession` deliberately bypasses `applyListResult`.** Only `unauthorized` is a verdict; `unavailable` or
+  `storage-error` from a probe must not blank a board of readable rows or close a stream that was never the problem. Without
+  that separation, "stop the retry loop" is one `if` away from "any network hiccup breaks the app" — and a suite that asserted
+  only the 401 path would have allowed it silently. Two counterfactual cases hold the line.
+- **Why the handle moved to a ref:** `sessionEnded` now closes the stream. Before `-061` that was unreachable; after it,
+  nothing unmounts on a redirect — `ApplicationsProvider` sits above the router on purpose — so spec B-1's unmount-only
+  teardown could not end the loop.
+- **The callback widening is additive by construction:** `subscribe(onExternalChange: (reason?: 'change' | 'error') => void)`
+  — a function taking fewer parameters is assignable to one taking more, so the localStorage adapter and every in-memory test
+  repository remain valid untouched.
+- **Three existing assertions rewritten with provenance, not loosened** (`eventStream.test.tsx`): `error` was removed from
+  *"ignores events the stream was not asked about"* (it is now asked about; the case keeps its title's truth),
+  *"does not re-read when a connection drops, only when it comes back"* became *"reports a dropped connection once, then
+  re-reads"* with `-040`'s reasoning quoted in place, and the interleaving total moved **3 → 4** with its arithmetic spelled out.
+- **Mutation-proved:** deleting the adapter's `if (errorReported) return` makes the boundary case report **2 where it expects
+  1** and the probe case **6 reads where it expects 2** — `expected 6 to be 2` is the stampede `-040` was written to prevent.
+- **Three findings, all mine, all disclosed at the time:** (1) the file's first Red failed **all seven** cases because my
+  `beforeEach` stubbed `EventSource` and never installed the fetch mock, so every case hit Node's real fetch
+  (`storage-error`, `TypeError: fetch failed`) — one throwaway diagnostic case printing `same-as-mock=false` ended two rounds
+  of reasoning about wire shapes; **a stub that is never installed looks like a fixture and behaves like the network**.
+  (2) the mutation probe cost real work: `git checkout -- <file>` reverted my **uncommitted** adapter edit along with the
+  mutation — the same trap family I warned about in the previous round's practice task, sprung on me one round later; caught by
+  the confirmation grep returning 0, re-applied and re-verified. Habit to keep: snapshot to `/tmp` and restore from that, or
+  mutate only after committing. (3) the gate caught `.at(-1)` (TS2550: the app targets **ES2020**; "the runtime has it" is not
+  the contract) and an unused prop under `--max-warnings 0`.
+- **Verifies no AC** → count stays **11 verified + 6 open = 17** (asserted). STATE moves to 17 behaviours executed.
+  **Next:** `-063` (a cross-site write without `X-CSRF-Token` is rejected, and the same write *with* it succeeds — AC-11), which
+  needs the browser harness and is therefore gated on the Q4 harness-origin question.
+
 ---
 
 `Pending` for Slices 1 (rest)–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had
