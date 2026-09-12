@@ -67,6 +67,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   `-026`…`-046`, **14/14 ACs verified**, gap 10 closed, **§2.8's six targets now all measured** — and the grill pass §7
   demanded, which the first pass had skipped, **found a live 500 (gap 12)**.
 - **In flight**: **PR #32** `docs/m3-gap11-and-grill` — grill §5 (Q13–Q16), the bundle baseline, gap 12, §7's grilling box
+- **M4 spec proposed and in review**: [`docs/specs/2026-09-12-spec-m4-authentication.md`](specs/2026-09-12-spec-m4-authentication.md) — **Level 2, `pk:plan` Full depth, no task record yet** (that is `pk:tasks`'s job after approval). Its load-bearing constraint is not taste but an API fact: **`EventSource` has no way to send an `Authorization` header**, so M3's own SSE design dictates that M4's credential is a cookie (`DECISION-001`), which in turn forces CSRF work (`006`). **M3's task record still holds the Active Task Pointer**: §7's five boxes are unsigned and the milestone flip is the owner's, so nothing here moves it.
   closed on evidence.
 - **Merged**: **#31** `4edd222` (the gap 10b **retraction**) · **#30** `f3c5993` · **#29** `e75962f` (**approved on my
   misstatement; #31 corrected it**) · **#28** `438df82` · **#27** `9340996` · **#26** `a01d8a7` · **#25** `2c0e327` ·
