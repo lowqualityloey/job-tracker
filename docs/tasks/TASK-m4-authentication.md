@@ -1386,7 +1386,7 @@ adding `-076`, because the gate this row establishes is **not wired into CI** �
 **Coupling:** none in code. The only file outside `tests/build/` this row touches is the register (`-076`).
 
 **Next:** the ladder has no unexecuted behaviour rows left. What remains is the four practice tasks carried from
-`-066`…`-069` (`grep -c 'AGENTS.md step 9' docs/tasks/TASK-m4-authentication.md` → **4**, each under its own record:
+`-066`…`-069` (`grep -c '^- \*\*Practice task' docs/tasks/TASK-m4-authentication.md` → **4**, each under its own record:
 `SessionPolicy` constants, empty-vs-absent `AllowedOrigins`, the linear-scan fan-out, the handler's untested
 declinations), the two rows `-063` produced (`-074` key ring, `-075` harness recipe), and `-076`. AC-3 is the only
 open acceptance criterion left, and it is gated on an owner decision, not on work.
