@@ -106,7 +106,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · `SELECT count(*) FROM applications WHERE owner_id IS NULL` → **0**, *then* `SET NOT NULL`; both migrations applied to
   a **non-empty** database in the test path, not just an empty one (M3's risk table flagged this).
 
-- [ ] **AC-10** — **The owner index is used.** `EXPLAIN` on the scoped list query asserts an index scan, not a seq scan.
+- [x] **AC-10** — **The owner index is used.**  *(verified 2026-09-12 by `-059`: baseline measured first on a disposable container; the plan is a **Bitmap Heap Scan** through `applications_owner_id_idx`, not an Index Scan; the same query without the index falls back to a Seq Scan; and `idx_scan` moves on a real authenticated request. 7.8× at 100k/500 owners, 15% at 100k/2 — the index pays for accounts, not rows)* `EXPLAIN` on the scoped list query asserts an index scan, not a seq scan.
   · *At 36 rows a full scan is free; at 100 k it is the incident.* This is the target most likely to be "verified" by
   reading the SQL and nodding.
 
@@ -674,6 +674,56 @@ configuration**, and states which literal it used; a delta quoted without its UR
   read green while lying about what "under auth" meant.
 - **Suite:** focused **4/4**, full **`Failed: 0, Passed: 137, Skipped: 0`**, 0 warnings. AC-13 checked →
   **10 verified + 7 open = 17**, asserted.
+
+**`TDD-EXEC-m4-authentication-059`** · `BEHAVIOR-059` (+ AC-10) · `acf34a5` · p1 · **Slice 3** (seam **DB**, no product change)
+- **AC-10 predicted this row's failure mode and I hit both variants of it.** The AC says this is *"the target most likely to be
+  'verified' by reading the SQL and nodding"*. Reading the SQL would also have produced the **wrong** assertion: AC-10's wording
+  is "asserts an index scan", and the plan is a **Bitmap Heap Scan** — the predicate matches dozens of rows across many pages
+  and the select list needs every column, so Postgres prefers a bitmap. `Assert.Equal("Index Scan", node)` would have reported
+  the index as unused *while it was being used*. The assertion is on a node whose `Index Name` is ours, which covers both shapes.
+- **Baseline measured before any assertion existed** (pk:perf order), on a disposable `postgres:18.6` container — created via
+  `dotnet run`-free `dotnet ef database update`, seeded with `generate_series`, and `docker rm`'d afterwards; the dev database
+  was never touched:
+
+  | rows | owners | matched | WITH index | WITHOUT index |
+  | ---: | ---: | ---: | :--- | :--- |
+  | 1,000 | 2 | 500 | Seq Scan · 0.17 ms | Seq Scan · 0.17 ms |
+  | 20,000 | 2 | 10,000 | Bitmap Heap Scan · 2.25 ms | Seq Scan · 3.18 ms |
+  | 100,000 | 2 | 50,000 | Bitmap Heap Scan · 11.69 ms | Seq Scan · 13.77 ms |
+  | **100,000** | **500** | 200 | **Bitmap Heap Scan · 1.48 ms** | **Seq Scan · 11.61 ms** |
+  | 20,000 | 500 | 40 | Bitmap Heap Scan · 0.41 ms | Seq Scan · 2.04 ms |
+
+  **The index earns its keep on account count, not row count** — 15 % at two owners, **7.8×** at five hundred. `-059`'s row
+  reads "at 100 k it is the incident"; the accurate statement is "at 100 k *and* a real user population", which is exactly what
+  M4 introduces. And at low counts the planner is *right* to ignore the index, so "whatever the fixture happens to have" would
+  not have weakened the file — it would have asserted a false premise. Hence an explicit 20,000 / 500 seed.
+- **No Red available, so mutation again** (`-058`'s pattern). **Valid probe:** owners 500 → 2 at 20,000 rows → **all four tests
+  failed** (index node gone; counter stayed 0 for the whole two-second window; scoped cost stopped beating whole-table cost) —
+  finding above reproduced inside the suite. **Invalid probe, reported as invalid:** rows 20,000 → 36 → **all four passed**,
+  because the filler insert (ten rows for every ownerless user) became most of the dataset, so "36 rows" was really ≈4,700.
+  It proved nothing about the seed being load-bearing; the premise it reached for is carried by the baseline table instead,
+  where the count genuinely was 1,000. **A probe that agrees with you is not evidence.**
+- **The restore itself was a lesson:** `git checkout -- <file>` cannot restore an **untracked** file, so the mutation sat in the
+  tree (`SeededRows = 36`) until a later grep caught it, and one in-between "4/4 green" run had been measuring the filler
+  dataset. The constants are now restored, asserted in the final run (141/141), and the file says so at the line.
+- **Three framework lessons, each earned by a failure rather than by documentation:**
+  * EF 10's `ToQueryString()` is a *debug rendering*, not the wire text — it emits `-- @owner='guid'` as a leading comment and
+    leaves `@owner` live in the statement, so `EXPLAIN` died with `42703: column "owner" does not exist`. Comment lines are
+    stripped and the placeholder bound as a real parameter, which incidentally makes the test closer to the endpoint: a
+    parameterised query planned against a parameter value.
+  * `EXPLAIN (ANALYZE)` can report `Actual Rows` as a **fractional** number (`40.5`) when parallel workers split the count;
+    `JsonElement.GetInt64()` throws `FormatException`. Read it as a double.
+  * `idx_scan` is delivered to the cumulative statistics system **asynchronously**, so reading it the moment the response lands
+    asserts on a race — the guard passed alone and failed in the full suite. It now polls for two seconds and fails at the
+    deadline with the numbers in the message. Same family as `-049`: the scheduler and the stats collector are not the product.
+- **Guards:** plan shape (index node present, no `Seq Scan`); counterfactual with the index dropped and restored in a `finally`;
+  `pg_stat_user_indexes.idx_scan` incremented by a **real authenticated request through the endpoint** (so the claim is about
+  the app, not about this file's SQL); and scoped-vs-whole-table cost so a regression that drops the predicate can't hide
+  behind a still-indexed reconstruction.
+- **Suite:** focused **4/4**; full **`Failed: 0, Passed: 141, Skipped: 0`**, 44 s, 0 warnings; two additional full runs green
+  before the mutation cleanup. **AC-10 checked → 11 verified + 6 open = 17**, asserted.
+- **Limits stated, not implied:** this file cannot see the *handler's* predicate (that is `-056`'s behaviour and its tests), and
+  it does not defend against assertion weakening inside M3's suite (`-058`'s known limit).
 
 ---
 
