@@ -89,21 +89,38 @@ public static class SessionGate
             if (!string.IsNullOrWhiteSpace(token) && Guid.TryParse(token, out var sessionId))
             {
                 var db = http.RequestServices.GetRequiredService<JobTrackerDb>();
-                // UtcNow rather than TimeProvider: -066 is the behaviour that needs an injectable clock, and it is the
-                // one that will decide whether this seam is acceptable in production. Standing up a seam a third of
-                // the way down the ladder and leaving one caller unswept is the half-done version of the same idea.
-                var now = DateTime.UtcNow;
+                // BEHAVIOR-066 pays the seam this line deferred since -055: the gate reads the injected clock, so expiry is
+                // testable by moving one object instead of sleeping thirty-one minutes or setting the machine's time -- the
+                // first is slow and flaky on a shared container, the second leaks into every other test in the collection.
+                // Spec 3.2 named the alternative honestly: without this, expiry is a column nobody reads.
+                var time = http.RequestServices.GetRequiredService<TimeProvider>();
+                var now = time.GetUtcNow().UtcDateTime;
+                // The hard cap, expressed as a floor on created_at so the predicate stays a plain column comparison a plan
+                // can satisfy with an index instead of a per-row interval addition.
+                var capFloor = now - SessionPolicy.HardCap;
                 // BEHAVIOR-056: the gate used to answer "is this a session?" and throw the verdict away. Now it answers
                 // "whose session is this?", because every data query needs the owner id and a handler that re-reads the
                 // cookie would be a second trust decision to keep in sync with this one. One lookup, one verdict, published.
-                var owner = await db.Sessions
-                    .Where(s => s.Id == sessionId && s.RevokedAt == null && s.ExpiresAt > now)
-                    .Select(s => (Guid?)s.UserId)
+                var live = await db.Sessions
+                    .Where(s => s.Id == sessionId && s.RevokedAt == null && s.ExpiresAt > now && s.CreatedAt > capFloor)
+                    .Select(s => new { s.UserId, s.ExpiresAt })
                     .FirstOrDefaultAsync(http.RequestAborted);
 
-                if (owner is not null)
+                if (live is not null)
                 {
-                    http.Items[UserIdItemKey] = owner.Value;
+                    http.Items[UserIdItemKey] = live.UserId;
+
+                    // Sliding, in the only form worth paying for: one statement, and only when less than half the window is
+                    // left. Reading `expires_at` here and writing it below is not a race that matters -- the worst case is that
+                    // a concurrent request slides the same window twice to a value still half a window ahead.
+                    if (live.ExpiresAt - now < SessionPolicy.SlideThreshold)
+                    {
+                        await db.Sessions
+                            .Where(s => s.Id == sessionId)
+                            .ExecuteUpdateAsync(set => set.SetProperty(s => s.ExpiresAt,
+                                now + SessionPolicy.IdleWindow), http.RequestAborted);
+                    }
+
                     await next();
                     return;
                 }

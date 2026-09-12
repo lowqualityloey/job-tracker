@@ -136,7 +136,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
 
 - [ ] **AC-16** — **Credentialed CORS is explicit, not incidental.** Preflight echoes `Access-Control-Allow-Credentials: true` with the **exact** origin and never `*`.
   · *Why it exists:* `Program.cs:38` promised that adding credentials later would "break quietly rather than loudly," and it was right — browsers reject the wildcard+credentials pair and ASP.NET will not stop you configuring it. Grill **Q3**.
-- [ ] **AC-17** — **Sessions expire, and expired rows are pruned.** An idle window **and** a hard cap both end a session; expired/revoked rows are removed opportunistically at login.
+- [x] **AC-17** — **Sessions expire, and expired rows are pruned.** An idle window **and** a hard cap both end a session; expired/revoked rows are removed opportunistically at login. *(verified by `-066`, 2026-09-12 — `SessionExpiryTests`, 7 cases, no sleeps: the window slides on use and dies on silence; the cap ends a session that kept being used; login prunes expired and past-retention revoked rows and cannot touch a live one)*
   · *Precondition (test plan §3.2):* needs an injected `TimeProvider`; otherwise `-066` can only be tested by sleeping or mutating the system clock across a shared fixture. The clock seam is therefore decided at Slice 2's start, and if refused the behaviour degrades to "a column nobody reads" — stated rather than papered over. Grill **Q5/Q6**.
 
 ## 4. Invariants
@@ -845,6 +845,68 @@ configuration**, and states which literal it used; a delta quoted without its UR
 - **Verifies no AC** → count stays **11 verified + 6 open = 17** (asserted). STATE moves to 17 behaviours executed.
   **Next:** `-063` (a cross-site write without `X-CSRF-Token` is rejected, and the same write *with* it succeeds — AC-11), which
   needs the browser harness and is therefore gated on the Q4 harness-origin question.
+
+**`TDD-EXEC-m4-authentication-066`** · `BEHAVIOR-066` (+ **AC-17**) · Red `1028bf6` → Green `a1f82f6` · p0 · seams Integration + DB
+- **Red:** `dotnet test --filter ~SessionExpiryTests` → **`Failed: 5, Passed: 1, Skipped: 0`**, five distinct missing
+  behaviours (no slide, no cap, no idle enforcement, no prune, no retention) and one **control that passes today**:
+  `Pruning_never_touches_a_live_session`. The control is reported as pre-existing rather than as a Red — nothing prunes
+  anything yet, so of course a live row survives; it is in the file because it is the assertion that stays interesting
+  *after* the prune exists.
+  **Green:** focused **7/7**; full API **`Failed: 0, Passed: 151, Skipped: 0`, 38 s, 0 errors, 0 warnings**. No FE file
+  changed, so `npm run verify` was not re-run; its last measurement is `-062`'s (221 tests / 23 files, exit 0).
+- **The seam was promised in the product's own comment.** `SessionGate` said "UtcNow rather than TimeProvider: -066 is the
+  behaviour that needs it" since `-055`, and spec §3.2 named the cost of refusing: *"expiry is a column nobody reads."*
+  Without an injectable clock the only honest options were sleeping 31 minutes (slow, flaky on a container the whole suite
+  shares) or setting the system clock (leaks into every other test in the `postgres` collection). Neither was chosen; the
+  clock became a dependency, registered explicitly in `Program.cs` so that "who may read the time" has a visible production
+  answer and a test answer.
+- **Two lifetimes, asserted separately, because they answer different attacks.** The **idle window** (30 min, inherited from
+  the const `AuthCatalog` called "provisional") answers a laptop asleep on a train and *must* slide with activity. The **hard
+  cap** (12 h) answers a copied cookie and *must not*. A suite with only idle-window cases passes unchanged while no cap
+  exists — sliding is indistinguishable from immortality until you keep using a session for 33 hours — which is why the cap
+  test loops 200 advances and asserts only a *range* (`8 h … 2 d`) for where it dies: the test proves a cap exists without
+  freezing the number.
+- **`SessionPolicy` exists because two files had to agree by accident.** `AuthCatalog` minted `expires_at = UtcNow + 30min`
+  and `SessionGate` read the column without knowing where the window came from. Drift between them is a session that never
+  expires, or one that dies on the request after it is minted, and nothing in the type system can see it.
+- **The slide is bounded by a threshold (15 min), not by taste.** Without it every authenticated request writes to
+  `sessions` — a read-heavy board becomes a write-amplification machine, against the whole argument `-059` made for the
+  owner index. `A_use_early_in_the_window_does_not_move_the_expiry_and_a_use_late_does` asserts the boundary from both sides
+  on a session nowhere near expiring, so a 401 cannot be hiding it.
+- **⚠️ MUTATION EVIDENCE THAT ARRIVED BY BEING WRONG FIRST (the prune ate the audit trail).** The first predicate was
+  `expires_at < now || created_at < cap || revoked_at < retention`. A revoked session stops sliding the instant it is
+  revoked, so by the time retention matters it is *always* expired too — the first arm deleted every revoked row at the next
+  login and `RevokedRetention` was decoration. Caught by the case named for the property it broke: *"a revoked session was
+  pruned inside its retention window: -052's audit question just became unanswerable."* Revocation now takes precedence over
+  expiry inside the predicate. This is the retention window's counterfactual, produced honestly rather than staged.
+- **⚠️ A TEST THAT PERFORMED THE THING IT WAS EXCLUDING.** The idle case read the API at 29 min, asserted 200, advanced 2
+  more, and expected 401. The product answered 200 and **was right**: one minute of a 30-minute window is inside the slide
+  threshold, so the read slid the window. Silence is the only stimulus that tests an idle expiry. The case now advances
+  31 min with no reads at all, and the boundary moved to its own test — the suite went 6 → 7 during Green, disclosed rather
+  than buried in the diffstat. Root cause is this repo's standing one: writing from intent instead of measurement.
+- **Three false alarms before the Red was a Red**, each named because the same mistake is cheap to repeat: the class shipped
+  without `[Collection(PostgresCollection.Name)]`, so all six failures were xUnit refusing to bind the fixture;
+  `count(*)::int` returns `Int32`, so `QueryAsync<long>` threw `InvalidCastException` in four of six cases; and the fake
+  clock's first draft started at a tidy date, which would have made the cap test "fail" because PostgreSQL — not the app —
+  fills `created_at` (`HasDefaultValueSql`), putting the session's birth months in the future. Anchoring the fake clock at
+  real `UtcNow` forecloses that whole class.
+- **⚠️ DEVIATION FROM SPEC §3.2, flagged for review rather than silently taken.** §3.2 describes sessions storing
+  "`expires_at`/`last_seen` computed from an injected `TimeProvider`". This row injects the `TimeProvider` and slides
+  `expires_at`, but adds **no `last_seen` column** — so no migration. Reasons, in short: expiry stays one predicate on one
+  column that the gate, the prune, and `pg_stat` all agree about; `last_seen` would be a second source of truth for the same
+  fact and would cost the *same* write per use, buying ops visibility rather than correctness. The cap is derived from
+  `created_at`, which already exists and is immovable — the property a cap needs. If the owner wants last-activity for its
+  own sake, it is an expand-only migration and `-066`'s tests keep passing unchanged.
+- **Practice task taken up next (AGENTS.md step 9):** the four `SessionPolicy` constants are still constants.
+  `AuthCatalog`'s deleted comment asked for "a configuration value with asserted boundaries"; this row moved the number into
+  one file but did not make it configurable. Small increment: read idle window / hard cap from configuration with defaults,
+  assert one boundary per value through the existing `SessionExpiryTests` harness (`UseSetting` on a factory, no new
+  seams), and name which of the two the owner would actually want to change per deployment.
+
+**Next:** `-067` (`pk:auth` — credentialed CORS: the API accepts an `Origin` only from the configured client and reflects
+`Access-Control-Allow-Credentials`; AC-16, decision-free server-side), unless the Q4 harness-origin answer lands first, which
+unblocks `-063`/`-064`/`-065`.
+
 
 ---
 

@@ -25,17 +25,13 @@ public static class AuthCatalog
     /// </summary>
     public const string SessionCookieName = "__Host-JTSession";
 
-    /// <summary>
-    /// Provisional idle window. <c>BEHAVIOR-055</c>/<c>-056</c> own expiry and are the behaviours that make this a
-    /// configuration value with asserted boundaries; hard-coding it here is the smallest thing that satisfies the one
-    /// demand made so far — that <c>expires_at</c> is written rather than left null.
-    /// </summary>
-    private static readonly TimeSpan IdleWindow = TimeSpan.FromMinutes(30);
+    // The window moved to SessionPolicy in BEHAVIOR-066: minting a session and deciding whether it is alive are two reads
+    // of the same number, and while they lived in different files they could drift with nothing observable breaking.
 
     public static IEndpointRouteBuilder MapAuthCatalog(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/auth/login", async (
-            LoginRequest? request, JobTrackerDb db, IPasswordService passwords, HttpContext http) =>
+            LoginRequest? request, JobTrackerDb db, IPasswordService passwords, HttpContext http, TimeProvider time) =>
         {
             var errors = new List<FieldError>();
             if (request is null || string.IsNullOrWhiteSpace(request.Email))
@@ -97,14 +93,33 @@ public static class AuthCatalog
                     .ExecuteUpdateAsync(set => set.SetProperty(s => s.RevokedAt, DateTime.UtcNow));
             }
 
+            var now = time.GetUtcNow().UtcDateTime;
             var session = new Session
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
-                ExpiresAt = DateTime.UtcNow.Add(IdleWindow)
+                ExpiresAt = now.Add(SessionPolicy.IdleWindow)
             };
             db.Sessions.Add(session);
             await db.SaveChangesAsync();
+
+            // BEHAVIOR-066 / AC-17 -- the prune, opportunistic at login exactly as the AC words it. Three classes of dead
+            // row go: expired, past the hard cap (so a session that was never used again still leaves), and revoked past its
+            // retention. A live row cannot match any arm -- expires_at is in the future, created_at is inside the cap, and a
+            // live row has no revoked_at -- which is what SessionExpiryTests.Pruning_never_touches_a_live_session holds shut.
+            //
+            // Why here and not a hosted service: this path already writes, already authenticates, and already runs the
+            // rotation sweep below it. A timer would add a background failure mode that no test in the ladder can reach
+            // without waiting for it, and login is frequent enough that the table stays bounded in practice.
+            await db.Sessions
+                // The arms are ordered by what a row IS, not by what deletes it fastest. Revocation takes precedence over
+                // expiry for one reason: a logged-out row is almost always expired too (revoked sessions stop sliding), so an
+                // unconditional `expires_at < now` arm deletes every revoked row at the next login and the retention window
+                // below becomes decoration. That is exactly what this predicate did on its first run, caught by the case
+                // named for the property it broke.
+                .Where(s => (s.RevokedAt == null && (s.ExpiresAt < now || s.CreatedAt < now - SessionPolicy.HardCap))
+                            || (s.RevokedAt != null && s.RevokedAt < now - SessionPolicy.RevokedRetention))
+                .ExecuteDeleteAsync(http.RequestAborted);
 
             http.Response.Headers.Append("Set-Cookie",
                 $"{SessionCookieName}={session.Id}; Secure; HttpOnly; SameSite=Lax; Path=/");
