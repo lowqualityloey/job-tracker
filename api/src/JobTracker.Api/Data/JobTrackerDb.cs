@@ -33,6 +33,13 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
     public DbSet<Session> Sessions => Set<Session>();
 
     /// <summary>
+    /// The data-protection key ring, so a token survives the process that minted it (<c>-074</c>, read by
+    /// <c>PostgresKeyRing</c>). It is a table rather than a file because the sessions it protects are already rows:
+    /// the two have to agree about which instance is talking, and one of them already lives in shared storage.
+    /// </summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
+    /// <summary>
     /// Naming is explicit, and it earned its keep: EF's default is the CLR name verbatim, so the first real
     /// migration this context produced was `CREATE TABLE "Applications" ("Id" uuid)`. The approved DDL
     /// (spec §4.1) says `applications` / `company_name`, and quoted mixed-case identifiers would make every
@@ -141,6 +148,20 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
             // Reads by expiry are the shape of the prune -056's login-time cleanup needs, and of every "is this dead"
             // check; index the column the queries range on, not the one they filter by equality after.
             entity.HasIndex(e => e.ExpiresAt, "sessions_expires_at_idx");
+        });
+
+        modelBuilder.Entity<DataProtectionKey>(entity =>
+        {
+            entity.ToTable("data_protection_keys");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.FriendlyName).HasColumnName("friendly_name");
+            entity.Property(e => e.XmlData).HasColumnName("xml_data");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            // No index, and no unique constraint on friendly_name. Reads are "every row, in the order they were
+            // written" against a table that grows by roughly one row per key lifetime (90 days by default), so an index
+            // would be decoration. Uniqueness is declined for the reason in `DataProtectionKey`: two instances minting
+            // the same first key on a cold database should produce a redundant row, not a startup failure.
         });
     }
 }

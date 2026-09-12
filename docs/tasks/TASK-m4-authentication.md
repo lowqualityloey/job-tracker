@@ -1391,6 +1391,96 @@ adding `-076`, because the gate this row establishes is **not wired into CI** �
 declinations), the two rows `-063` produced (`-074` key ring, `-075` harness recipe), and `-076`. AC-3 is the only
 open acceptance criterion left, and it is gated on an owner decision, not on work.
 
+---
+
+**`TDD-EXEC-m4-authentication-074`** · **no `BEHAVIOR-*` of its own** (a `◆` row this milestone produced about itself) · Integration seam · p1 · delivered 2026-09-13
+
+**Red** `6300821` (**1 failed / 2 passed**) → **Green** `06535c0` (**3/3**; full API **189/189** = 186 + 3, 0 warnings, exit
+0) → this record. **Verifies no AC**: the ledger stays **16 + 1**, and AC-3 remains the only open criterion. Closes the row
+`-063` created.
+
+**What was actually wrong.** `-063` protected the session id with the data-protection stack, and its own code comment said
+the ring was shared "for free" on deployed instances. It is not — `AddDataProtection()` hands every process an ephemeral
+ring. That got filed as a deployment worry, which made it sound hypothetical. Measuring it removed the framing: one
+process, one scratch database (`jobtracker_p074`, created empty, dropped after) — retained as
+`tests/build/restartKeyRingProbe.sh`, because a record citing restart numbers that nobody can re-produce is how this
+repository acquired its "two orphaned measurements" ledger entry in M3. It cannot become a CI job: a test hosting the app
+in-process has no way to arrange dying and coming back, which is why the two-host equivalence lives in
+`KeyRingPersistenceTests` instead. Its header carries what it printed on both sides of the fix, and it requires the two
+dev credentials as environment variables rather than literals — AC-15 counts credential strings in source.
+
+    login, write with the issued token                       -> 201
+    restart the process against the same database
+      GET  /api/applications with the pre-restart cookie     -> 200   session survives, it is a row
+      POST /api/applications with the pre-restart token      -> 403   the key does not, it was memory
+      control: fresh login then write on the new process     -> 201   the new process is healthy
+
+    rows in data_protection_keys, before the fix / after     ->  n/a / 1
+
+**Every deploy invalidated every outstanding antiforgery token while leaving its user looking signed in.** The client maps
+`antiforgery` to `unauthorized`, so what a person experiences is a bounce to `/login`, an unsaved form, and no
+explanation — with no second instance, no load balancer, and no deployment document involved. The row count is what makes
+the mechanism convincing rather than the test passing: **one row across a restart means the second process read the key**;
+two would have meant it minted its own, and the test would have gone green for a reason unrelated to persistence.
+
+**Fix, four pieces.** `DataProtectionKey` (`data_protection_keys`: `id`, `friendly_name`, `xml_data`, `created_at`),
+`PostgresKeyRing : IXmlRepository` over the context the app already owns, `PostgresKeyRingConfiguration` pointing
+`KeyManagementOptions.XmlRepository` at it, and migration `AddDataProtectionKeyRing` (reversible; `Down` drops the table).
+Sessions and keys now share one store — the whole design in a sentence: **they have to agree about which instance is
+talking, and one of them was already a row.**
+
+**Three lessons, each written where the next person will hit it:**
+
+  · **Registering `IXmlRepository` in the container does nothing.** It compiles, boots clean, and the ring stays
+    ephemeral: the key manager reads `KeyManagementOptions.XmlRepository`, whose default is an internal ephemeral store,
+    and never resolves the service. The symptom was this row's own Red **staying red after the fix went in** — which is
+    the only way anyone would ever learn it, because a silently-uneffective fix is indistinguishable from the bug. Nothing
+    warns. Nothing logs. (`PostgresKeyRingConfiguration` carries this as its reason for existing.)
+  · **No `PersistKeysTo*` extension exists in the shared framework to imitate.** Reflection over
+    `Microsoft.AspNetCore.DataProtection.dll`: its public surface is the two `AddDataProtection` overloads. The
+    persistence family is separate packages — which is the dependency question below, not an oversight.
+  · **`IXmlRepository.StoreElement`, not `AddElement`.** Named from memory in the first draft; the compiler spent one line
+    correcting me, which is cheap.
+
+**The dependency decision, and why it was not taken silently.**
+`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` does all of this, with revocation and expiry handling, in zero
+lines of my code. **AC-15's ratified evidence counts the API's `PackageReference` entries as runtime dependencies**
+("npm deps still 3, API `PackageReference`s still 5"), so adding it moves the number a *verified* acceptance criterion
+reports — an owner-visible edit to a checked box, not a row's to take. So this row hand-rolls ~60 lines of storage and
+names what it gives up: **no revocation** (`IDeletableXmlRepository` is public and would allow it), so expired keys
+accumulate instead of being deleted. Growth is one row per key lifetime (90 days by default) — nothing at this scale — and
+expiry itself is unaffected, because the framework reads activation and expiration from the key XML rather than from any
+column here. **The package is still the better answer if the owner prefers it, and this is the cheap place to make that
+swap.** Also measured while checking AC-15's arithmetic: the API project carries **4** `PackageReference`s and the test
+project **6**, neither of which is the "5" AC-15 records — the figure is a report, not a re-derivable claim, and
+re-deriving it is now part of what `-076` should cover.
+
+**A near-miss about the diff, disclosed because it nearly shipped.** While adding three `using` lines, a scripted edit
+rewrote `Program.cs` from **274 lines to 78**, deleting the middleware pipeline, both gates and every endpoint mapping —
+**and it built successfully**, because a web application that serves nothing is still valid C#. It surfaced as
+`The entry point exited without ever building an IHost` in a test that had been reporting a meaningful 403 two minutes
+earlier, and the near-miss was reaching to diagnose the framework *again* instead of looking at the file just rewritten.
+Restored with `git checkout`; re-applied with literal anchors; verified by line count (274 → 287 → 290, every delta
+accounted for) and by 189/189 rather than by a green build. **A green build is evidence about compilation, not about
+whether a file is intact** — the third time today that a scripted edit wrote back less than it read.
+
+**Coupling discharged.** `Antiforgery`'s class comment asserted *"a session may only be written to by the instance that
+issued it"* and framed the fault as something "single-instance dev cannot see". Both are annotated in place now: the
+paragraph was **wrong four times** — the visibility claim, the citation to a nonexistent `docs/aws-deployment.md`, the
+`PersistKeysTo*` API that is not in the framework, and an ID series (`TDD-PRACTICE-m4-authentication-074`) that has never
+existed in this repository — **the check is anchored at a revision, not at the working tree:**
+`git grep -c TDD-PRACTICE origin/main -- docs` → **no files**. The naive form, `grep -rn "TDD-PRACTICE" docs/`, now returns
+**2** hits, both inside the sentences written to report its absence — which is the `-070` entry's own failure mode
+reproduced within the same afternoon as it was recorded. **A check whose result changes when you write about it was never
+a check**, and a claim about an absence has to name a revision or it rots the moment it is corrected. The original sentences are kept, not deleted, with
+the correction appended beneath them.
+
+**Next:** `-075` and `-076`, both `◆` rows about this repository's own tooling — or AC-3, which is an owner decision rather
+than work. `docs/STATE.md` §3A is deliberately **not** touched by this record: **PR #66 still owns that file**, and
+editing a projection while two PRs deep it is exactly how it drifts. The §3A lines that will need updating when #66 lands
+are listed in the PR body rather than left to memory: next action (`-074` → delivered), ladder status (27 rows, three `◆`
+findings left), EXEC count (24 → 25), and D-3's phantom citation.
+
 ### §6a. Durable checkpoint and handoff records (Level 2 gate)
 
 | Sequence | File | Trigger | State |

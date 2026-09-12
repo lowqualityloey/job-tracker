@@ -179,6 +179,16 @@ antiforgery token (HMAC over the session id, delivered at login, echoed in `X-CS
 >     does). The cost is on the record: a user mid-edit bounces to `/login` and loses the draft, and the two events
 >     are distinguishable only in logs and devtools. A tenth `RepositoryError` was the alternative, and DECISION-005
 >     is the precedent that a new variant has to earn its place.
+>
+> **Second note, 2026-09-13 (`-074`).** The bullet above said the ephemeral ring was a deployment consequence and filed it
+> as a row. The row has run, and what it measured was **not** a deployment question. Single instance, one database, the
+> note's own numbers: log in and write (`201`), **restart the process**, replay the same token — `403 antiforgery` — while
+> the session behind it still answers `200`, because the session is a row and the key was memory. Every deploy therefore
+> invalidated every outstanding token while leaving its user looking signed in, with no second instance and no load
+> balancer involved. The ring now lives in Postgres (`data_protection_keys`, read by `PostgresKeyRing`), the same shared
+> storage the sessions already use. It is hand-rolled rather than the shipped EF Core repository, for a reason recorded
+> with its cost in the task record: AC-15 counts API packages as runtime dependencies, so adding one is an owner-visible
+> change and not a row's to take. What that gives up is revocation, and `PostgresKeyRing` says so.
 
 ---
 
@@ -475,6 +485,15 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
 > Development-only is part of the behaviour, not packaging: `docs/aws-deployment.md` puts front end and API on **different
 > origins**, which is what makes AC-16's credentialed CORS load-bearing, so a production bundle on the API's own origin would
 > be a second app silently outside the boundary everyone believes in.
+>
+> **Citation correction, appended 2026-09-13, because the sentence above attributes its premise to a document that has
+> never existed in this repository.** `git log --all --diff-filter=A -- docs/aws-deployment.md` returns **nothing**; no
+> file in `docs/` mentions ECS, Fargate, Beanstalk or App Runner; `README.md`'s entire AWS plan is the six words
+> *"Deploy the app to AWS."* So **the reasoning stands and the source does not**: two origins is a plausible deployment,
+> it is not a documented one, and nothing here was read from a plan. That distinction is what makes AC-16 load-bearing on
+> *assumption* rather than on *architecture*, and it is why DECISION-m4-auth-007's two-origin worry was recorded as an
+> inference in the first place. Three other places repeat the citation — `docs/STATE.md` §3A's D-3, and
+> `docs/tasks/TASK-m3-backend-api.md` twice — and they are corrected where each is maintained rather than silently.
 > **Two implementation shapes were rejected by observed failures, recorded because both were invisible from inside the row.**
 > A middleware that awaits the pipeline and checks for `404` cannot see the status here (`UseStatusCodePages` is registered
 > above it and defers the write) — and **eight of nine cases passed anyway**. `MapFallback` passed **all ten** of `-071` and
