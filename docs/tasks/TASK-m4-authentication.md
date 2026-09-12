@@ -134,7 +134,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · Plus: **the app refuses to boot with default credentials in `Production`** — a startup guard, because a seeded
   account is the failure mode of a published one.
 
-- [ ] **AC-16** — **Credentialed CORS is explicit, not incidental.** Preflight echoes `Access-Control-Allow-Credentials: true` with the **exact** origin and never `*`.
+- [x] **AC-16** — **Credentialed CORS is explicit, not incidental.** Preflight echoes `Access-Control-Allow-Credentials: true` with the **exact** origin and never `*`. *(verified by `-067`'s Integration half, 2026-09-12 — `CorsCredentialsTests`: the pair on preflight AND on the 401 response, an unlisted origin gains nothing, and a `*` in `Cors:AllowedOrigins` now refuses to boot rather than silently matching nothing)*
   · *Why it exists:* `Program.cs:38` promised that adding credentials later would "break quietly rather than loudly," and it was right — browsers reject the wildcard+credentials pair and ASP.NET will not stop you configuring it. Grill **Q3**.
 - [x] **AC-17** — **Sessions expire, and expired rows are pruned.** An idle window **and** a hard cap both end a session; expired/revoked rows are removed opportunistically at login. *(verified by `-066`, 2026-09-12 — `SessionExpiryTests`, 7 cases, no sleeps: the window slides on use and dies on silence; the cap ends a session that kept being used; login prunes expired and past-retention revoked rows and cannot touch a live one)*
   · *Precondition (test plan §3.2):* needs an injected `TimeProvider`; otherwise `-066` can only be tested by sleeping or mutating the system clock across a shared fixture. The clock seam is therefore decided at Slice 2's start, and if refused the behaviour degrades to "a column nobody reads" — stated rather than papered over. Grill **Q5/Q6**.
@@ -906,6 +906,51 @@ configuration**, and states which literal it used; a delta quoted without its UR
 **Next:** `-067` (`pk:auth` — credentialed CORS: the API accepts an `Origin` only from the configured client and reflects
 `Access-Control-Allow-Credentials`; AC-16, decision-free server-side), unless the Q4 harness-origin answer lands first, which
 unblocks `-063`/`-064`/`-065`.
+
+**`TDD-EXEC-m4-authentication-067`** · `BEHAVIOR-067` (+ **AC-16**) · Red `eef2811` → Green `fa6bc32` · p0 · **half delivered: Integration closed, Browser deferred**
+- **Red:** `dotnet test --filter ~CorsCredentialsTests` → **`Failed: 2, Passed: 3`** — the two failures are the missing
+  `Access-Control-Allow-Credentials: true` on the preflight and on the actual response. All three passing cases are named as
+  **controls** in the commit message, including `Vary: Origin`, which **already passes**: ASP.NET Core emits it for a
+  `WithOrigins` policy unprompted. That case stays as the guard for whoever replaces the policy with hand-written
+  middleware, and it matters in M5, where a CDN is the plan — a cache that ignores `Origin` will happily serve
+  `Access-Control-Allow-Origin: <someone else>` to a browser that then believes it.
+  **Green:** focused **5/5** (4 s); full API **`Failed: 0, Passed: 156, Skipped: 0`**, 0 errors / 0 warnings.
+- **Why the pair has to appear twice.** A preflight grants permission to *send*; the response still has to be *readable*. The
+  second assertion is written against a **401** (`-055` gates the route) because a refusal without CORS headers arrives as a
+  network error with no status and no body — which collapses exactly the distinction `-062`'s probe depends on: "signed out"
+  (clear rows, go to login) versus "server unreachable" (keep rows, offer retry).
+- **⚠️ THE MEASURED ANSWER TO AC-16'S PREMISE.** AC-16 is written against "the server emits `*` together with credentials".
+  Probed directly (`STATUS=204 HEADERS[]`, probe deleted): a literal `*` in `Cors:AllowedOrigins` goes to `WithOrigins`,
+  which treats it as an origin **string** to match, and no browser sends `Origin: *`. So the operator error does not produce
+  the forbidden pair — it produces a policy that matches nothing, with every cross-origin client silently refused and no
+  diagnostic. **That is worse than the failure AC-16 named**, because it reads as browsers being mysterious rather than as
+  config being wrong. The Green moved the guard to where the harm is: the app **refuses to start**, and the message names
+  the key and the fix.
+- **⚠️ A VACUOUS TEST, CAUGHT AND REPLACED.** The first wildcard case asserted "not (`*` AND credentials)" and passed —
+  because there was no credentials header at all to pair with. Green could have shipped with that case sitting in the file
+  looking like coverage while being incapable of failing. It was replaced by the boot-refusal assertion, which the guard can
+  actually break, and which asserts **two** substrings (`Cors:AllowedOrigins`, `AC-16`) so an unrelated startup failure
+  cannot satisfy it.
+- **⚠️ AN INVENTED CAUSE, WITHDRAWN IN PLACE.** Five undisposed `WebApplicationFactory` hosts were blamed for the full suite
+  moving 38 s → 74 s, and that claim was written into the test file *before being checked*. Disposing them made the suite
+  **1 m 36 s**; the class runs in 4–7 s focused. The durations are real, the cause is not established, and the comment now
+  says so in the file rather than being left as a plausible-sounding record. Root cause is this repo's standing one: two
+  observations plus an assumption about which caused which. Hosts are still disposed — for the honest reason (each owns a
+  process that ran `Migrate()` against the container the whole `postgres` collection shares).
+- **Scope, stated as half.** The ladder row names Integration **+ Browser**. No `WebApplicationFactory` test can show a real
+  Chromium accepting the pair and attaching the `__Host-` cookie cross-origin, because the factory answers a request with no
+  same-origin policy to violate. That half is `-064`'s harness and remains gated on the **Q4 harness-origin answer** — it is
+  recorded as open here rather than folded into a green checkmark. AC-16's own wording ("preflight echoes… never `*`") is
+  satisfied and ticked; the behaviour row is not closed.
+- **Practice task taken up next (AGENTS.md step 9):** the origin list is now fail-fast on `*` but still silent on the
+  adjacent mistake — an empty `Cors:AllowedOrigins` (`appsettings.json` has no `Cors` section at all; only Development
+  does) produces a policy with no rules, i.e. the same "matches nothing" outcome by a different route. Extend the guard to
+  distinguish "no cross-origin clients expected" from "I forgot to configure any", and assert both through the harness this
+  file already has.
+
+**Next:** the Q4 harness-origin answer (owner) unblocks `-063`/`-064`/`-065` *and* `-067`'s Browser half — they are one
+question, not four.
+
 
 
 ---
