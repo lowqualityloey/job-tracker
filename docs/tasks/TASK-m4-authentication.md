@@ -110,9 +110,21 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · *At 36 rows a full scan is free; at 100 k it is the incident.* This is the target most likely to be "verified" by
   reading the SQL and nodding.
 
-- [ ] **AC-11** — **A cross-site write without `X-CSRF-Token` is rejected — and the same write with it succeeds.**
+- [x] **AC-11** — **A cross-site write without `X-CSRF-Token` is rejected — and the same write with it succeeds.**
   · Browser harness from a second origin (`jt-bridge` recipe in STATE §3A). **The positive control is mandatory:**
   without it a broken endpoint passes as a secured one.
+  *(verified 2026-09-12 20:56 UTC by `-063`: **11/11** in real Chromium, `tests/browser/run-063.sh`, app origin
+  `https://172.23.124.252:5443`, second origin `http://172.23.124.252:4179`. Both halves of the clause ran: a
+  same-site tokenless write → `403` `code=antiforgery` **with no row written** — the scratch database counted
+  `0` rows matching `CSRF-063-%`, because a status code says what was returned and only a read says what happened —
+  and the same write carrying the issued token → `201`, visible in a fresh read.)*
+  · **The clause is narrower than the verification, and that is the finding:** the cross-site case answers **`401`,
+  never `403`** — the cookie never arrives, so the header is never consulted. Two status codes are the only thing that
+  distinguishes "the platform withheld the credential" from "the antiforgery gate refused", which is precisely why the
+  owner-approved split into two cases was necessary rather than tidy. Extra controls ran at the same seam: a
+  wrong-valued header → `403` (the value is compared, not the presence), a token from a rotated-out session → `403`
+  while the new session's token is served, and the same-origin write with `credentials: 'omit'` → `401`, so case 2's
+  answer cannot be read as a dead endpoint.
 
 - [x] **AC-12** — **SSE still delivers cross-tab while authenticated, in real Chromium.**
   · `docker exec … node /srv/httpCrossTab.mjs` → **7/7 with cookies**, no test-only shims.
@@ -851,6 +863,14 @@ configuration**, and states which literal it used; a delta quoted without its UR
   **Next:** `-063` (a cross-site write without `X-CSRF-Token` is rejected, and the same write *with* it succeeds — AC-11), which
   needs the browser harness and is therefore gated on the Q4 harness-origin question.
 
+  *(**Superseded twice over, in the same day.** Q4 was answered — `DECISION-m4-auth-007 (a′)`, implemented by this very
+  row's parent — and `-063` then ran and moved AC-11 to verified. The gating clause is kept because it records what was
+  true at the `-071` boundary: an unanswerable harness question was genuinely between this row and its evidence. What is
+  **not** kept is the habit: **two** records in this file ended by pointing at `-063` (`grep -n 'Next:\*\* \`-063'` → lines
+  863 and 1241), and both read as pending until marked, which is how a delivered row can outlive its own completion in the
+  document that delivered it. The count was re-run after this sentence was written, because the last time I quoted a
+  figure like this from memory it was wrong in the same direction.)*
+
 **`TDD-EXEC-m4-authentication-066`** · `BEHAVIOR-066` (+ **AC-17**) · Red `1028bf6` → Green `a1f82f6` · p0 · seams Integration + DB
 - **Red:** `dotnet test --filter ~SessionExpiryTests` → **`Failed: 5, Passed: 1, Skipped: 0`**, five distinct missing
   behaviours (no slide, no cap, no idle enforcement, no prune, no retention) and one **control that passes today**:
@@ -1224,6 +1244,72 @@ renumbering to keep the file tidy is exactly how M3's phantom cross-references w
 at a state-changing verb because login takes no `X-CSRF-Token`. It needs the antiforgery gate to exist first: there is
 **no server-side check and no client-side header in the tree today**, which is also why `-064`'s cleanup `DELETE` sailed
 through unopposed.
+
+*(**Superseded at the next record, which follows.** `-063` ran the same day: the gate exists, the client sends the
+header, and AC-11 is verified at the Browser seam. Kept rather than edited, because "there is no server-side check
+today" is a measurement with a timestamp, and the sentence that was true at 19:50 UTC is the thing that makes 20:56 UTC
+legible. What was **not** kept: the habit of leaving a forward reference live after the thing it points at has landed —
+that is how `-070`'s phantom verdict survived five documents.)*
+
+---
+
+**`TDD-EXEC-m4-authentication-063`** · **verifies AC-11** · Browser seam (with an API seam added beneath it) · p0 · delivered 2026-09-12
+
+**Red** `cd72bbe` (7 cases, **4 failed / 3 passed**) → **Green** `91f38be` (implementation + the ~80 existing tests
+the gate forced to adapt) → **evidence** `28056b6` (the two browser cases, 11 checks) → this record.
+
+**What shipped.** `Antiforgery` + `AntiforgeryMiddleware` (`api/src/JobTracker.Api/Auth/AntiforgeryGate.cs`), a
+second cookie issued at login and cleared at logout (`__Host-JTCsrf`, `Secure; SameSite=Lax; Path=/`, no `Domain`,
+**no `HttpOnly`** because a token the client cannot read cannot be echoed), registration strictly after
+`SessionGate` so a missing session stays `401` and only an authenticated tokenless write becomes `403`, and a new
+wire code `antiforgery` paid for in all three places `-060`'s contract demands: `Problems.cs`,
+`contracts/problem-codes.json`, `PROBLEM_CODE_TABLE`. API suite **186/186, 0 warnings**; `npm run verify` **exit 0,
+227/227**.
+
+**What the two-case split bought, measured rather than argued.** Case 1 (same-site, tokenless) is the only shape in
+which the header check is what fails; the ratified one-sentence version could only have run case 2, and case 2 fails
+for a reason the header does not explain. Case 1e/f adds something neither seam could otherwise show: after a real
+logout + form login in the same browser, the **old** token is refused and the **new** one is served, so the value is
+bound to a session rather than to an account — `A_token_belonging_to_another_session_is_refused` says the same thing
+at the API, and only the browser can say it about a jar.
+
+**Four defects found on the way, all of them the same mistake — writing from intent:**
+  · `ApplicationsApiFixture` took the session cookie with **`values.First()`**, correct only while login set one
+    cookie. Six test files had their own version, all pinning **`Assert.Single`** — a *count*, standing in for a claim
+    about attributes, so a second cookie broke 85 tests while proving nothing about any of them. They now share
+    `TestCookies`, which selects by name; the attribute assertions stayed where they were, because those are the
+    ratified promises.
+  · The fixture then set `X-CSRF-Token` to the whole `name=value` pair instead of the value, and ~80 tests answered
+    `403` while `AntiforgeryGateTests` sat green at 7/7 — the two files disagreed because only one stripped the
+    prefix. Found by printing the header and calling `Antiforgery.Matches` from a throwaway test, not by rereading
+    the code. The throwaway file was deleted before commit; the diagnosis is why the fixture now says so in place.
+  · `OwnershipTests`' per-request host **cannot validate its own tokens** (ephemeral ring). The code was right, the
+    test topology was the bug, and the consequence for deployment is `-074` — a row, not a comment, because a comment
+    in `AntiforgeryGate.cs` is read only by someone already in that file.
+  · `-064`'s cleanup asserted `'deleted ' + res.status`, which **passes on a 403**. The gate made that check load-
+    bearing by accident, and it was fixed in the same commit that had to touch it. Same for the JS `SyntaxError` a
+    stray quote produced in `csrfGate.mjs`'s cleanup, reported as "returned nothing" until the fallback printed the
+    raw CDP reply: **an assertion that swallows an exception is indistinguishable from a pass at a glance.**
+
+**Agent-decided, recorded as such (standing instruction, not owner ratification):** data protection over a
+hand-rolled HMAC (deviation from DECISION-006's literal wording, noted under that decision); `antiforgery` mapped to
+the existing `unauthorized` client variant instead of a tenth `RepositoryError`; logout deliberately **exempt** from
+the gate (a forgery there costs the victim only their own session, and a user whose token is unreadable must still be
+able to sign out); `OPTIONS`/`HEAD` excluded by an allow-list of unsafe verbs rather than "everything but GET", so a
+preflight never becomes a `403` that hides a CORS problem; and `-074`/`-075` written into the register.
+
+**Also changed, because the row made it true:** `run-063.sh` and `run-064.sh` now `DROP DATABASE … WITH (FORCE)` and
+`pkill -x JobTracker.Api` — `dotnet run` does not forward SIGTERM to the app it spawns, and an aborted run's server
+kept the scratch database, which is how the next run learned it (exit 127 en route, from a comment line of mine that
+started `--` instead of `#`).
+
+**Coupling discharged:** `-064`'s harness now sends the header on its cleanup `DELETE`, and `run-064.sh` was re-run
+after the gate landed: **7/7**, negative control still failing 4 of 5 as required, `deleted 204`
+(20:57:05 UTC). The row is still verified by its own evidence, not by this record's say-so.
+
+**Next:** `-065` (AC-14, the login-route bundle delta) — the last unblocked ladder row, and it must **name the URL
+literal it built with**, because an empty `VITE_API_BASE_URL` selects the localStorage adapter and a 0 kB delta
+measured that way would be meaningless.
 
 ### §6a. Durable checkpoint and handoff records (Level 2 gate)
 

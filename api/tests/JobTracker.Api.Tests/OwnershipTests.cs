@@ -6,6 +6,7 @@ using JobTracker.Api.Migrations;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
+using JobTracker.Api.Tests.Infrastructure;
 
 namespace JobTracker.Api.Tests;
 
@@ -57,7 +58,21 @@ public sealed class OwnershipTests(PostgresFixture postgres)
         }
     }
 
-    private WebApplicationFactory<Program> Host() => new OwnershipFactory(postgres.ConnectionString);
+    /// <summary>
+    /// ONE host for the whole class, which stopped being cosmetic in `-063`.
+    ///
+    /// This file used to build a fresh `WebApplicationFactory` per request. That was harmless while the only thing a
+    /// request carried was a session id: the sessions table is shared, so any host accepts it. An antiforgery token is
+    /// different — it is protected by the **data-protection key ring of the instance that minted it**, so a host that
+    /// dies between the login and the write cannot read its own value. The symptom was six failures here saying
+    /// `create failed: 403 …/probs/antiforgery`, raised by a `Send` that looked entirely correct.
+    ///
+    /// The test fix is one host. The deployment consequence is the same fact at a different scale, and it is recorded in
+    /// `Antiforgery`'s comment rather than left for whoever first puts this behind a load balancer.
+    /// </summary>
+    private readonly WebApplicationFactory<Program> _host = new OwnershipFactory(postgres.ConnectionString);
+
+    private WebApplicationFactory<Program> Host() => _host;
 
     private async Task EnsureSecondAccountAsync()
     {
@@ -85,16 +100,14 @@ public sealed class OwnershipTests(PostgresFixture postgres)
         await EnsureSecondAccountAsync();
         var response = await http.PostAsJsonAsync("/api/auth/login", new { email, password });
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        return response.Headers.TryGetValues("Set-Cookie", out var v)
-            ? v.First().Split(';', 2)[0]
-            : throw new InvalidOperationException("no session issued");
+        return TestCookies.SessionOf(response);
     }
 
     private async Task<HttpResponseMessage> Send(string cookie, HttpMethod method, string path,
         object? body = null, string? ifMatch = null)
     {
         using var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("Cookie", cookie);
+        TestCookies.Attach(request, cookie);
         if (ifMatch is not null)
         {
             request.Headers.TryAddWithoutValidation("If-Match", ifMatch);

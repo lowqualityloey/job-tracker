@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
+using JobTracker.Api.Tests.Infrastructure;
 
 namespace JobTracker.Api.Tests;
 
@@ -156,8 +157,7 @@ public sealed class LogoutEndpointTests(PostgresFixture postgres)
         var response = await PostLogout(http, cookie);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        var setCookie = Assert.Single(response.Headers.TryGetValues("Set-Cookie", out var v)
-            ? v.ToList() : new List<string>());
+        var setCookie = TestCookies.Required(response, AuthCatalog.SessionCookieName);
         Assert.StartsWith("__Host-JTSession=", setCookie, StringComparison.Ordinal);
         Assert.Contains("Max-Age=0", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Path=/", setCookie, StringComparison.Ordinal);

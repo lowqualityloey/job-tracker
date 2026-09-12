@@ -141,4 +141,22 @@ internal static class Problems
         instance: instance,
         extensions: new Dictionary<string, object?> { ["code"] = "unauthorized" });
 
+    /// <summary>
+    /// The <c>antiforgery</c> code of DECISION-m4-auth-006 / BEHAVIOR-m4-auth-063. A fourth 4xx the client must be able to
+    /// tell apart, and the distinction is not cosmetic: <c>unauthorized</c> means "log in again", which is the right advice
+    /// for an expired session and useless here — a user with a valid session who is told to log in again will do it and
+    /// arrive back at the same failure. <c>validation</c> would be worse, because it would put a field error on a form the
+    /// user never mistyped.
+    ///
+    /// Vague for the same reason <see cref="Unauthorized"/> is, and by <c>BEHAVIOR-053</c>'s logic: this response says the
+    /// request was refused, not *which* token was expected, and naming the mechanism in the body hands a page the answer
+    /// to "does the server check a header at all".
+    /// </summary>
+    public static IResult Antiforgery(string instance) => Results.Problem(
+        title: "This request was refused because it could not be confirmed as coming from the application.",
+        statusCode: StatusCodes.Status403Forbidden,
+        type: "https://job-tracker.local/probs/antiforgery",
+        instance: instance,
+        extensions: new Dictionary<string, object?> { ["code"] = "antiforgery" });
+
 }

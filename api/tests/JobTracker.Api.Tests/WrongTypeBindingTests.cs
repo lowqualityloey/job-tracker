@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
+using JobTracker.Api.Tests.Infrastructure;
 
 namespace JobTracker.Api.Tests;
 
@@ -100,15 +101,14 @@ public sealed class WrongTypeBindingTests(PostgresFixture postgres) : IDisposabl
         };
         var response = await Http.SendAsync(request);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var values), "login issued no cookie");
-        return Assert.Single(values.ToList()).Split(';', 2)[0];
+        return TestCookies.SessionOf(response);
     }
 
     private async Task<(HttpStatusCode Status, JsonElement Doc, string Body)> SendAsync(
         HttpMethod method, string path, string json, string cookie)
     {
         using var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("Cookie", cookie);
+        TestCookies.Attach(request, cookie);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
         var response = await Http.SendAsync(request);
         var body = await response.Content.ReadAsStringAsync();
@@ -227,7 +227,7 @@ public sealed class WrongTypeBindingTests(PostgresFixture postgres) : IDisposabl
 
         var update = $$"""{"id":"{{id}}","companyName":42,"jobTitle":"Engineer","status":"Applied"}""";
         using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/applications/{id}");
-        request.Headers.Add("Cookie", cookie);
+        TestCookies.Attach(request, cookie);
         request.Headers.TryAddWithoutValidation("If-Match", revision);
         request.Content = new StringContent(update, Encoding.UTF8, "application/json");
         var response = await Http.SendAsync(request);

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using JobTracker.Api.Auth;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
+using JobTracker.Api.Tests.Infrastructure;
 
 namespace JobTracker.Api.Tests;
 
@@ -107,14 +108,13 @@ public sealed class EventStreamScopingTests(PostgresFixture postgres) : IDisposa
         };
         var response = await Http.SendAsync(request);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var values), "no cookie issued");
-        return Assert.Single(values.ToList()).Split(';', 2)[0];
+        return TestCookies.SessionOf(response);
     }
 
     private async Task<Listener> OpenStreamAsync(string cookie)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/applications/events");
-        request.Headers.Add("Cookie", cookie);
+        TestCookies.Attach(request, cookie);
         request.Headers.TryAddWithoutValidation("Accept", "text/event-stream");
 
         // ResponseHeadersRead is the whole trick, as in EventStreamTests: with the default completion option the client
@@ -137,7 +137,7 @@ public sealed class EventStreamScopingTests(PostgresFixture postgres) : IDisposa
     private static HttpRequestMessage AuthenticatedRaw(HttpMethod method, string path, string cookie)
     {
         var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("Cookie", cookie);
+        TestCookies.Attach(request, cookie);
         return request;
     }
 

@@ -27,7 +27,7 @@ import type { RepositoryError } from '../domain/applicationRepository'
  * out loud; when the approval arrived the test failed, which is the reason to write a provisional value down rather than
  * leave a code in a `default` branch where nobody is watching it.
  */
-export const SERVER_PROBLEM_CODES = ['validation', 'not-found', 'conflict', 'unauthorized'] as const
+export const SERVER_PROBLEM_CODES = ['validation', 'not-found', 'conflict', 'unauthorized', 'antiforgery'] as const
 
 export type ServerProblemCode = (typeof SERVER_PROBLEM_CODES)[number]
 
@@ -60,6 +60,23 @@ export const PROBLEM_CODE_TABLE: Record<ServerProblemCode, ProblemCodeRow> = {
   /** The row `-060` was really for. Approving DECISION-m4-auth-005 broke `problemCodeContract.test.ts` exactly as
    *  `-060` intended: it had pinned this value to `corrupt-data` so the widening could not arrive unnoticed. */
   unauthorized: () => ({ code: 'unauthorized' }),
+
+  /**
+   * `-063`'s `403`. **Mapped to the existing `unauthorized` variant rather than widened into a tenth one**, and the
+   * reason is this file's own rule: `Problems.cs` shares one code between two server paths "because the client's answer
+   * is the same", and here the client's answer genuinely is — this session cannot be trusted for a write, so
+   * re-authenticate. A distinct `RepositoryError` variant that renders identically to `unauthorized` is surface
+   * without behaviour, and DECISION-m4-auth-005 shows a ninth variant needed an owner yes to earn its place.
+   *
+   * The **wire code stays distinct**, which is the half that carries real weight: a `403 antiforgery` in a log or a
+   * devtools panel says something a `401 unauthorized` does not, and that distinction is the only trace left when a
+   * client starts refusing writes it should not. Dropping the variant would have hidden the event; dropping the code
+   * would have hidden the cause. This row keeps the cause and borrows the remedy.
+   *
+   * The cost, stated: a user mid-edit is bounced to `/login` and loses unsaved form state. `LoginPage` preserves the
+   * route through `?next=`, not the draft, so the bounce is survivable but not free.
+   */
+  antiforgery: () => ({ code: 'unauthorized' }),
 }
 
 /**

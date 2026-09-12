@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
+using JobTracker.Api.Tests.Infrastructure;
 
 namespace JobTracker.Api.Tests;
 
@@ -59,12 +60,15 @@ public sealed class LoginEndpointTests(PostgresFixture postgres)
         return await http.SendAsync(request);
     }
 
-    private static async Task<string> SingleSetCookieAsync(HttpResponseMessage response)
+    private static async Task<string> SessionSetCookieAsync(HttpResponseMessage response)
     {
         Assert.True(response.Headers.TryGetValues("Set-Cookie", out var values),
             "no Set-Cookie header on the response — a 204 without a cookie is a login that authenticates and then forgets you");
-        var cookie = Assert.Single(values.ToList());
-        return cookie;
+        // Was `Assert.Single`: true while login set one cookie, and never the actual claim. What these tests care
+        // about is the attributes on *the session cookie*, so the selection is by name and the count is not asserted —
+        // a pin on "exactly one Set-Cookie header" would have to be rewritten by every future cookie and would have
+        // caught nothing here.
+        return TestCookies.Required(response, AuthCatalog.SessionCookieName);
     }
 
     [Fact]
@@ -86,7 +90,7 @@ public sealed class LoginEndpointTests(PostgresFixture postgres)
     public async Task The_session_cookie_carries_every_attribute_the__Host_prefix_requires_and_no_domain()
     {
         using var factory = new AuthFactory(Email, Password, postgres.ConnectionString);
-        var cookie = await SingleSetCookieAsync(await LoginAsync(factory.CreateClient(),
+        var cookie = await SessionSetCookieAsync(await LoginAsync(factory.CreateClient(),
             $$"""{ "email": "{{Email}}", "password": "{{Password}}" }"""));
 
         Assert.StartsWith("__Host-JTSession=", cookie, StringComparison.Ordinal);
@@ -109,7 +113,7 @@ public sealed class LoginEndpointTests(PostgresFixture postgres)
         // value must correspond to a row. -054 later revokes through that row, and if this link is fake, revocation is
         // theatre. Read from PostgreSQL directly, per the test plan's rule that DB effects are not inferred from responses.
         using var factory = new AuthFactory(Email, Password, postgres.ConnectionString);
-        var cookie = await SingleSetCookieAsync(await LoginAsync(factory.CreateClient(),
+        var cookie = await SessionSetCookieAsync(await LoginAsync(factory.CreateClient(),
             $$"""{ "email": "{{Email}}", "password": "{{Password}}" }"""));
         var token = cookie.Split('=', 2)[1].Split(';', 2)[0];
 

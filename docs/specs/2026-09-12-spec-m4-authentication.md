@@ -160,6 +160,26 @@ because M4 has **no state-changing GETs** — a rule this spec states so the nex
 antiforgery token (HMAC over the session id, delivered at login, echoed in `X-CSRF-Token`) covers the `Lax` gap and is
 **cheap to test with a cross-site probe from a different origin in the browser harness** — which jsdom cannot do at all.
 
+> **Note at execution (`-063`, 2026-09-12 ~21:00 UTC), appended rather than replacing the paragraph above — and it
+> deviates in one place, deliberately.** The token is **not** a hand-rolled HMAC: it is the session id run through
+> ASP.NET Core's data-protection stack (`CreateProtector("…Antiforgery.v1").Protect`), which is authenticated *and*
+> encrypted, keyed by the framework's ring. The property this decision asked for is unchanged — unforgeable without
+> server key material, bound to the session — and no new secret has to be configured per environment or guarded by a
+> new boot refusal. Agent-decided, per the standing instruction, not owner-ratified.
+>
+> **Two things execution measured that the paragraph could not have known:**
+>
+>   · The framework's key ring is **ephemeral per process by default**. Nothing is shared "for free": two instances,
+>     or one restart, cannot read each other's tokens, and every write that lands on the wrong one is a `403`.
+>     `OwnershipTests` proved it to itself by building a fresh test host per request — six of its own cases became
+>     antiforgery refusals while the code under test was correct. Hence `-074`, and until then the deployed
+>     behaviour is *a session may only be written to by the instance that issued it*.
+>   · **The wire code is distinct (`antiforgery`); the client variant is not** — it maps to the existing
+>     `unauthorized`, by this repository's own rule for merging (`Problems.cs`: codes share when the client's answer
+>     does). The cost is on the record: a user mid-edit bounces to `/login` and loses the draft, and the two events
+>     are distinguishable only in logs and devtools. A tenth `RepositoryError` was the alternative, and DECISION-005
+>     is the precedent that a new variant has to earn its place.
+
 ---
 
 ### DECISION-m4-auth-007 — Browser harness origin: **serve the harness page from the API's own origin (grill Q4, option a)** · **GIVEN by the owner, 2026-09-12 16:46 UTC**
@@ -465,6 +485,20 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
 > docs/` returns those two files and nothing else — no row, no spec reference, no EXEC record. The number is left empty rather
 > than reused, because filling it would make both citations read as satisfied.
 > **Ladder is now `-047`…`-069` + `-071` = 24 behaviours** (`-070` unassigned), counted by the same command that corrected the
+
+> **§6 amendment — execution-time, 2026-09-12 (`-063` delivered; `-074`/`-075` added).** `-063` ran and is verified at
+> the Browser seam: 11/11 checks in real Chromium (`tests/browser/csrfGate.mjs` via `run-063.sh`), covering a
+> same-site tokenless write → `403 antiforgery` **with no row written**, the same write with the token → `201`, a
+> wrong-valued header → `403`, a stale token after rotation → `403`, and a cross-site write → `401` observed from CDP
+> network events (never `403`, which is what separates "the cookie never arrived" from "the gate refused"). The
+> owner-approved two-case restatement was what made that attribution possible, and executing it confirmed the datum
+> behind the split: login itself answers `204` with no token, so case 1 had to target a state-changing verb.
+> Two `◆` practice rows came out of the same slice — **`-074`** (the ephemeral key ring, above) and **-075** (two CDP
+> harnesses and boot scripts duplicate the same recipe (the pair that does is `run-063`/`run-064`; `run-043` shares none of it), including two fixes applied twice today).
+> **Ladder is now `-047`…`-069` + `-071` + `-074`/`-075` = 26 behaviours**, counted with
+> `grep -cE '^\| `…-0(4[7-9]|[5-7][0-9])`' docs/tests/2026-09-12-test-m4-authentication.md` → **26**. `-070` stays
+> unassigned (a phantom cited by two records, defined by none), and `-072`/`-073` are **reserved by STATE §3A's D-2
+> and D-3 as proposals, not rows** — the gap in the numbering is the proof they were not quietly filled.
 > first claim in this series.
 
 ## 7. Sign-off & Grilling Checklist
