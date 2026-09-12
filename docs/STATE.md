@@ -80,9 +80,15 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b` — the **real-app measurement** that closes this
-  spike's last hedge. Docs + probe sources only; `verify` exit 0 / 221 tests / 23 files / lint clean locally; `verify-api`
-  skips on the docs-only detector, which is **correct here rather than a gap** — no `api/` file moves.
+- **In flight**: **`feat/m4-071-spa-hosting`** (`Red 964fdc6 → Green 77ab86d → this record commit`) — **the first product
+  code of Slice 5**: the API serves the built front end from its own origin under `DECISION-m4-auth-007 (a′)`. This one
+  **does move `api/` files, so `verify-api` runs rather than skipping** — the 179/0 evidence below is local, and CI's is the
+  independent copy. **PR #61 is MERGED** (`1819bbb`, 18:47:03Z, verified both ways), which is what reconciled `main` before
+  this branch was cut — the rule from the incident recorded just below, applied in the other direction: **this branch is
+  based on `1819bbb`, read at the time it was created, not from memory.**
+  ~~**PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b`~~ — the **real-app measurement** that closed the spike's last
+  hedge. Docs + probe sources only; `verify` exit 0 / 221 tests / 23 files / lint clean locally; `verify-api`
+  skipped on the docs-only detector, which was **correct there rather than a gap** — no `api/` file moved.
   **Why a second PR exists off the same branch — read this as the rule, not the incident:** **PR #60 merged at 17:56:17Z
   (`7e13914`) while the measurement was still running**, and the branch was deleted with it. The next `git push` therefore
   reported **`* [new branch]`** and left `gh pr view 60 --json headRefOid` frozen at `ea4c91b`. Both signals were checked
@@ -103,14 +109,23 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   repository's own dev server: `RequestDelegateFactory` logs `InvalidJsonRequestBody` and wraps it in a
   `BadHttpRequestException` **whose own `StatusCode` is already 400** — the app was discarding a fact the framework had
   produced. `Red 8 failed / 1 passed` (the pass is the live `201` control) → **9/9**, full API **169/0**, 0 warnings.
-- **Ladder**: **23 rows `-047`…`-069`**, counted from the file. Four were **ratified at execution time** — `-066`
-  (sliding/hard-capped sessions), `-067` (CORS credentials, **half delivered**), `-068` (owner-scoped SSE fan-out),
-  `-069` (binding failures) — each by a dated §6 amendment to the spec, **appended, never renumbered**, so the document's
-  own history stays readable as history. `-063`/`-064`/`-065` remain **unexecuted**; as of 16:46 UTC they are no longer all
-  gated on the same thing — **Q4(a) unblocks `-065`**, `-064` additionally needs **(a′), HTTPS in dev** (see the Q4 bullet's
-  17:37 correction), and **`-063` needs an owner-approved restatement** (a cross-site `Lax` POST carries no cookie, so the
-  antiforgery check is never reached). **`-067`'s Browser half is now unachievable rather than deferred**: under same-origin
-  serving no preflight occurs. `checkpoint-001` and this bullet both previously said "the Browser halves of `-067`/`-068`" —
+- **Ladder**: **24 rows**, counted from the file, not recalled — `-047`…`-069`, then **`-070` left unassigned**, then
+  `-071`.
+  **`-070` is a phantom, and the number is left empty on purpose**: two records cite "`-070`'s scoped-mutation-gate verdict"
+  and `grep -rln "scoped.mutation" docs/` finds **those two files and nothing else** — no row, no spec reference, no EXEC
+  record. Reusing the number would make both read as satisfied. **`-071`** (this boundary) is the fifth row **ratified into
+  the ladder at execution time** — the API serving the built front end as its own origin, which is `DECISION-007 (a′)`'s
+  enabling half. Four were ratified before it: `-066` (sliding/hard-capped sessions), `-067` (CORS credentials, **half
+  delivered**), `-068` (owner-scoped SSE fan-out), `-069` (binding failures) — each by a dated §6 amendment, **appended,
+  never renumbered**, so the document's history stays readable as history.
+  **Status of the three Browser/Build rows, as of 19:18 UTC — all three are now unblocked, none executed:**
+  **`-064`** (AC-12) is **executable** — `(a′)` is answered *and implemented*, and a real login at
+  `https://172.23.124.252:5443` was measured putting `__Host-JTSession` into a Chromium jar with the protected route
+  answering `200`; **`-063`** (AC-11) is **approved to split into two cases**, each with its own positive control, so its
+  restatement is sanctioned rather than pending — with the datum that login needs no `X-CSRF-Token`, so case 1 must target a
+  state-changing verb; **`-065`** (AC-14) needed only the origin answer and is free to run, subject to **naming the URL
+  literal it built with**. **`-067`'s Browser half is unachievable rather than deferred**: under same-origin serving no
+  preflight occurs — `checkpoint-001` and this bullet previously said "the Browser halves of `-067`/`-068`", but
   **`-068` never had one**; its ladder seam is Integration only.
 - **AC ledger**: **13 verified + 4 open = 17** (the invariant is asserted by the edit script at every write, not by me).
   **The four open ACs are AC-3, AC-11, AC-12 and AC-14** — read from the task record's checkbox lines at 2026-09-12 16:46 UTC.
@@ -155,6 +170,13 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   `pipefail` rule, broken while executing the handoff that states it), and an invented `ConnectionStrings__Default` because
   H4 elides the value — harmless only because Testcontainers builds its own database. Root cause of every one: **writing
   from intent instead of measurement.**
+- **Measured at the `-071` boundary, 2026-09-12 19:18 UTC** (re-executed on `77ab86d`, not carried over):
+  API **179 / 0 failed / 0 skipped / 0 warnings** in **1 m** — **`169 + 10 = 179`**, and the sum checked against the run
+  rather than asserted · `npm run verify` exit **0**, **221 tests / 23 files**, build **1.27 s** (fastest of the five
+  measurements today: 1.86 → 1.58 → 1.40 → 1.27, recorded as a range with no claimed cause) · ladder **24** rows
+  (`-047`…`-069`, **`-070` unassigned on purpose**, `-071`) · EXEC records **22** · ACs unchanged at **13 verified + 4
+  open = 17** — `-071` verifies **no** AC, it unblocks the row that will · runtime deps **3**, dev deps **19** ·
+  **no new package and no new config surface beyond `Web:SpaRoot`**, and the file server is the framework's.
 - **Measured at this boundary** (re-executed, not carried over; **re-executed again at 16:46 UTC at `f9482a5`/`47852a4`**):
   API **169 / 0 failed / 0 skipped / 0 warnings** — **1 m 8 s** at 15:55, **1 m 25 s** and **1 m 50 s** on the two clean
   reruns, so the duration is recorded as a range and no cause is claimed for it ·
@@ -205,21 +227,24 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   must stay a 500; a non-400 `BadHttpRequestException` must not be relabelled as field validation). **Probe B deleted the
   guard and the suite stayed 169/0** — so the claim is recorded as reasoning, and it is `-069`'s practice task. Four
   practice tasks are owed (`-066`…`-069`), none started, all listed in the task record.
-- **Exactly one next action**: **implement `(a′)` — serve the built front end from the API's own origin, over TLS — then run
-  `-064` (AC-12)**, which is the row the whole Q4 detour existed to unblock and which is now **executable rather than
-  blocked**: measured on the real app, a login over `https://172.23.124.252:5443` puts `__Host-JTSession` in a real
-  Chromium jar and the protected route answers `200`. The three questions that stood in front of it were **answered
-  ≈18:10 UTC** (see the Q4 bullet) — `(a′)` chosen, a scratch database approved for the verification, and **`-063`/AC-11
-  approved to split into two cases each with its own positive control**, so that restatement is now a sanctioned ladder
-  edit rather than an agent rewriting a ratified promise. **`-065` is not gated on any of it — but it must *name a
-  configuration*, and the answer decides which URL literal it names**: running it first risks a re-run for the **figure**,
-  not the **verdict**, because Slice 0 measured `localhost` versus a 14-character IP moving the gzip sum by **9 B** against
-  a row threshold of **3 kB**. **The four owed practice tasks (`-066`…`-069`) stay unstarted until invited**, and the
-  decision-free *server-side* queue is still empty after `-069`: everything newly unlocked is Browser or Build.
+- **Exactly one next action**: **run `-064` (AC-12)** — `httpCrossTab.mjs` → **7/7 while authenticated** in real Chromium.
+  `(a′)` is **answered and now implemented** (`-071`), and the precondition was measured on the real app rather than argued:
+  a login at `https://172.23.124.252:5443` puts `__Host-JTSession` **in a Chromium cookie jar** and the protected route
+  answers `200`. Three things `-064` owes before it can be believed, all learned from the records above rather than invented:
+  **build the harness with `VITE_API_BASE_URL` set to the API's own origin** (an empty value silently selects the
+  localStorage adapter, so a green run would be a run against nothing); **clear cookies per case**, because the jar persists
+  across CDP targets and the failure mode is a **false 7/7**; and address the host at its **non-loopback** IP over **TLS**,
+  the only shape the container can reach — *the container's loopback is the container's own*. Then **`-063`**, whose two-case
+  split is **approved** (case 1 must use a state-changing verb: login takes no `X-CSRF-Token`), then **`-065`**, which must
+  name the URL literal it built with — Slice 0's **9 B** between `localhost` and an IP cannot move a **3 kB** gate, so that
+  is a figure concern, not a verdict one. **The four owed practice tasks (`-066`…`-069`) stay unstarted until invited.**
   *(**PR #60 — the spike, its probes, and the refutation of `DECISION-007`'s premise — is MERGED** at `7e13914`, 17:56:17Z.
-  **PR #61** carries the real-app measurement that came after it and is **open, awaiting human review**. Review, merge, tags
-  and releases are not agent duties, so the queue stops here even though the implementation is unblocked: the answer to Q4
-  changed what the next branch must build, and the record of that answer is not fully merged yet.)*
+  **PR #61 merged** at `1819bbb` 18:47:03Z — the real-app measurement, both verified both ways. **`-071` is the first
+  product code of Slice 5 and the branch now awaiting review.** Review, merge, tags and releases are **not agent duties**,
+  so the queue stops at the PR even though `-064` is unblocked — deliberately: `-071` changes `api/` behaviour that every
+  browser row depends on, so running `-064` against an unmerged tree would make browser evidence describe a `main` it is
+  not in. **`verify-api` runs on this PR rather than skipping**, because `api/` genuinely moved; the 179/0 above is local
+  evidence, and CI's is the independent copy.)*
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 

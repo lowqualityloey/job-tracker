@@ -446,6 +446,26 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
 > response is written and the default exception mapping discards it. That reframes the row: this is not "handle a framework
 > limitation", it is "stop throwing away what the framework worked out". **Ladder is now `-047`…`-069` = 23 behaviours**,
 > counted the same way.
+> **§6 amendment — execution-time, 2026-09-12 19:18 UTC (`-071`).** Raised by the owner's answer to **Q4**, not by the plan or
+> the grill: `(a) serve the harness from the API origin` was chosen, then **refuted by measurement** (a `__Host-` cookie is
+> discarded over plain `http` even on loopback — Chromium gates the *prefix* on a cryptographic scheme, not on *secure
+> context*), and re-answered as **`(a′)` same origin over TLS**. `(a′)` needs no TLS code — Kestrel reads a PEM from config —
+> but it does need the API to serve a page, which nothing in this product had ever done, and that is a behaviour: the shell at
+> `/`, a real asset as **itself**, a deep client route as the **fallback**, and **`/api/**` still answering as the API**.
+> Development-only is part of the behaviour, not packaging: `docs/aws-deployment.md` puts front end and API on **different
+> origins**, which is what makes AC-16's credentialed CORS load-bearing, so a production bundle on the API's own origin would
+> be a second app silently outside the boundary everyone believes in.
+> **Two implementation shapes were rejected by observed failures, recorded because both were invisible from inside the row.**
+> A middleware that awaits the pipeline and checks for `404` cannot see the status here (`UseStatusCodePages` is registered
+> above it and defers the write) — and **eight of nine cases passed anyway**. `MapFallback` passed **all ten** of `-071` and
+> broke a ratified sibling: `Non_json_body_rejected` went **`415 → 404`** in isolation, because a fallback is consulted for
+> requests the API should decide itself, which would have quietly destroyed **`-045`'s Content-Type guard** against simple
+> cross-origin writes. Only the full suite saw it. **A row being green is not evidence that a catch-all is safe.**
+> **`-070` is deliberately unassigned.** Two records cite "`-070`'s scoped-mutation-gate verdict"; `grep -rln "scoped.mutation"
+> docs/` returns those two files and nothing else — no row, no spec reference, no EXEC record. The number is left empty rather
+> than reused, because filling it would make both citations read as satisfied.
+> **Ladder is now `-047`…`-069` + `-071` = 24 behaviours** (`-070` unassigned), counted by the same command that corrected the
+> first claim in this series.
 
 ## 7. Sign-off & Grilling Checklist
 

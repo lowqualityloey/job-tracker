@@ -1082,6 +1082,71 @@ no `code`, where AC-8's contract says `400` + `code: "validation"`), unless Q4 l
 > "AC-12/13/14/18" as the open set was doubly false (AC-13 is verified, AC-18 does not exist) — see the correction appended
 > there for why the `13 + 4 = 17` counter could not catch it.
 
+**`TDD-EXEC-m4-authentication-071`** · **new behaviour, no `BEHAVIOR-*` of its own** (it is the enabling half of
+`DECISION-m4-auth-007` (a′) and the precondition of `-064`; it verifies **no AC**) · Red `964fdc6` → Green `77ab86d` · p0 ·
+**the ladder row was written before the code, and that is what caught the hazard**
+
+- **Where it came from:** the owner's answer to Q4 (`(a)`, then `(a′)` after measurement). `(a′)` says *serve the harness page
+  from the API's own origin, over TLS*, and nothing in this product served a page. **TLS needed no code** — Kestrel reads a
+  PEM from configuration, which the spike measured — so the code half is exactly the serving half, and that made it easy to
+  skip. Skipping it would have put the browser's page on one origin and its API on another, which is the failure this whole
+  detour exists to end.
+- **Row `-071`, written first:** *"the shell at `/`, a real asset as **itself**, a deep client route as the **fallback** — and
+  `/api/**` still answers as the API."* **`-070` was skipped deliberately:** it is a **phantom**, referenced as
+  "`-070`'s scoped-mutation-gate verdict" by `checkpoint-001` and `STATE.md` §3A and defined **nowhere** — `grep -rln
+  "scoped.mutation" docs/` returns those two files and nothing else. A number cited as though assigned, propagated rather
+  than re-derived, the same class as the false AC list. **Left unassigned and asked**, because quietly reusing it would make
+  those two records read as satisfied.
+- **Red:** `--filter ~SpaHostingTests` → **`Failed: 3, Passed: 5, Total: 8`**. The three failures are the positive cases. The
+  five that passed *before any code existed* are not noise and are not a problem — they are **negative guarantees**, true
+  precisely because nothing serves anything yet, and they are the half of the row that constrains the implementation rather
+  than the half it satisfies. Writing them as assertions is why both failure modes below were visible at all.
+- **Green:** focused **10/10**; full API **`Failed: 0, Passed: 179, Skipped: 0`** (1 m), 0 errors / 0 warnings.
+  `169 + 10 = 179` ✓ derived from the run, not recalled.
+- **Two shapes were tried and rejected, each by an observed failure — and the second is the one to remember.**
+  1. **Middleware that awaits the pipeline and checks for a 404** does not work in this pipeline: `app.UseStatusCodePages()`
+     is registered *above* it and defers the status write, so the 404 was not observable where the check asked for it.
+     **Eight of nine cases still passed**, because only the deep-route case reads that status. A nearly-green file hiding a
+     dead branch. Mechanism stated only as far as proven — the fix removes the dependency on the read rather than trusting an
+     explanation that was never pinned down.
+  2. **`MapFallback("{*path:nonfile}")` passed all ten of `-071`'s cases and broke a ratified row.** `ApplicationsCommandTests.Non_json_body_rejected`
+     went **`415 → 404`**, in isolation, with the SPA block as the only difference. A *fallback* is consulted for requests the
+     API should decide for itself, so the `/api` clause converted the framework's 415 into a 404 — **silently destroying
+     `-045`'s guard**, the one that makes Content-Type the thing that refuses a simple cross-origin write. **Only the full
+     suite saw it. This row being green was not evidence.** A catch-all `MapGet` ranks below a literal route, so the API's
+     endpoint keeps its own status, and the verb discipline arrives free (a POST to a page path matches nothing → routing
+     answers 405, now asserted rather than assumed).
+- **A default that no test touches is a default that rots.** The first real boot served **`404` at `/` while the file was
+  green**: `appsettings.Development.json` shipped `../../dist`, which from `api/src/JobTracker.Api` resolves to `api/dist` —
+  two levels short of the repository root. Every existing case handed the app an **absolute** path, so the one shape a
+  developer actually gets had no test. **`Relative_SpaRoot_resolves_against_the_content_root` now pins it**, and the
+  `LogWarning` naming the resolved path is what made this a 20-second diagnosis instead of an afternoon — the reason the
+  warning is in the code rather than a silent fall-through.
+- **Proved on the real bundle, which no synthetic fixture can claim:**
+  `/` → `200 text/html`, **byte-identical to `dist/index.html`** (`cmp`), carrying `<title>Job Tracker`;
+  `/records/8f31/edit` → `200` shell for a route the server has never heard of;
+  `/assets/index-D3LZqJ4m.js` → `200 text/javascript`, **190,906 bytes served by the API**;
+  `/assets/typo.js` → `404 application/problem+json`; `/api/nope` → `404 application/problem+json`.
+- **Why Development-only is a behaviour, not a detail:** `docs/aws-deployment.md` puts the front end and the API on
+  **different origins** when deployed — which is what makes AC-16's credentialed CORS load-bearing. A bundle served by the API
+  in production would be a second copy of the app on the API's own origin, where its requests bypass the boundary everyone
+  believes in. So the Production case runs **with the bundle present on disk**; a gate that only passes when the directory is
+  missing is not a gate.
+- **One trap this row leaves standing, recorded rather than hidden:** the served bundle talks to the API through
+  `VITE_API_BASE_URL`, and `applicationStore.ts` treats an **empty** value as *"use the localStorage adapter"* — so a
+  same-origin build made **without** that variable serves a fully-working-looking app that never touches the API. The harness
+  must build with `VITE_API_BASE_URL` set to the API's own origin. **Not fixed here**: changing what "unset" means would move
+  a `BEHAVIOR-*` boundary in a row that has none, so it is `-064`'s setup problem, stated before it is discovered in a green
+  browser run.
+- **Hygiene:** `jobtracker_spa071` created for the real-boot probe and **dropped afterwards**; the dev database was never
+  pointed at. **No orphan** — `pgrep -x dotnet` (**not** `-f`, which matches the checking shell's own command line and
+  reported a phantom orphan twice today) returns nothing, port `5099` closed.
+
+**Next:** **`-064`** (AC-12) — `httpCrossTab.mjs` → **7/7 while authenticated** in real Chromium, now that an authenticated
+session is reachable. Its setup owes three things this record names: the harness must be built with `VITE_API_BASE_URL`
+pointing at the API's own origin (above), it must **clear cookies per case** or it fails green (the spike's finding), and it
+must address the host at a **non-loopback** IP over **TLS**, which is the only shape the container can reach.
+
 ### §6a. Durable checkpoint and handoff records (Level 2 gate)
 
 | Sequence | File | Trigger | State |
