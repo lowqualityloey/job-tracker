@@ -161,7 +161,67 @@ and 20 blocks, and writing the missing one exposed a false claim about two other
 
 ## 6. Evidence and Completion Gate
 
-`Pending` — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had
+### Slice 0 — pre-M4 bundle baseline (executed 2026-09-12 05:25 UTC, at `41b32af`)
+
+**This slice exists because §2.8 of M3 assigned a baseline to Slice 3 and Slice 3 never took it**, which made the
+`< 2 kB` delta uncomputable until it was reconstructed from an old commit. The command, run on `main` with **nothing**
+of M4's code present:
+
+```
+rm -rf dist && VITE_API_BASE_URL="http://172.23.124.252:5080" npm run build && cat dist/assets/*.js | gzip -c | wc -c
+```
+
+| Configuration | JS gzipped | Delta vs flag-off |
+| :--- | ---: | ---: |
+| **flag-OFF** (`VITE_API_BASE_URL` unset) | **60,118 B** | — |
+| **flag-ON**, URL = `http://172.23.124.252:5080` (this machine's sandbox IP) | **61,368 B** | **+1,250 B** |
+| flag-ON, URL = `http://localhost:5080` | **61,359 B** | **+1,241 B** ← M3's §2.8 figure |
+
+**Finding, and it belongs in the record rather than being smoothed over: the baseline is configuration-dependent down to
+the length of the URL literal.** The API base is inlined by `import.meta.env` substitution, so a 14-character IP versus a
+9-character `localhost` moves the gzip sum by 9 bytes — and M3's `+1,241` was taken with the **`localhost`** spelling while
+today's natural harness build uses the IP. **The flag-off reproduction landed on M3's number exactly (60,118), which is
+what tells us the drift is in the URL and not in the code.** `-065` therefore compares against **61,368 B at the IP
+configuration**, and states which literal it used; a delta quoted without its URL is a number about a build nobody ships
+(the same trap the flag-off 0 kB delta was).
+
+**Also recorded:** `dist/` is gitignored (checked with `git check-ignore`), and the tree was verified clean
+(`dirty=0`) after the builds — a build artifact left in the worktree is how an unrelated file rides into a commit.
+
+---
+
+**`TDD-EXEC-m4-authentication-047`** · `BEHAVIOR-047` · Red `0d28da4` → Green *(this commit)* · p0 · **Slice 1**
+- **Red, quoted from the run:** `dotnet test --filter "FullyQualifiedName~PasswordServiceTests"` →
+  **`Failed: 5, Passed: 0, Skipped: 0`**, every failure `System.NotSupportedException : BEHAVIOR-047 Red: no
+  implementation yet.` `bin/` and `obj/` deleted first, so the build was clean rather than incremental (AGENTS.md rule 8),
+  and the whole output read: **0 warnings, 0 errors.**
+- **Green:** `dotnet test --filter ~PasswordServiceTests` → **6/6**; full suite → **`Failed: 0, Passed: 71, Skipped: 0`**
+  — the 65 M3 behaviours plus these 6, no skips, so AC-13 holds at this boundary.
+- **Ladder-hygiene deviation, disclosed rather than manufactured.** The tamper test was *wrong* and a sixth test was added
+  during Green, so neither has its own Red commit. The defect: flipping the **last** character of Identity's hash replaces
+  base64 **padding**, producing a malformed string rather than a tampered credential — and `PasswordHasher` reacts to that
+  by **throwing `FormatException`** instead of returning `Failed`. Both cases are now separate tests because they broke for
+  different reasons. The Red evidence for the new one is that logged throw, in a tree differing from Green only by the
+  not-yet-written `catch`. **A manufactured intermediate commit to satisfy the ritual would have been worse than naming
+  this**: `-043`'s record set the precedent that an honest "no Red here, and why" beats a staged failure.
+- **⚠️ Gap 12's sibling, found by a unit test before any endpoint existed.** `Verify` on a corrupt *stored* value threw
+  toward a 500 — same shape as the binder throwing on an unparseable `Guid` client id, one layer down. Fixed narrowly:
+  `catch (FormatException)`, **not** `catch (Exception)` — converting a real bug into a wrong-password answer is the one
+  outcome a login path must never produce silently. **Recorded as the practice task's own sweep paying off immediately.**
+- **One decision with no test yet, named instead of hidden:** `SuccessRehashNeeded` counts as verified. Treat it as
+  failure and `-048` — whose job is raising the iteration count above Identity's inherited 100,000 — **silently locks out
+  every existing account the moment it goes green.** `-048` must therefore assert both the configured count *and* that a
+  lower-count hash still verifies while needing rehash. The interface was also split into its own file after a Green
+  rewrite deleted `IPasswordService` while replacing the implementation sharing its file — `CS0246` pointed at the
+  declaration site, not the vanished file.
+- **Still unreached by any caller:** the service is not registered in `Program.cs` — deliberately, because `-050`'s boot
+  guard has to be the thing that makes the app refuse to start. **A `null` password still throws
+  `ArgumentNullException` at this seam**; that becomes a 400 at the credential DTO's validator in Slice 2, and is written
+  here so the ladder doesn't lose it to a passing suite.
+
+---
+
+`Pending` for Slices 1 (rest)–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had
 four checkbox slips where scripted edits hit prose and never the prefix); regenerate §3A of STATE **whole** at each
 boundary; read spec lines **without truncation** before asserting anything about them.
 
