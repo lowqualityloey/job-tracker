@@ -5,6 +5,9 @@ using Npgsql;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,7 +44,20 @@ builder.Services.AddSingleton<IPasswordService, PasswordService>();
 // than a secret configured per environment — `Antiforgery`'s comment carries where that deviates from DECISION-m4-auth-006's
 // "HMAC over the session id" wording, and why. Stated explicitly because this app never asked for data protection
 // implicitly, and a service that arrives by accident is one nobody notices being removed.
-builder.Services.AddDataProtection();
+//
+// -074: that ring has to outlive the process. `AddDataProtection()` alone gives every process its own ephemeral keys, so
+// a token minted before a restart — or by a second instance — cannot be read afterwards, while the session it belongs to
+// survives in a table: the user is still signed in and every write of theirs is a 403. The ring therefore moves into the
+// database the sessions already live in, via `PostgresKeyRing`/`PostgresKeyRingConfiguration`. Wiring it through
+// `IConfigureOptions<KeyManagementOptions>` rather than a container registration of `IXmlRepository` is not style: the
+// registration compiles, starts clean, and changes nothing. And `AddDataProtection()` is the only persistence hook the
+// shared framework offers — the `PersistKeysTo*` family is a separate package, which is the dependency this row
+// declined to add for the reason AC-15 states.
+builder.Services.AddDataProtection().SetApplicationName("JobTracker.Api");
+// The discriminator is pinned so a token's readability never depends on how the host was named. Every test host here
+// shares a content root, so this line is not what makes -074 pass — it is insurance against a difference this repository
+// cannot currently observe, recorded as such rather than as a tested behaviour.
+builder.Services.AddSingleton<IConfigureOptions<KeyManagementOptions>, PostgresKeyRingConfiguration>();
 
 builder.Services.AddDbContext<JobTrackerDb>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
