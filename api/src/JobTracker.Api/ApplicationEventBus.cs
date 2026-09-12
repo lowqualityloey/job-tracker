@@ -3,7 +3,8 @@ using System.Threading.Channels;
 namespace JobTracker.Api;
 
 /// <summary>
-/// Broadcasts "the catalog changed" to every open event stream (BEHAVIOR-m3-backend-api-046, spec
+/// Broadcasts "the catalog changed" to every open event stream **that belongs to the owner of the
+/// changed record** (BEHAVIOR-m3-backend-api-046 for the broadcast; BEHAVIOR-068 for the scoping
 /// DECISION-m3-backend-api-005).
 ///
 /// <para>
@@ -41,14 +42,20 @@ public sealed class ApplicationEventBus
     private const int BufferPerSubscriber = 64;
 
     private readonly object _gate = new();
-    private readonly List<Channel<string>> _subscribers = [];
+
+    /// <summary>
+    /// A channel plus the owner it may speak for. The owner is captured at subscribe time because that is the moment the
+    /// request has already passed the session gate; taking it per-publish from the writer's <c>HttpContext</c> would be
+    /// reading the identity of whoever caused the event, which is a different question and the wrong one.
+    /// </summary>
+    private readonly List<(Guid OwnerId, Channel<string> Channel)> _subscribers = [];
 
     /// <summary>
     /// Starts a subscription. The caller must <see cref="Unsubscribe"/> it — the SSE endpoint does so in a
     /// <c>finally</c>, because a channel left behind after a browser vanished is a memory leak with a writer
     /// attached to it.
     /// </summary>
-    public Channel<string> Subscribe()
+    public Channel<string> Subscribe(Guid ownerId)
     {
         var channel = Channel.CreateBounded<string>(new BoundedChannelOptions(BufferPerSubscriber)
         {
@@ -59,7 +66,7 @@ public sealed class ApplicationEventBus
 
         lock (_gate)
         {
-            _subscribers.Add(channel);
+            _subscribers.Add((ownerId, channel));
         }
 
         return channel;
@@ -69,7 +76,7 @@ public sealed class ApplicationEventBus
     {
         lock (_gate)
         {
-            _subscribers.Remove(channel);
+            _subscribers.RemoveAll(s => ReferenceEquals(s.Channel, channel));
         }
 
         // Completing the writer is what lets the reader's `ReadAllAsync` end cleanly if it is still parked, rather
@@ -81,18 +88,30 @@ public sealed class ApplicationEventBus
     /// Announces one committed write. Never blocks and never throws at a caller that has already saved: the catalog
     /// mutation is the fact, and an undeliverable notification about it is a staleness problem, not a failure.
     /// </summary>
-    public void Publish(string applicationId)
+    /// <param name="ownerId">
+    /// Whose change this is, taken from the record rather than from the caller's identity. Those are the same thing for
+    /// every route in this app -- <c>-056</c> makes a row unreachable to anyone but its owner -- but they are different
+    /// *concepts*, and a future admin action or import path is exactly where conflating them would leak.
+    /// </param>
+    public void Publish(Guid ownerId, string applicationId)
     {
-        Channel<string>[] snapshot;
+        (Guid OwnerId, Channel<string> Channel)[] snapshot;
 
         lock (_gate)
         {
             snapshot = [.. _subscribers];
         }
 
-        foreach (var channel in snapshot)
+        foreach (var (subscriberOwner, channel) in snapshot)
         {
-            channel.Writer.TryWrite(applicationId);
+            // BEHAVIOR-068: the whole rule in one comparison. Written as a filter over a snapshot rather than as a
+            // per-owner dictionary because a subscriber list is tiny, mutations to it happen on connect/disconnect rather
+            // than on every publish, and a dictionary keyed by owner would need a list per key anyway -- same code, more
+            // ways to leak an entry when a browser vanishes.
+            if (subscriberOwner == ownerId)
+            {
+                channel.Writer.TryWrite(applicationId);
+            }
         }
     }
 }

@@ -78,7 +78,11 @@ public static class ApplicationCatalog
             http.Response.Headers.ContentType = "text/event-stream";
             http.Response.Headers.CacheControl = "no-cache";
 
-            var changes = bus.Subscribe();
+            // BEHAVIOR-068: the stream is scoped to the authenticated owner. RequireUserId cannot throw here -- the route
+            // is behind the session gate -- but it is called once, outside the loop, so a frame is never produced for a
+            // connection whose identity could not be established in the first place.
+            var streamOwner = SessionGate.RequireUserId(http);
+            var changes = bus.Subscribe(streamOwner);
             try
             {
                 // A comment frame, which SSE defines as ignorable and clients never dispatch. It exists to put bytes
@@ -156,7 +160,7 @@ public static class ApplicationCatalog
             // catalog that never contained it. §4.3's word is "committed", and this is the line that earns it. The
             // duplicate-key branch above returns early, so a refused write publishes nothing — asserted by
             // `A_rejected_write_publishes_nothing`.
-            bus.Publish(entity.Id.ToString("D"));
+            bus.Publish(entity.OwnerId, entity.Id.ToString("D"));
 
             return Results.Created($"/api/applications/{entity.Id}", entity);
         });
@@ -208,7 +212,7 @@ public static class ApplicationCatalog
             entity.Notes = value.Notes;
 
             await db.SaveChangesAsync(ct);
-            bus.Publish(entity.Id.ToString("D"));
+            bus.Publish(entity.OwnerId, entity.Id.ToString("D"));
             return Results.Ok(entity);
         });
 
@@ -241,7 +245,7 @@ public static class ApplicationCatalog
 
             db.Applications.Remove(entity);
             await db.SaveChangesAsync(ct);
-            bus.Publish(guid.ToString("D"));
+            bus.Publish(entity.OwnerId, guid.ToString("D"));
             return Results.NoContent();
         });
 
