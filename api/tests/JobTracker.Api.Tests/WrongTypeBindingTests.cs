@@ -172,8 +172,10 @@ public sealed class WrongTypeBindingTests(PostgresFixture postgres) : IDisposabl
         // guess which field to fix. Asserted as a set containing the one pointer, so an extra sibling error is allowed and
         // a missing one is not.
         var pointers = PointersOf(response);
-        Assert.Contains($"#/{member}", pointers);
-        Assert.True(pointers.Count > 0, $"no errors array at all: {Describe(response)}");
+        // Assert.True with the document in the message rather than Assert.Contains(item, collection): when this fails the
+        // only useful thing a CI log can carry is what the server actually said.
+        Assert.True(pointers.Contains($"#/{member}"),
+            $"expected a pointer for \"{member}\", the document named [{string.Join(", ", pointers)}]. {Describe(response)}");
     }
 
     [Fact]
@@ -207,7 +209,9 @@ public sealed class WrongTypeBindingTests(PostgresFixture postgres) : IDisposabl
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = "select count(*)::int from applications where id = @id";
-        cmd.Parameters.AddWithValue(Guid.Parse(id));
+        // Named parameter, not AddWithValue(object): an unnamed one never binds to @id and PostgreSQL answers
+        // "operator does not exist: @ uuid", which is a test bug wearing a product bug's clothes.
+        cmd.Parameters.Add(new NpgsqlParameter<Guid>("@id", Guid.Parse(id)));
         Assert.Equal(0, Convert.ToInt32(await cmd.ExecuteScalarAsync()));
     }
 
@@ -265,11 +269,12 @@ public sealed class WrongTypeBindingTests(PostgresFixture postgres) : IDisposabl
 
         var cookie = await CookieAsync();
         var response = await SendAsync(HttpMethod.Post, "/api/applications",
-            Body(Guid.NewGuid().ToString(), "notes", "\"not-an-array\""), cookie);
+            Body(Guid.NewGuid().ToString(), "companyName", "42"), cookie);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.Status);
         var code = CodeOf(response);
-        Assert.NotNull(code);
+        Assert.NotNull(code);   // (the contract test is about the discriminator, so it uses a member that is genuinely mistyped: `notes` is a string
+        // column, and an earlier draft "wrong-typed" it with a string, which the server was right to accept.)
         Assert.True(codes.Contains(code),
             $"the binding path emitted code '{code}', which the shared contract ({string.Join(", ", codes)}) does not define: " +
             Describe(response));
