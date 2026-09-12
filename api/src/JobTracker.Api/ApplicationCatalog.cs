@@ -143,7 +143,10 @@ public static class ApplicationCatalog
                 // that distinguishes "create this" from "I already sent you this" is the primary key. Letting it reach the
                 // exception handler would surface a duplicate as `storage-error` — the client's mapping has no other word
                 // for a 500 — and the user would be told storage failed about a record that saved fine on the first try.
-                return Problems.Conflict(request.Id);
+                // value!.Id rather than request.Id: -057 widened the wire member to string?, and the compiler pointed
+                // straight at this line. The duplicate-key conflict is about the row, which only exists once the id has
+                // parsed -- so the validated value is the correct thing to name here, not the raw text.
+                return Problems.Conflict(value!.Id);
             }
 
             // Results.Created rather than Ok: the 201 is what the client's adapter distinguishes a fresh create from, and

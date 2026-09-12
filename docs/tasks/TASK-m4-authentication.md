@@ -98,7 +98,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · Two seeded users in the test fixture only; `GET`/`PUT`/`DELETE` on A's id as B → **`404`**.
   · *403 is an oracle* — it confirms the id exists.
 
-- [ ] **AC-8** — **Gap 12 fixed: a malformed `id` is a `400` validation problem, not a `500`.**
+- [x] **AC-8** — **Gap 12 fixed: a malformed `id` is a `400` validation problem, not a `500`.**  *(verified 2026-09-12 by `-057`: four malformed-id shapes answer `400` + `code: validation` + `"#/id"` on a live server, the valid body still `201`, and SQL confirms no row was written; malformed **route** ids stay `404` by deliberate asymmetry)*
   · `curl -s -X POST … -d '{"id":"not-a-guid",…}'` → `400` + `errors[].pointer: "/id"` + `code: 'validation'`.
   · **Red is today's `500` on exactly this body** — the defect is already reproduced and recorded in the M3 test doc §21.
 
@@ -587,6 +587,53 @@ configuration**, and states which literal it used; a delta quoted without its UR
   is a second change riding inside this one, and because the human's pending coverage audit should be the thing that decides
   whether it's p0.
 - **AC-7 and AC-9 checked.** 8 verified + 9 open = 17, asserted.
+
+**`TDD-EXEC-m4-authentication-057`** · `BEHAVIOR-057` (+ AC-8) · Red `a4baeea` → Green `3421e53` · p0 · **Slice 3**
+- **Red, measured:** `Failed: 9, Passed: 2, Skipped: 0, Total: 11` — six `[Theory]` rows all reporting `produced 500`, plus
+  the POST case, the PUT case, and the no-row-written case. **Green:** focused **11/11**, full
+  **`Failed: 0, Passed: 133, Skipped: 0`** (44 s), 0 warnings. AC-8 checked → **9 verified + 8 open = 17**, asserted.
+- **The premise was measured before the code, and it widened the scope.** `-057`'s row says *"Red is the 500 reproduced
+  today"*, so the first act was a curl sweep on a live Kestrel with an authenticated session (port ownership checked before
+  and after). It found **`PUT` with a malformed *body* id** 500-ing — the same defect on a verb the row never mentions, which
+  is now `-057`'s fourth test. Probing also confirmed what the row *didn't* need to fix: `GET`/`DELETE` with a malformed
+  **route** id already answer `404` + `code: not-found`, because both handlers `Guid.TryParse` the segment.
+- **`Guid` → `string?` was not the fix, and the run caught me treating it as one.** Focused result after the type change:
+  **9/11**, the two survivors being `{"id":123}` and `{"id":{"kind":"uuid"}}`. System.Text.Json refuses to bind a number or
+  an object to a `string` too, so widening a field fixes only the inputs that were *already* that type. The real fix is
+  `AnyTokenToTextConverter` on the one member: `null` stays `null`, a string passes through, anything else is rendered to its
+  raw JSON text and handed to the validator, which rejects it. **The class of the bug is "the framework parses before the app
+  can" — the diagnosis was right the first time; the remedy was too narrow.**
+- **AC-8's own gate, curl as the task doc writes it** (`POST -d '{"id":"not-a-guid",…}'` → `400` + `errors[].pointer: "/id"`),
+  on a live server after Green: `not-a-guid`, `123`, `{"kind":"uuid"}`, and `""` all answer
+  `400 | code:"validation" | "#/id"`, and a valid body still answers `201`. The row is not written: counted in SQL, because
+  *"validate later and let the database complain"* is precisely a 400 that also inserted something.
+- **Two things deliberately left asymmetric.** A malformed **route** id stays `404`: answering `400` there would report
+  *"well-formed but not yours"*, which is `-056`'s existence oracle reopened through a status code. Body-malformed means *"the
+  value you want stored is not a GUID"*; route-malformed means *"nothing here"* — pinned by a test so the next reader doesn't
+  unify them. And the pointer is **`#/id`**, matching the measured house shape (a bad status already answers `#/status`),
+  where `-057`'s row abbreviates it as `/id`; asserted against the convention rather than the abbreviation, and the difference
+  is recorded here rather than silently resolved.
+- **⚠️ SIBLINGS FOUND BY PROBING, NOT FIXED — proposed `-069`.** Wrong-typed *values* in the other members still die in the
+  binder on the same server, minutes later: `companyName: 42` → **500, no `code`**; `notes: [1,2]` → **500**; `status: 5` →
+  **500**; and the valid control → **201**, so the probe was live. Root cause is identical (reference-type members tolerate
+  `null` but not a wrong token type), the blast radius is every member of every wire record, and **no ladder row owns it**.
+  Left alone on purpose: `-057` names the id, and a sweep across the contract is the human's call to rate, not a change that
+  should ride inside this commit. Making `Id` a `JsonElement`-style catch-all for *all* members would also have stored `"42"`
+  as a company name, which is a different product.
+- **Disclosure — a commit message written from intent, corrected by the tree.** The first Red commit (`1e781f2`) carried the
+  text *"`Failed: 9, Passed: 2` … all six theory rows are now genuine failures"* while the tree said **8/3**, because the
+  scripted edit that was supposed to fix `BodyWithId` had died on a Python `SyntaxError` (C# `"""` inside a heredoc —
+  a recurring mistake, and this is the third or fourth time) and I wrote the message from what I expected the edit to have
+  done. Two independent tells: **six inputs, five failures** (the object-shaped row was sending a body with no `companyName`
+  at all, so it "passed" as a 400 for an unrelated reason — a self-defeating assertion hiding in the pass column), and a
+  `CS1002` on the retry (`; expected`) where the expression-body rewrite had eaten its terminator along with the `};` line.
+  Fixed via a script file instead of a heredoc, re-measured at **9/2**, and the commit amended to `a4baeea` so the message now
+  describes its own diff. Root cause is the one already named three times in this milestone: **writing from intent instead of
+  measurement.**
+- **A second quiet failure worth recording:** the first post-Green curl probe reported `401` for *every* shape including the
+  control — the cookie was empty because the server hadn't finished booting when the login ran, and a probe that never had a
+  session measures nothing while still printing a tidy table. The re-run waits on `Now listening`, prints the login status
+  and the cookie, and **refuses to print the table** if the cookie is absent.
 
 ---
 
