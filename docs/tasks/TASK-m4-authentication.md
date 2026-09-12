@@ -75,6 +75,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   gap 10a's lesson (`ETag`/`revision`: **a test asserting *A or B* cannot detect the absence of *A***).
 
 - [ ] **AC-3** — **Login is not enumerable by message or timing.**
+  · *(partly verified 2026-09-12 by `-053`: message-indistinguishability proven and verify cost equalised **structurally**; medians 282 ms vs 310 ms reported. **Left open for the 5 ms bound's restrike-or-restate decision** — see §6.)*
   · Wrong-email and wrong-password bodies are **byte-identical**; `dotnet test --filter ~EnumerationResistance` asserts
   50 samples each and a documented median bound, **with a dummy-hash verify on the absent-user path**.
   · *Named weakness, from spec §7:* a 5 ms bound over 50 samples may be noise. If the method can't distinguish a
@@ -454,6 +455,49 @@ configuration**, and states which literal it used; a delta quoted without its UR
   (CS1061). Also `WebApplicationFactory` needed `Mvc.Testing`.
 - **`AC-5` checked.** Its wording was the test design, not a suggestion: *"a pre-login cookie is invalid after, and the test
   proves it by re-using the old value."*
+
+**`TDD-EXEC-m4-authentication-053`** · `BEHAVIOR-053` · Red `242ea5e` → Green *(this commit)* · p0 · **Slice 2**
+- **Red:** `Failed: 2, Passed: 3` — `Assert.Single (0 calls recorded)` on both structural tests. **The three that passed are
+  the lesson:** identical status, identical body, no cookie, no crash — every message-level assertion this behaviour needs was
+  already true, while the absent-email branch skipped PBKDF2 entirely. Spec §2.4 says it outright: *the classic tell isn't the
+  message, it's the missing 400 ms.*
+- **Green:** focused **5/5**, full **`Failed: 0, Passed: 108, Skipped: 0`** (22 s), 0 warnings. `user is null` now verifies
+  `DummyCredential.Envelope` and returns; the present path verifies the real hash. One verify on every path, same declared cost.
+- **The dummy envelope is generated at runtime, not pasted as a constant.** A literal base64 hash freezes whatever
+  `IterationCount` was current when someone produced it; the next time that security parameter moves, the absent path would
+  verify at the *old* cost and **the fix would silently re-create the oracle it exists to close**, with every message-level
+  test still green. Deriving it through `PasswordService` makes equal cost structural. Lazy (`ExecutionAndPublication`) so
+  ~300 ms lands on the first failed unknown-email login per process rather than on every boot — including Testcontainers
+  hosts. Also noted: the lazy version makes that first request *slower* than a wrong-password response, an oracle pointing the
+  other way, and one-time rather than per-probe.
+- **⚠️ Row `-053` restated — "byte-identical in body" is not achievable in this application.** Discovered by the first
+  version of the assertion failing with `"code":"unauthorized","traceId":"00-b97b516c5cfde…"`: **ASP.NET's default problem
+  writer injects a per-request W3C trace id, so no two problem documents in this app are ever byte-identical.** A random
+  correlation id carries no account information, and suppressing it globally would discard the id M3's SSE/problem debugging
+  depends on for zero security gain. The committed claim is now precise instead of impossible: every member *except*
+  `traceId` equal, `traceId` **present on both** paths (its absence on one side would itself be a tell), the two trace ids
+  *different* (proving it is per-request, not a stable fingerprint), and **neither body contains either email in either
+  direction.** The test-plan row is amended in place with the original wording visible.
+- **Proof is structural because `-049` already proved timing can't be asserted here.** A counting `IPasswordService`
+  substituted at the DI seam records the exact envelope each path handed the hasher, and the test decodes the declared
+  iteration count from the envelope (byte 0 marker = `1`, big-endian uint32 at [5..9] — measured in `-048`). That catches the
+  cheap dodge too: *"a verify happens"* is satisfiable by verifying a 1,000-iteration stub, which only moves the oracle.
+- **Timing, reported and NOT asserted** (grill Q8; 25 samples per path against a live Kestrel on `127.0.0.1:5080`, port
+  ownership verified before and after): absent email median **282 ms** (min 259, max 771) · real email + wrong password median
+  **310 ms** (min 269, max 509) · valid login median **287 ms** (n=10). Residual gap **28 ms** with near-total distribution
+  overlap. **For contrast, derived not measured:** the pre-fix difference was a whole verify, i.e. `≈271 ms` from `-049`'s
+  bench — two orders of magnitude above this noise floor. **AC-3's original "within 5 ms" bound is still unmet at the median
+  and remains the owner's restrike-or-restate decision; nothing in CI asserts it.**
+- **AC-3 left OPEN deliberately.** Message-indistinguishability is now proven and cost-equalisation is proven structurally,
+  but the AC's wording says *"or timing"* and the timing half has an unowned numeric claim attached to it. Same discipline as
+  `-050`: a behaviour can land while its AC waits on a decision, and the record says which is which.
+- **Six of my own errors, all in the test file, all fixed before commit:** CS9176 (`var x = [.. list]` has no target type
+  for a collection expression), two missing usings (`System.Text.Json`; the `Mvc.Testing`/`TestHost` pair), a Python heredoc
+  whose `\"` unescaped into bare quotes and produced invalid C# — **second recurrence of that exact trap this session** — a
+  non-draining read helper that would have reported an earlier attempt's verify as a later one's (not cosmetic here: it is
+  the difference between proving absence and proving nothing), and a leftover `wrongCalls[1 - 1]`.
+- **Practice-task result pending from the human** (browser cookie jar over plain HTTP) is **not** a dependency of this
+  behaviour; it gates `-063`/`-064`.
 
 ---
 
