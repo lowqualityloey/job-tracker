@@ -105,15 +105,19 @@ delta=$((h_on - b_on))
 delta_off=$((h_off - b_off))
 printf '  %-34s %10s %10s %10s\n' configuration baseline head delta
 printf '  %-34s %10s %10s %10s\n' "flag-off (VITE_API_BASE_URL unset)" "$b_off" "$h_off" "+$delta_off"
-printf '  %-34s %10s %10s %10s\n' "flag-on ($URL_LITERAL)" "$b_on" "$h_on" "+$delta"
+printf '  %-34s %10s %10s %10s\n' "flag-on (IP literal, 34 chars)" "$b_on" "$h_on" "+$delta"
+printf '  %s\n' "  (the pinned literal is $URL_LITERAL)"
 
 step "3 — the gate"
 printf '  AC-14: login-route bundle delta < %s B (3 kB), at the flag-on configuration\n' "$GATE_BYTES"
 printf '  reproduced baseline %s B · head %s B · delta %s B → \033[1m%s\033[0m\n' \
   "$b_on" "$h_on" "$delta" "$( [ "$delta" -lt "$GATE_BYTES" ] && echo PASS || echo FAIL )"
-printf '  flag-off delta %s B — what M4's non-lazy auth code costs a build that never turns the API on.\n' "$delta_off"
-# Reported beside the number, never inside it: Slice 0's figures, so drift in the reproduction is visible in this run.
-printf '  Slice 0 recorded 60,118 / 61,368 B; reproduced %s / %s B → %+d / %+d bytes off\n' \
+# No apostrophes in a single-quoted printf format: the first draft wrote M4s with one, which ended the string, turned
+# the rest of the sentence into extra arguments, and ran on through a comment line into the format below it -- while
+# still exiting 0. A report whose numbers are right and whose prose is shredded is a report nobody checks.
+printf '  flag-off delta %s B: what the non-lazy auth code costs a build that never turns the API on\n' "$delta_off"
+# Reported beside the number, never inside it, so drift in the reproduction is visible in this run.
+printf '  Slice 0 recorded 60,118 / 61,368 B; reproduced %s / %s B, off by %+d / %+d bytes\n' \
   "$b_off" "$b_on" "$((b_off - 60118))" "$((b_on - 61368))"
 
 step "4 — where the bytes are, head build, flag-on, gzip bytes per chunk"
