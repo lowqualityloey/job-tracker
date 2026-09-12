@@ -2,6 +2,7 @@ using JobTracker.Api.Auth;
 using JobTracker.Api;
 using JobTracker.Api.Data;
 using Npgsql;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +12,17 @@ var builder = WebApplication.CreateBuilder(args);
 // with the failing test that requires them. The template's `MapGet("/", ...)` sample stays deleted: an endpoint
 // with no test is untested behaviour in the tree.
 builder.Services.AddProblemDetails();
+
+// BEHAVIOR-069 / AC-8's family. A body the binder cannot read was already diagnosed by the framework as
+// `InvalidJsonRequestBody` and wrapped in a `BadHttpRequestException` whose OWN StatusCode is 400 -- the correct answer is
+// in this process two frames before the response is written, and the default mapping throws it away in favour of a generic
+// 500 with no `code`. That combination is actively misleading: -060's client classifies an unrecognised document as
+// `corrupt-data`, so the browser sees "the server sent something we cannot parse" while the log says "invalid JSON request
+// body" -- two true statements pointing in opposite directions.
+//
+// Handled as an IExceptionHandler rather than by customising ProblemDetailsOptions, because the handler is handed the
+// exception itself: it does not have to recover the cause from a document that has already been flattened to "500".
+builder.Services.AddSingleton<IExceptionHandler, InvalidRequestBodyHandler>();
 
 // BEHAVIOR-m3-backend-api-026: a catalog to be empty of. Registered here because the Red test above it fails
 // with 404 without it, and not earlier because nothing needed a database until a test asked the API one.

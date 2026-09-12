@@ -13,6 +13,19 @@ namespace JobTracker.Api;
 /// </summary>
 internal static class Problems
 {
+    /// <summary>
+    /// The validation discriminator and its type URI, shared by the factory below and by the exception mapper in
+    /// <c>Program.cs</c>. BEHAVIOR-069 is the reason: a body the binder could not read must arrive as the SAME code the
+    /// validator emits for a field the user mistyped, because the client's table (-060) maps one code to one behaviour and
+    /// has no interest in which of the two server paths produced it. Two literals in two files is how those drift apart.
+    /// </summary>
+    internal const string ValidationCode = "validation";
+
+    /// <summary>See <see cref="ValidationCode"/> for why this is public to the assembly rather than inline.</summary>
+    internal const string ValidationTypeUri = "https://job-tracker.local/probs/validation";
+
+    /// <summary>The name of the discriminator member DECISION-m3-backend-api-004 put on every problem document.</summary>
+    internal const string CodeExtensionKey = "code";
     /// <summary>The 404 the client's adapter can read; see 028's Red commit for what the framework sends instead.</summary>
     public static IResult NotFound(string id) => Results.Problem(
         title: "No application record exists with that id.",
@@ -38,16 +51,76 @@ internal static class Problems
     /// resubmit, and be told about the second. Order comes from the validator, which the fixture pins by
     /// comparing lists rather than sets.
     /// </summary>
+    /// <summary>
+    /// The problem a request body that will not deserialize produces. BEHAVIOR-069.
+    ///
+    /// Deliberately separate from <see cref="Validation"/>: that one reports *what the user got wrong* across a whole form
+    /// and takes its pointers from the validator's field list; this one reports *what the binder could not parse*, and knows
+    /// only the single JSON path the reader stopped on. They share a <c>code</c> because the client's answer is the same --
+    /// show it on the field, do not retry, do not sign the user out -- and the -060 table maps one code to one behaviour
+    /// with no interest in which server path produced it.
+    /// </summary>
+    public static Microsoft.AspNetCore.Mvc.ProblemDetails InvalidRequestBody(
+        BadHttpRequestException badRequest, Microsoft.AspNetCore.Http.PathString instance)
+    {
+        var problem = new Microsoft.AspNetCore.Mvc.ProblemDetails
+        {
+            Title = "The request body could not be read.",
+            Detail = "The JSON in the request body does not match the shape this endpoint accepts.",
+            Status = StatusCodes.Status400BadRequest,
+            Type = ValidationTypeUri,
+            Instance = instance.HasValue ? instance.Value : null,
+        };
+
+        problem.Extensions[CodeExtensionKey] = ValidationCode;
+
+        // The reader knows where it stopped: JsonException.Path is e.g. "$.companyName", which becomes the same
+        // { pointer, detail } wire shape the validator emits (#/companyName) so a form can put the message on the field the
+        // user mistyped. A truncated document has no path at all, and the code must still arrive -- asserted separately.
+        if (badRequest.InnerException is System.Text.Json.JsonException { Path: { Length: > 0 } jsonPath })
+        {
+            problem.Extensions["errors"] = new[]
+            {
+                new
+                {
+                    pointer = PointerFromJsonPath(jsonPath),
+                    detail = "This member has the wrong JSON type.",
+                },
+            };
+        }
+
+        return problem;
+    }
+
+    /// <summary>
+    /// A JSON pointer in the shape <see cref="Validation"/> uses, from whatever <c>JsonException.Path</c> handed over.
+    ///
+    /// Measured, not assumed: the documented form is <c>$.companyName</c>, and the first version of this line stripped the
+    /// <c>$</c> and prefixed a <c>#</c> -- which produced <c>#.jobTitle</c> on the wire, because a member failure on the
+    /// ROOT object comes back as <c>.jobTitle</c> with no <c>$</c> at all. Parsing segments from either form makes the
+    /// output agree with the validator's pointers, which is what the client's <c>toFieldErrors</c> matches on; a pointer
+    /// the client cannot turn into a field name is a message that goes nowhere.
+    /// </summary>
+    internal static string PointerFromJsonPath(string path)
+    {
+        var segments = path
+            .Split(['.', '[', ']'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(static segment => segment != "$")
+            .ToArray();
+
+        return segments.Length == 0 ? "#" : "#/" + string.Join("/", segments);
+    }
+
     public static IResult Validation(IReadOnlyList<FieldError> errors, string instance,
         string title = "The application record is not valid.") => Results.Problem(
         title: title,
         detail: errors.Count == 1 ? "One field failed validation." : $"{errors.Count} fields failed validation.",
         statusCode: StatusCodes.Status400BadRequest,
-        type: "https://job-tracker.local/probs/validation",
+        type: ValidationTypeUri,
         instance: instance,
         extensions: new Dictionary<string, object?>
         {
-            ["code"] = "validation",
+                [CodeExtensionKey] = ValidationCode,
             ["errors"] = errors.Select(error => new { pointer = $"#/{error.Field}", detail = error.Message }).ToList(),
         });
 
