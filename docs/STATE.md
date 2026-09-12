@@ -85,8 +85,11 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   it, and both baseline figures reproduced **to the byte**. Commit ladder: **harness `ddaf7f2` → its own `printf`
   defect fixed `b489f18` → record `82cd12f` → the AGENTS rule that failure earned `2b1201b`**. Every number was taken at
   `b489f18` on a clean tree — the harness aborts on a dirty one, because its output is pasted into a record that cites a
-  SHA, and `b489f18` is the last commit that touches anything a build reads. No product code moves, so `verify-api` skipping on this PR is **correct rather
-  than a gap**, and the way to tell the two apart is recorded below, because #64 needed it.
+  SHA, and `b489f18` is the last commit that touches anything a build reads. No product code moves, and **CI measured the consequence instead of
+  assuming it**: `verify` pass 56 s, `verify-api` pass **7 s** with steps 4 and 5 concluded `skipped` — the docs-only
+  detector firing correctly, the mirror image of #64, where step 5 ran and printed `Passed: 186`. Both reads come from
+  the job's step list, because **a `pass` conclusion is identical whether the suite ran or was skipped**; only the
+  duration differs, and a duration is a hint rather than evidence.
   **PR #64 (`-063`, the antiforgery gate) is MERGED** — `893038f` at 21:29:05Z, verified both ways: `state:MERGED` with
   head `f5687e3` equal to the local HEAD, **and** the `TDD-EXEC-m4-authentication-063` marker, `AntiforgeryGate.cs`
   (167 lines), and AC-11's tick all present in `main` itself. Local `main` fast-forwarded to the merge commit; CI green
