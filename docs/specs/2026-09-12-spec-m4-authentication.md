@@ -146,6 +146,45 @@ antiforgery token (HMAC over the session id, delivered at login, echoed in `X-CS
 
 ---
 
+### DECISION-m4-auth-007 — Browser harness origin: **serve the harness page from the API's own origin (grill Q4, option a)** · **GIVEN by the owner, 2026-09-12 16:46 UTC**
+
+Grill **Q4** asked whether the harness's topology would make AC-12 fail for a reason that is not the product. It would:
+`tests/browser/httpCrossTab.mjs` defaults to same-host/different-port — **same-site**, since Chromium's site is scheme +
+host and **ignores the port** — but M3's real runs could not use those defaults, because the sandbox cannot route into the
+Docker network. The built `dist` was served inside `jt-bridge` while the API stayed on the host, giving document host
+`127.0.0.1` against API host `172.23.x.x`: **two different sites**, so `SameSite=Lax` drops the cookie on every request and
+AC-12 reports "auth broke SSE" when nothing in the product is broken.
+
+**Given: (a) serve the harness page from the API's origin** (static files + SPA fallback, environment-gated), over **(b)** a
+Development-only reverse proxy, **(c)** `SameSite=None; Secure` in dev, and **(d)** shipping AC-12 unverified. The reason
+matches this spec's own: **(c) would make the test environment more permissive than production**, and a green suite over a
+looser policy is a fake.
+
+**The cost is real and is not being smuggled past the reader — the grill named it in Q4's own text.** Under (a) the page and
+the API are same-origin, so **no CORS preflight ever occurs**: the credentialed-CORS property (`-067`,
+`Access-Control-Allow-Credentials` echoed with the exact origin, never `*`) **stops being exercised in the browser
+entirely**. It does not become false — it becomes *unobserved at that seam* — and it stays proven where it can be proven:
+`-067`'s **Integration half**, closed in `CorsCredentialsTests` against a real `WebApplicationFactory` host. That is exactly
+the trade Q4 predicted ("buys the browser proof, costs the topology constraint"); (a) accepts it, because **AC-12's truth is
+worth more than AC-16's browser redundancy.** Recorded so nobody later finds the gap and calls it an oversight.
+
+**Consequence for the ladder**, appended here rather than rewritten into `-067`'s ratified row:
+
+- **Unblocked by the answer:** `-064` (cross-tab SSE in Chromium → AC-12) and `-065` (login-route bundle delta → AC-14 —
+  whose baseline is URL-literal-dependent, per Slice 0's finding that a 14-character IP moves the gzip sum by 9 B, so the
+  run must **state which literal it built with** or the delta is a number about a build nobody ships).
+- **Needs a restatement, not an execution:** `-067`'s **Browser half**, and **AC-11**'s *cross-site* framing in `-063`. A
+  cross-site POST under `Lax` carries **no cookie at all**, so the antiforgery-header check is never reached — the request
+  dies at the session gate as `401`, which is the `Lax` defence working and not the header defence. `-063` must therefore be
+  written as **two distinct cases, each with its own positive control**: a same-site write without `X-CSRF-Token` (the header
+  check bites) and a cross-site write (cookie absent → `401`). **Splitting a ratified row's promise is a design decision, so
+  it goes to the owner before Slice 5 rather than being resolved quietly in code.**
+- **Still gated on a different answer:** **AC-3** sits behind its own restrike-or-restate decision, **not** behind Q4. The
+  claim in `checkpoint-001` §2/§5 and `docs/STATE.md` §3A that "all four open ACs sit behind Q4" was false — see the
+  correction appended there, which also records that AC-13 is *verified* and AC-18 does not exist.
+
+---
+
 ## 1. Executive Summary & Problem Statement
 
 M3 made the data real, durable, and shared across tabs. It also made it **world-readable to anyone who can reach the

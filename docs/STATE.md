@@ -68,12 +68,27 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 > names, so the block was rebuilt rather than patched; M3's narrative survives in
 > [`TASK-m3-backend-api.md`](../tasks/TASK-m3-backend-api.md) and [`checkpoint-002`](../tasks/TASK-m2-persistence-seam.checkpoint-002.md)'s
 > neighbour records, and its measured §2.8 targets in the M3 spec.
+>
+> **Amendment pass, 2026-09-12 16:46 UTC — and this line exists because the pass found a false bullet, not because it was
+> planned.** Two events since the regeneration: **PR #58 merged** (`47852a4`) and **Q4 was answered (a)**. Six bullets were
+> re-written from measurement (In flight · AC ledger · Merged-this-session · M3 residue · Q4 · next action) and the ladder
+> bullet's last line corrected. **The AC-ledger bullet had been asserting a false list since the 15:55 regeneration that
+> claims above to be "written from live commands": the live command counted the ACs, and only the count.** That is what this
+> block's own rule is for — so the aggregate was re-read end to end, and the drift is recorded in
+> [`checkpoint-001` §2](../tasks/TASK-m4-authentication.checkpoint-001.md) rather than repaired silently.
 
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #58** `feat/m4-069-wrongtype-binding` @ `38ff6d2` — `Red b7d0f6c → Green 5655800 → docs 38ff6d2`.
-  **`-069`**: a wrong-typed wire member (`companyName: 42`, `status: 5`, `notes: [1,2]`) and a truncated body answered
+- **In flight**: **PR #59** `docs/m4-q4-decision-ac-fix` @ `e8f66a9` — docs-only (5 files, no code), ratifying Q4 and
+  correcting the records; CI `verify` pass, `verify-api` **skipped by the docs-only detector** (its dotnet steps read
+  `skipped` while the job reports success — grill F-10's design, so this branch's 169/0 evidence is **local**, not CI).
+  **PR #58 is MERGED** — `47852a4` at 2026-09-12 16:09 UTC, verified both ways per the rule below
+  (`state:MERGED` + the `TDD-EXEC-m4-authentication-069` marker present in `main`), and local `main` reconciled by
+  `--ff-only` to the same SHA with a clean tree. `feat/m4-069-wrongtype-binding` (`Red b7d0f6c → Green 5655800 → docs
+  38ff6d2 → records f9482a5`) is fully absorbed (`git merge-base --is-ancestor f9482a5 main` OK), so nothing on that
+  branch is outside `main`. **`-069`**: a wrong-typed wire member
+  (`companyName: 42`, `status: 5`, `notes: [1,2]`) and a truncated body answered
   **500 with no `code`**; they now answer **400 + `code: "validation"` + a `#/member` pointer**. Measured cause, from this
   repository's own dev server: `RequestDelegateFactory` logs `InvalidJsonRequestBody` and wraps it in a
   `BadHttpRequestException` **whose own `StatusCode` is already 400** — the app was discarding a fact the framework had
@@ -81,17 +96,37 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Ladder**: **23 rows `-047`…`-069`**, counted from the file. Four were **ratified at execution time** — `-066`
   (sliding/hard-capped sessions), `-067` (CORS credentials, **half delivered**), `-068` (owner-scoped SSE fan-out),
   `-069` (binding failures) — each by a dated §6 amendment to the spec, **appended, never renumbered**, so the document's
-  own history stays readable as history. `-063`/`-064`/`-065` remain unexecuted and gated.
+  own history stays readable as history. `-063`/`-064`/`-065` remain **unexecuted**; as of 16:46 UTC they are no longer all
+  gated on the same thing — **Q4(a) unblocks `-064` and `-065`**, and leaves **`-063` needing an owner-approved restatement**
+  (see the Q4 bullet). **`-067`'s Browser half is now unachievable rather than deferred**: under same-origin serving no
+  preflight occurs. `checkpoint-001` and this bullet both previously said "the Browser halves of `-067`/`-068`" — **`-068`
+  never had one**; its ladder seam is Integration only.
 - **AC ledger**: **13 verified + 4 open = 17** (the invariant is asserted by the edit script at every write, not by me).
-  The four open ACs — 12, 13, 14, 18 — all sit behind the same owner answer (Q4 below), as do four ladder rows.
-- **Merged this session**: **#55** `ee994f5` (`-066`) · **#56** `538c77e` (`-067`) · **#57** `fea085c` (`-068`). Each merge
+  **The four open ACs are AC-3, AC-11, AC-12 and AC-14** — read from the task record's checkbox lines at 2026-09-12 16:46 UTC.
+  **This line previously named "12, 13, 14, 18", which was false twice over: AC-13 is *verified* (the 65-case M3 net, `-058`)
+  and AC-18 does not exist — the ledger stops at AC-17.** A count that adds up is not a list that is right; the drift note is
+  in [`checkpoint-001` §2](../tasks/TASK-m4-authentication.checkpoint-001.md), where the correction is appended to the very
+  sentence that carried it.
+  **Three of the four** (AC-11 the CSRF probe, AC-12 cross-tab SSE in Chromium, AC-14 the bundle delta) sat behind Q4, which
+  is **now answered as option (a)**; **AC-3 sits behind its own restrike-or-restate decision, not Q4**, and stays open.
+- **Merged this session**: **#55** `ee994f5` (`-066`) · **#56** `538c77e` (`-067`) · **#57** `fea085c` (`-068`) ·
+  **#58** `47852a4` (`-069`). Each merge
   verified twice before acting: `gh pr view --json state,mergedAt,mergeCommit` **and** the `TDD-EXEC-m4-authentication-0NN`
   marker present in `main`.
 - **M3 residue still live**: gap 12 (`{"id":"not-a-guid"}` → 500) is **closed** by `-057`; `ASSUMPTION-m3-backend-api-002`
   (single instance) holds and **M5 must revisit the in-process bus** — the fix is PG `NOTIFY`, not Redis (grill Q16), and
-  `-068` neither fixed nor worsened it. AC-13's 65-case M3 net guard is live (`Ac13ExpectedCases`). One long-standing
-  non-reproduction survives: a `dotnet test` failure seen once (1/64), clean ever since — dozens of clean runs now.
-- **Documentation-integrity ledger (16)**: M3's ten (AC-13's box · a fabricated SHA · AC-11's · AC-14's · refs to a
+  `-068` neither fixed nor worsened it. AC-13's 65-case M3 net guard is live (`Ac13ExpectedCases`). **The long-standing
+  non-reproduction has a second sighting, this one attributed** (2026-09-12 16:05 UTC, full run at `f9482a5`):
+  `ApplicationsCommandTests.Stale_if_match_conflicts_without_writing` failed **once** at line 127 — the SQL probe
+  `select (updated_at > created_at)::int` returned **0** where the trigger should guarantee 1. Three isolated reruns of
+  that test **passed**, and two full-suite reruns after it were **169/0, exit 0**. The 1/64 sighting above could not be
+  attributed because its log was lost to a `tail`; **this one can, so it is recorded with its name.** Cause **not**
+  established — the honest set of possibilities is (a) the `applications_set_updated_at` trigger's `now()` resolving to
+  the same transaction-start instant as the insert's `DEFAULT now()`, (b) the probe connection reading a row mid-flight,
+  or (c) an interaction with the shared-container fixture — and guessing is how false root causes get recorded. **If it
+  recurs, `dotnet test > /tmp/dt.log 2>&1` and dump that row's `created_at`/`updated_at` verbatim from the log before
+  reading anything else.** It is AC-13's own net, so it is a real risk to the net's credibility, not a nuisance.
+- **Documentation-integrity ledger (17)**: M3's ten (AC-13's box · a fabricated SHA · AC-11's · AC-14's · refs to a
   nonexistent §10 · gap 10a · two orphaned measurements · **gap 10b's false charge, bought an approval and was retracted in
   #31** · §7's "four boxes" miscount and `-046`'s missing block · marking the grill "done" on a record grep proves never
   mentioned it) **plus six from this span**: two false Reds that were harness holes (missing `[Collection]`; a
@@ -100,28 +135,51 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   reported confident verdicts about experiments that never ran · **`-068`'s Red commit swallowed the fix** and had to be
   split by `git reset --soft` and then **proven in a worktree** · a **forward claim** in a commit message, asserted before
   the run that supported it · and **`JsonException.Path` shipping a `#.jobTitle` pointer because its documented `$.` prefix
-  is absent on root-member failures** — caught by five failing tests, not by reading. Root cause of every one: **writing
+  is absent on root-member failures** — caught by five failing tests, not by reading. **Plus two from the 16:46 UTC
+  post-merge pass**: an AC-ledger bullet in this block and in `checkpoint-001` §2 naming a **false set of open ACs**
+  (AC-13 is verified; AC-18 does not exist) while its `13 + 4 = 17` counter kept passing at every write — **a counter guards
+  a number; only a re-derived list guards an identity** — and a "Browser halves of `-067`/`-068`" phrase that travelled
+  through a checkpoint, a handoff and a resume prompt, assigning `-068` a seam it never had. **And two verification faults by
+  the agent writing this line**: `dotnet test 2>&1 | tail -40`, which reported **exit 0 on a run that had failed** (AGENTS.md's
+  `pipefail` rule, broken while executing the handoff that states it), and an invented `ConnectionStrings__Default` because
+  H4 elides the value — harmless only because Testcontainers builds its own database. Root cause of every one: **writing
   from intent instead of measurement.**
-- **Measured at this boundary** (re-executed, not carried over): API **169 / 0 failed / 0 skipped / 0 warnings**, 1 m 8 s ·
-  `npm run verify` exit **0**, **221 tests / 23 files**, build 1.86 s · runtime deps **3**, dev deps 19 ·
+- **Measured at this boundary** (re-executed, not carried over; **re-executed again at 16:46 UTC at `f9482a5`/`47852a4`**):
+  API **169 / 0 failed / 0 skipped / 0 warnings** — **1 m 8 s** at 15:55, **1 m 25 s** and **1 m 50 s** on the two clean
+  reruns, so the duration is recorded as a range and no cause is claimed for it ·
+  `npm run verify` exit **0**, **221 tests / 23 files**, build 1.86 s → **1.58 s** · runtime deps **3**, dev deps 19 ·
   `src/pages|components|state` untouched by this session's code · **dev DB cleaned of this session's residue**:
   `applications` 4→2, `users` 2→1, `sessions` 2→**0** — deleting the probe user **cascaded** its sessions, and the two
   pre-existing `X` rows were left alone because they are not mine to delete · **an orphan dev server was found and
   stopped**: `-069`'s probe script hit a bash syntax error after its measurements and *before* its own `kill`, leaving
   Kestrel (`pid 1080373`) plus its live `dotnet run` parent on `127.0.0.1:5199` for ~16 min. Consequence recorded: that
   run's output is cited only for status/type/title, never for the pointer, because it predates the pointer fix.
-- **Open for the owner (one answer gates four rows)**: **Q4 — the harness's document origin vs API origin are different
-  *sites* to Chromium, so a `SameSite=Lax` cookie is never sent and AC-12 would report a product failure that is only
-  topology.** `-063`, `-064`, `-065` and the Browser halves of `-067`/`-068` all wait on it; the four options are pre-written
-  in [`checkpoint-001` §6](../tasks/TASK-m4-authentication.checkpoint-001.md) with a recommendation (serve the harness page
-  from the API's origin). Also owner-side: `-070`'s scoped-mutation-gate verdict · AC-3 restrike-or-restate · the coverage
-  audit · `-047`'s probe list · **`GET /api/auth/session` has no ladder row though spec §4.3 promises it** · M3's `[/]`→`[x]`.
+- **Q4 ANSWERED — option (a)**, 2026-09-12 16:46 UTC, now `DECISION-m4-auth-007` in the spec: **serve the browser harness
+  page from the API's own origin** (environment-gated static files + SPA fallback). Rejected (b) a dev reverse proxy,
+  (c) `SameSite=None; Secure` in dev — **more permissive than production, so a green suite would be a fake** — and (d)
+  shipping AC-12 unverified. **The accepted cost, from the grill's own Q4 text:** same-origin means **no preflight ever
+  occurs**, so `-067`'s credentialed-CORS property stops being exercised in the browser and remains proven only at
+  `-067`'s Integration seam (`CorsCredentialsTests`, a real `WebApplicationFactory` host).
+  Unblocks **`-064` (AC-12)** and **`-065` (AC-14, and it must state which URL literal it built with)**.
+  **Not** unblocked: `-063`/AC-11, which under (a) needs a **restatement** — a cross-site `Lax` POST carries no cookie, so
+  the antiforgery check is never reached and the probe would prove the wrong thing; `-063` has to become **two cases, each
+  with a positive control** (same-site write without the token → header check bites; cross-site write → `401`, the `Lax`
+  defence). That split edits a ratified row's promise, so it is an **owner decision, asked next** — not a silent fix.
+  Also owner-side: `-070`'s scoped-mutation-gate verdict · **AC-3 restrike-or-restate (its own gate, never Q4's)** · the
+  coverage audit · `-047`'s probe list · **`GET /api/auth/session` has no ladder row though spec §4.3 promises it** ·
+  M3's `[/]`→`[x]` · DECISION-001's paperwork box.
 - **Open for the agent, untested-on-purpose-and-recorded**: `InvalidRequestBodyHandler`'s two declinations (a real defect
   must stay a 500; a non-400 `BadHttpRequestException` must not be relabelled as field validation). **Probe B deleted the
   guard and the suite stayed 169/0** — so the claim is recorded as reasoning, and it is `-069`'s practice task. Four
   practice tasks are owed (`-066`…`-069`), none started, all listed in the task record.
-- **Exactly one next action**: on "merged", verify #58 both ways, **post Q4 and stop**. The decision-free server-side queue
-  is empty after `-069`.
+- **Exactly one next action**: `-069` is merged and **Q4 is answered (a)**, so the queue is no longer empty — but the first
+  item in it is a **question, not a commit**: get the owner's ruling on **restating `-063`/AC-11 as two cases** (above),
+  because that decides what Slice 5's CSRF row promises before anyone writes it. Then implement (a) — serve the harness from
+  the API origin — and run **`-064`** first, since it is the row whose whole purpose was the blocked one. **The four owed
+  practice tasks (`-066`…`-069`) stay unstarted until invited.** The decision-free *server-side* queue is still empty after
+  `-069`: everything newly unlocked is Browser or Build.
+  *(This record's own carrying work is **PR #59**, awaiting human review — review, merge, tags and releases are not agent
+  duties, so it stops there.)*
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 

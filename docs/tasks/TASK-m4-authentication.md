@@ -1044,6 +1044,32 @@ no `code`, where AC-8's contract says `400` + `code: "validation"`), unless Q4 l
 **Next:** `-068`/`-069` were the last two unratified probe proposals, so the decision-free server-side queue is empty;
 `-063`/`-064`/`-065` and the Browser halves of `-067`/`-068` all wait on the same **Q4 harness-origin** answer.
 
+> **Q4 ANSWERED — 2026-09-12 16:46 UTC, option (a)**: serve the harness page from the API's own origin, ratified as
+> `DECISION-m4-auth-007` in the spec. The two lines above stay as what was believed when written, and the answer exposed
+> **three** errors in them rather than resolving one dependency:
+>
+> 1. **`-068` never had a Browser half** — its ladder seam is Integration only. The phrase was carried forward from
+>    `-067`'s row, then repeated by a checkpoint, then a handoff, then a resume prompt: **a list propagating instead of
+>    being re-derived**, which is this task's own root cause wearing a different hat.
+> 2. **"all wait on the same answer" was false in kind, not degree.** (a) unblocks **`-064`** (AC-12, cross-tab SSE in real
+>    Chromium — the row the question existed to unblock) and **`-065`** (AC-14), and `-065` must additionally **state which
+>    URL literal it built with**: Slice 0 measured a 14-character IP versus a 9-character `localhost` moving the gzip sum by
+>    **9 B**, and choosing (a) is what fixes which spelling the harness now ships.
+> 3. **It converts `-063`/AC-11 from an execution into a restatement.** Same-origin means a **cross-site** POST under
+>    `SameSite=Lax` carries **no cookie at all**, so it is refused at the session gate (`401`) and the `X-CSRF-Token` check
+>    the row exists to prove **is never reached** — executed as written it goes green proving the wrong property. The honest
+>    shape is **two cases, each with its own positive control**: same-site write *without* the token (header check bites)
+>    and cross-site write (cookie absent → `401`). **Editing a ratified row's promise is an owner decision, so it is asked
+>    next, not implemented.** The accepted cost of (a) is recorded in `DECISION-007` rather than discovered later: with no
+>    preflight ever occurring, **`-067`'s credentialed-CORS property stops being exercised in the browser entirely** and
+>    survives at its Integration seam only (`CorsCredentialsTests`, real `WebApplicationFactory` host). **AC-12's truth was
+>    bought with AC-16's browser redundancy** — a trade, not an oversight.
+>
+> Also corrected here, from the same read: the four **open** ACs are **AC-3, AC-11, AC-12, AC-14**. AC-3 sits behind its own
+> restrike-or-restate decision and **never sat behind Q4**; a `checkpoint-001` §2/§5 and `docs/STATE.md` §3A claim naming
+> "AC-12/13/14/18" as the open set was doubly false (AC-13 is verified, AC-18 does not exist) — see the correction appended
+> there for why the `13 + 4 = 17` counter could not catch it.
+
 ### §6a. Durable checkpoint and handoff records (Level 2 gate)
 
 | Sequence | File | Trigger | State |
@@ -1079,6 +1105,8 @@ sessions pin *readers*, not *writes*) · Argon2id · multi-user/tenancy if `ASSU
 
 **Decision provenance — recorded honestly, because the merge happened before the recording.**
 `DECISION-001` **cookie** · `002` **two tables** · `003` **PBKDF2, cost in envelope, Argon2 deferred** ·
+`007` **browser harness origin: serve the harness from the API's own origin (grill Q4, option a)** — the **only** one of
+these given by direct owner answer rather than by merge-of-the-PR-that-asked, 2026-09-12 16:46 UTC ·
 `004` **`owner_id` + client ids retained, 404-not-403** · `005` **ninth variant `unauthorized`** ·
 `006` **`SameSite=Lax` + antiforgery header**.
 All six are **the spec's recommendations, approved by the merge of PR #34**, not by ticked boxes — **spec §7's eight

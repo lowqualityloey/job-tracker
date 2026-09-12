@@ -12,11 +12,30 @@
 
 M4 is **21 slices in, one PR short of a milestone review**. Accounts, `__Host-JTSession` sessions, per-user ownership, logout, rotation, enumeration resistance, the error-code contract, the login UI, sliding/hard-capped expiry, CORS with credentials, owner-scoped SSE fan-out and the binding-failure contract are **merged and green**. The last four rows (`-066`…`-069`) were each **ratified into the ladder at execution time** — they were not in the plan, they were found by probing, and the human approved them by merging the PR that said so.
 
-`-069` (PR #58) is **open, awaiting human review**. It is the last decision-free server-side row: after it, `-063`/`-064`/`-065` and the Browser halves of `-067`/`-068` all wait on **one owner answer (Q4, harness origin)**.
+`-069` (PR #58) is **merged — `47852a4`, 2026-09-12 16:09 UTC** (it was described as "open, awaiting human review" when this
+record was written; the pointer was simply overtaken between the two turns). It is the last decision-free server-side row.
+**Q4 has since been answered — option (a), serve the harness from the API's origin — now `DECISION-m4-auth-007` in the
+spec**, and that answer did **not** unblock the four rows §5's original text claimed: it unblocks `-064` (AC-12) and `-065`
+(AC-14), **converts `-063`/AC-11 into a restatement** (a cross-site `Lax` POST carries no cookie, so the antiforgery check is
+never reached — see §5's replacement below), and makes **`-067`'s Browser half unachievable** in a same-origin topology.
+Also corrected here: **`-068` never had a Browser half** — its ladder seam is Integration only, so "the Browser halves of
+`-067`/`-068`" overcounted by one. Lists in these records must be re-derived, not carried forward.
 
 The discipline does not relax under budget pressure, and this session is far over budget: the count of *disclosed* process failures in this span is **six** (two false Reds from harness holes, an invented timing cause withdrawn, a void mutation probe, a swallowed Red commit that had to be rebuilt and proven, and a probe script that died before its own cleanup line). Each is in the record where it happened. **The root cause of every one is writing from intent instead of measurement** — which is the thing to watch in yourself, not just in the previous session.
 
 ## 2. Mandatory validation pass — every command below was executed before being written here
+
+> **Status when this handoff was actually consumed (2026-09-12 16:46 UTC): two rows were already stale, and §5's trigger
+> had fired without being announced.** **H3** — PR #58 was **merged** (`47852a4`, 16:09 UTC), not open: `gh pr view 58
+> --json state,mergedAt,mergeCommit` returned `MERGED`. **H1** — HEAD was `f9482a5`, not `38ff6d2`, because the commit that
+> carries these two records cannot contain its own hash — checkpoint §3 line 8 says exactly that about itself, one section
+> above the table that contradicts it. Both were caught by **running** the commands, which is the only reason either is
+> known. **The lesson for the next handoff author: never write a literal SHA for "the commit carrying this file"; derive it
+> at read time** (`git log --grep='checkpoint' -1 --format=%h`).
+> **H4's elided `…` in the connection string also cost a guess** — see checkpoint §3a's disclosure. The value is in
+> `api/docker-compose.yml`, **and the suite does not need it**: Testcontainers starts its own PostgreSQL, which is why the
+> guess was harmless rather than load-bearing. **H5 re-ran clean (221 / 23 files, exit 0). H4 re-ran 169/0 twice, but its
+> first run failed one test that has not reproduced** — named in checkpoint §3a, cause deliberately unrecorded.
 
 | # | Validate | Command | Measured at `38ff6d2` |
 | :--- | :--- | :--- | :--- |
@@ -51,25 +70,71 @@ The discipline does not relax under budget pressure, and this session is far ove
 5. **`bash -c` has no state between calls.** `dotnet` is absent unless `source /tmp/dotenv.sh` runs **inside the script** — a probe script that inherits the env from the calling shell dies with `dotnet: command not found`, and a script that dies mid-run skips its own cleanup (H9).
 6. **Timing claims need a measurement, and durations in this suite are real.** A 4–7 s class once appeared as 1 m 36 s in a full run; an invented cause (undisposed hosts) was disproved by disposing them. Record durations as measured and leave the cause unnamed if you have not established it.
 7. **The `write` tool refuses a file the shell deleted or touched**, and multi-line anchor patches abort before writing when lines are not adjacent. Prefer a heredoc for C# (raw strings survive it) and assert every anchor count.
+8. **Any git operation that rewrites the worktree — `checkout`, `pull --ff-only`, `stash` — invalidates every read-cache at once**, so the next `edit` on *any* file fails with "file changed since it was read" even though its bytes are identical (confirmed at `47852a4`: reconciling `main` cost four re-reads on files whose content had not changed). **Re-read after reconciling, before editing — and never let the refusal tempt a `write` of the whole file from memory**, which is how a projection gets "restored" to what it was believed to say.
+9. **Replacing a heading anchor silently eats the heading.** An `edit` whose `old_string` is `## 4. …` and whose `new_string` omits it deletes the section title while leaving its body: `grep -n '^## '` on the result is a one-call check that caught this on checkpoint-001. Structural edits deserve a structural re-read.
 
 ## 5. Exactly one next action
 
-**When the human says "#58 merged": reconcile `main`, prove the merge landed both ways (`gh pr view 58 --json state,mergedAt,mergeCommit` **and** the `TDD-EXEC-m4-authentication-069` marker in `main`), then post checkpoint §6's Q4 question verbatim and stop.**
+> **DONE — this section's trigger fired and its action is complete, superseded 2026-09-12 16:46 UTC.** #58 was found
+> **merged** (`47852a4`) rather than announced; the merge was proven both ways (`state:MERGED` **and** the
+> `TDD-EXEC-m4-authentication-069` marker in `main`, count 1); `main` was ff-reconciled to `47852a4` with a clean tree and
+> `f9482a5` proven its ancestor; **Q4 was posted verbatim and answered (a)**. The live action is the one below.
 
-Do **not** start any of the four owed practice tasks uninvited (`-066` idle window / hard cap from configuration · `-067` empty vs absent `Cors:AllowedOrigins` · `-068` the fan-out's linear scan · `-069` the untested handler guard), and do not invent a fifth ladder row: after `-069` the decision-free server-side queue is genuinely empty. Publishing the branch and opening PRs are agent duties; review, merge, tags, releases, deploys and any push to `main` are not.
+**Ask the owner the one question Q4's answer created, then stop: does `-063`/AC-11 get restated as two cases?** Under
+same-origin serving, a cross-site `Lax` POST arrives with **no cookie**, so it is refused by the session gate (`401`) and the
+antiforgery header check `-063` exists to prove **is never reached** — executed as written, it would go green proving the
+wrong property. The honest shape is **two cases, each with its own positive control**: same-site write *without*
+`X-CSRF-Token` → the header check bites; cross-site write → cookie absent → `401`. Changing what a ratified row promises is
+an owner decision, not an implementation detail. **After that answer:** implement (a) — serve the harness from the API's
+origin — and run `-064` (AC-12), which is the row the whole question existed to unblock.
+
+Do **not** start any of the four owed practice tasks uninvited (`-066` idle window / hard cap from configuration · `-067` empty vs absent `Cors:AllowedOrigins` · `-068` the fan-out's linear scan · `-069` the untested handler guard), and do not invent a fifth ladder row: the decision-free **server-side** queue is genuinely empty after `-069` — everything Q4 unlocked is Browser or Build. Publishing the branch and opening PRs are agent duties; review, merge, tags, releases, deploys and any push to `main` are not.
 
 ## 6. Prewritten resume prompt
 
-```markdown
-# Session Resume: M4 Authentication, after -069 (PR #58 awaiting review)
+> **Regenerated in place, 2026-09-12 16:46 UTC.** The previous version of this block — the text this session was actually
+> fed, which stated PR #58 was open, HEAD was `38ff6d2`, and the next action was to ask Q4 — is recoverable verbatim with
+> `git show 38ff6d2:docs/tasks/TASK-m4-authentication.handoff-001.md`. It is not kept inline because a resume prompt that
+> is wrong is worse than no resume prompt: it is the one artifact a fresh session is told to trust without measuring.
+> Two fixes baked into the new text: **it no longer names a literal HEAD SHA** (the record commit cannot contain its own
+> hash — derive it at read time), and **it no longer lists open ACs by number** (that is how `AC-13`, verified, and
+> `AC-18`, nonexistent, survived a whole checkpoint).
 
-Read `docs/tasks/TASK-m4-authentication.checkpoint-001.md` and
-`docs/tasks/TASK-m4-authentication.handoff-001.md`, then run that file's §2 validation pass (H1–H10)
-before editing anything. Work on `feat/m4-069-wrongtype-binding` @ `38ff6d2`, three commits over
-`main@fea085c`. Ladder: 23 rows `-047`…`-069`, 21 EXEC records, AC 13 verified + 4 open = 17.
-Gates: `source /tmp/dotenv.sh` for dotnet; ConnectionStrings__Default for the dev DB;
-`cd api && dotnet test` (169 expected) and `npm run verify` (221 tests / 23 files).
-Next action is §5's, and it is one action: on "merged", verify both ways and ask the owner Q4.
+```markdown
+# Session Resume: M4 Authentication — after -069, Q4 answered (a)
+
+Read `docs/tasks/TASK-m4-authentication.checkpoint-001.md` (§3a, §5 and §6 are the parts that moved since it was
+written) and `docs/tasks/TASK-m4-authentication.handoff-001.md`, then run §2's H1–H10 BEFORE editing anything.
+
+Derive your position, do not assume it: `git rev-parse --abbrev-ref HEAD`, `git log --oneline origin/main..HEAD`,
+`gh pr view --json state,headRefOid` for whatever PR is open (check `gh pr list`, not this prompt). As of this writing
+`main` is `47852a4` (`-069` merged, local `main` reconciled) and the only unmerged work is a docs branch.
+
+Ladder: **23 rows `-047`…`-069`**, **21 EXEC records**, **3 dated §6 amendments**, AC **13 verified + 4 open = 17**.
+The open ACs are **AC-3, AC-11, AC-12, AC-14** — read them from `grep -E '^- \[ \] \*\*AC-'
+docs/tasks/TASK-m4-authentication.md`, never from a projection.
+
+Gates: `source /tmp/dotenv.sh` for dotnet (a fresh shell has none). The API suite starts its **own** Testcontainers
+PostgreSQL, so `ConnectionStrings__Default` is **not** needed for `dotnet test` — only for `dotnet ef` and `dotnet run`.
+`cd api && dotnet test` → **169 passed / 0 failed / 0 skipped** (expect ~1 m; read `Skipped` too) and
+`npm run verify` → **221 tests / 23 files**, exit 0. **Never pipe a gate into `tail`/`head`** — a piped `dotnet test`
+reports the pipe's exit status, and that has already hidden one real failure here. Redirect to a file and read `$?`.
+
+Known flaky, named: `ApplicationsCommandTests.Stale_if_match_conflicts_without_writing:127`
+(`(updated_at > created_at)::int` == 0) has been seen **once in four full runs** and not reproduced since; cause is
+deliberately unnamed. If it recurs, save the whole log and dump that row's two timestamps before summarising.
+
+**Next action — one, and it is a question, not a commit**: Q4 was answered **(a)** — serve the browser harness from the
+**API's own origin** (`DECISION-m4-auth-007` in the spec). That unblocks `-064` (AC-12) and `-065` (AC-14), but it turns
+`-063`/AC-11 into a **restatement**: under same-origin serving a cross-site `SameSite=Lax` POST carries **no cookie**, so
+the antiforgery check `-063` exists to prove is never reached. Ask the owner whether `-063` splits into two cases
+(same-site without the token → header check bites; cross-site → `401` from the session gate), each with its own positive
+control. Editing a ratified row's promise is theirs to approve. **Then** implement (a) and run `-064`.
+
+Do not start the four owed practice tasks (`-066` idle-window/hard-cap config · `-067` empty vs absent `AllowedOrigins` ·
+`-068` the fan-out's linear scan · `-069` the untested handler guard — that claim is reasoning, not measurement: probe B
+deleted the guard and the suite stayed 169/0) uninvited. Push, PR, and stop are agent duties; review, merge, tags,
+releases, deploys, and any push to `main` are human-only.
 ```
 
 *End of handoff-001.*
