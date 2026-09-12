@@ -312,6 +312,14 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
 `-065` bundle delta vs Slice 0's baseline, from the build output.
 
 > **§6 amendment — `pk:test`, 2026-09-12.** The grill deferred five items to the test plan; two are real behaviours and land here as **`-066` (Slice 2: expiry via idle window AND hard cap, plus opportunistic prune)** and **`-067` (Slice 3: CORS echoes the exact origin with `Allow-Credentials`, never `*`)**. **Appended, not renumbered into the slices above** — rewriting ratified IDs is precisely how M3's phantom cross-references were created, so the stable IDs keep their meaning and this note carries the change. **Ladder is now `-047`…`-067` = 21 behaviours**, derived by the command printed in the test plan's header — **which had to be corrected once: a naive `-0[0-9]{2}` scan of §6 returns 22, because §6 cites M3's `-037` pattern in prose.** The other three deferred items are not behaviours: the harness-origin question (Q4) is an open decision gating Slice 2, the `404`-gone-vs-not-yours split (Q7) is M5 residue, and the AGENTS.md layer-scoping amendment (Q9) is a separate chore with its own DEBT-12 mirror sync.
+> **§6 amendment — execution-time, 2026-09-12 (`-068`).** The `◆`-marked row is **not** grill-derived and not from the plan:
+> `-057`'s probing found that `ApplicationEventBus` writes every event to every connected channel, and the row was raised as a
+> proposal in the task record rather than fixed inside `-057` — "a fix nobody was asked for is a second change riding inside
+> this one". M4 is where it stops being theoretical: `-050` made this a multi-user application, the frame body is
+> `data: {"id": "…"}`, and an unscoped fan-out therefore announces **another user's record identifiers** to every open
+> stream. `-056`'s `404` still stops them reading the row, and that is the whole difference between "you cannot fetch it" and
+> "you were never told it exists". Appended with a stable ID rather than renumbered, for the reason the amendment above
+> gives. **Ladder is now `-047`…`-068` = 22 behaviours**, counted by the same command that corrected the last claim.
 
 ## 7. Sign-off & Grilling Checklist
 

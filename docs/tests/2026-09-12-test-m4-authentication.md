@@ -42,6 +42,7 @@ got built instead of what was demanded.
 | `…-065` | `-065` | Login-route bundle delta < 3 kB vs **Slice 0's** baseline, **configuration named** (flag-off tree-shakes the adapter and a 0 kB delta would mean nothing) | Build | p1 |
 | `…-066` ★ | `-066` | **Expiry is real:** an idle window **and** a hard cap both end the session, driven by an injected `TimeProvider` (see §3.2), and expired/revoked rows are **pruned** so `sessions` can't grow without bound | Integration + DB | p0 |
 | `…-067` ★ | `-067` | CORS echoes the **exact** origin with `Access-Control-Allow-Credentials: true` and **never `*`** — because browsers reject the wildcard+credentials pair *silently*, and ASP.NET will not stop you writing it | Integration + Browser | p0 |
+| `…-068` ◆ | `-068` | The change stream is **scoped to the owner of the changed record**: a write by B never reaches A's open stream — and **both of A's tabs still receive A's write**, because an unscoped broadcast was a fine answer until `-050` made this multi-user and the frame body carries `data: {"id": …}` | Integration | p0 |
 
 ★ = **grill-derived additions** (`Q5`/`Q6` expiry+prune, `Q3` credentialed CORS). Appended as `-066`/`-067` rather than
 renumbered into their slices: **renumbering a ratified ladder is exactly how M3's phantom cross-references were made.**

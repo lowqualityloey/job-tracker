@@ -951,6 +951,53 @@ unblocks `-063`/`-064`/`-065`.
 **Next:** the Q4 harness-origin answer (owner) unblocks `-063`/`-064`/`-065` *and* `-067`'s Browser half — they are one
 question, not four.
 
+**`TDD-EXEC-m4-authentication-068`** · `BEHAVIOR-068` (extends **AC-7**'s boundary; verifies no AC of its own) · Red `ebe8f24` → Green `fc400c1` · p0 · **ratified into the ladder at execution time (see the spec's second §6 amendment)**
+- **⚠️ The Red was almost lost to history, and the repair is itself a claim.** The first commit for this row carried the
+  failing tests *and* the fix together — precisely what the "Red, Green and Refactor are separate commits" rule forbids, and
+  it happened because I measured the Red, then went straight to the implementation. Split afterwards with `git reset --soft`,
+  which preserves the tree exactly and makes history match the order of measurement — but a *reconstructed* Red is a claim
+  rather than a fact, so it was verified in an isolated worktree at `ebe8f24` (Red's tests, `src` reverted):
+  **`Failed: 2, Passed: 2`**, failing on exactly the two scoping cases with `DoesNotContain() Failure: Sub-string found`.
+  The Green commit's message asserted that reproduction before it had been run; the run happened next and agreed. Recording
+  which of the two orders happened is the difference between a repair and a fabrication.
+- **Where it came from:** `-057`'s probing note — "⚠️ SIBLINGS FOUND BY PROBING, NOT FIXED — proposed `-069`" carried `-068`
+  too, and the reason it was not fixed there is the reason it is a row at all: *"a fix nobody was asked for is a second change
+  riding inside this one."*
+- **Red:** `dotnet test --filter ~EventStreamScopingTests` → **`Failed: 2, Passed: 2`**, and the two failures say the
+  disturbing thing plainly — `Assert.DoesNotContain() Failure: Sub-string found`: another user's record id was present in my
+  open stream. The two passing cases are controls that must stay passing: A receives A's own change, and **both of A's
+  streams** receive it (M3's reason for one-channel-per-subscriber).
+  **Green:** focused **4/4** (9 s); full API **`Failed: 0, Passed: 160, Skipped: 0`**, 0 errors / 0 warnings, 53 s.
+- **The severity, stated precisely.** The payload is a re-read hint carrying a GUID, and `-056` returns `404` for a row that
+  is not yours, so nothing readable leaks. What leaks is *existence and identity* across tenants, and the client's own
+  behaviour turns it into noise: `-062`'s handler re-reads on every frame, so a busy B makes A's board re-read on A's bill.
+  "Unauthenticated single-tenant dev app" was a true justification in M3 and stopped being true at `-050`.
+- **`OwnerId` comes from the record, not from the caller.** They coincide today because `-056` makes a row unreachable to
+  anyone else — but they are different concepts, and an admin action or a bulk import is exactly where conflating them would
+  start leaking. Named at the call site so the next person to write that path sees it.
+- **Two mutation probes, both non-vacuous — after one round of them being void.** (1) Drop the owner filter → `Failed: 2`,
+  caught by exactly the two scoping cases. (2) Write to only the FIRST matching subscriber (a work-queue regression) →
+  `Failed: 1`, caught by `Both_of_one_users_streams_receive_the_change` and nothing else, which is precisely what that test
+  exists to guard. **The first attempt at both probes was invalid**: the shell helper read `$2` instead of `$1`, so no
+  mutation was applied and the suite ran against unmutated code — it reported "NOTHING -- assertion is vacuous", which was a
+  true statement about an experiment that never happened. Caught because the probe now prints `MUTATION APPLIED` and asserts
+  its own anchor; a mutation harness that cannot fail silently is the point of writing it down.
+- **Two harness traps, both of which looked like the product bug.** (a) The first draft built a fresh
+  `WebApplicationFactory` per call, and the bus is a per-process singleton — no stream could ever see a write, indistinguishable
+  from the defect under test. Fixed by one shared host for the class. (b) **You cannot peek at an SSE stream by cancelling a
+  read**: a `CancellationToken` on `Stream.ReadAsync` of an HTTP response aborts the response, so the next read threw
+  `IOException` — my silence window was destroying the pipe it was about to prove live. Replaced with a listener whose pump
+  starts in the constructor (a listener that could exist un-pumped would "prove" silence by forgetting to read).
+- **Counts:** no AC checkbox moves — AC-7 was already verified and this extends its boundary to the push channel; AC-12
+  (cross-tab SSE **in real Chromium**) stays open behind the same Q4 gate as `-063`/`-064`/`-065`. 13 verified + 4 open = 17.
+- **Practice task taken up next (AGENTS.md step 9):** the fan-out filter is a linear scan over subscribers, which is right at
+  this size; the row's sibling **`-069`** (wrong-typed wire members → `500` with no `code`) is the next unratified proposal
+  and is entirely server-side, so it can be ratified and delivered the same way without waiting on Q4.
+
+**Next:** `-069` (ratify and fix: a wrong-typed member such as `companyName: 42` currently dies in the binder as a `500` with
+no `code`, where AC-8's contract says `400` + `code: "validation"`), unless Q4 lands first.
+
+
 
 
 ---
