@@ -94,7 +94,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
 - [x] **AC-6** — **Logout revokes server-side.**  *(verified 2026-09-12 by `-054`: `revoked_at` read from a real PostgreSQL with hand-written SQL, cookie dead on the wire `200→204→401`, scoping proven against a second live session; `psql` client absent on this machine — see §6's deviation note)* `sessions.revoked_at` set, verified by `psql`; the old cookie then gets
   `401`. Clearing the browser cookie is not the control.
 
-- [ ] **AC-7** — **Ownership: user B cannot see or touch A's rows, and gets `404` — never `403`.**
+- [x] **AC-7** — **Ownership: user B cannot see or touch A's rows, and gets `404` — never `403`.**  *(verified 2026-09-12 by `-056`: 404 on read/write/delete of another account's row — including with a correct `If-Match`, which would otherwise answer 409 and leak existence — and the two lists are disjoint; the identical `not-found` envelope is compared member by member)*
   · Two seeded users in the test fixture only; `GET`/`PUT`/`DELETE` on A's id as B → **`404`**.
   · *403 is an oracle* — it confirms the id exists.
 
@@ -102,7 +102,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · `curl -s -X POST … -d '{"id":"not-a-guid",…}'` → `400` + `errors[].pointer: "/id"` + `code: 'validation'`.
   · **Red is today's `500` on exactly this body** — the defect is already reproduced and recorded in the M3 test doc §21.
 
-- [ ] **AC-9** — **`owner_id` migration is expand–contract with the assertion before the constraint.**
+- [x] **AC-9** — **`owner_id` migration is expand–contract with the assertion before the constraint.**  *(verified 2026-09-12 by `-056`: expand/contract pair rehearsed against the **real dev DB with three rows and no account** — the contract raised naming the count, rolled back, and succeeded after the documented remedy; guard exposed as a testable statement, `owner_id` has no database default and refuses NULL with `23502`)*
   · `SELECT count(*) FROM applications WHERE owner_id IS NULL` → **0**, *then* `SET NOT NULL`; both migrations applied to
   a **non-empty** database in the test path, not just an empty one (M3's risk table flagged this).
 
@@ -537,6 +537,56 @@ configuration**, and states which literal it used; a delta quoted without its UR
   in-process, not on the wire.** Reporting a truncated assertion as a verified one is how `-051`'s gate measured a stranger.
 - **`-066` now has three callers of one clock question** (`-050`'s `expires_at`, `-055`'s gate check, `-054`'s
   revoke-on-write) and still owns the `TimeProvider` seam.
+
+**`TDD-EXEC-m4-authentication-056`** · `BEHAVIOR-056` (+ AC-9's guard) · schema `75f76e6` → Red `2996409` → Green *(this commit)* · p0 · **Slice 3**
+- **Red, measured at `2996409` with the scoping stashed out of the tree:** `Failed: 6, Passed: 2`. All six behaviour tests
+  fail (B reads, writes, deletes A's row; the lists cross-contaminate; ownership is forgeable); the two that pass are the
+  schema pins, which *should* already hold because the migration landed one commit earlier. `git stash list` and
+  `git status --porcelain` were both asserted before the run and after the pop — **an unisolated tree produces a Red that is
+  a performance**, and the first attempt at this did exactly that: repo-root vs `api/`-relative pathspecs meant nothing was
+  stashed, and the run reported 8/8 *passing* at what was supposed to be the Red.
+- **Green:** focused **8/8**, full **`Failed: 0, Passed: 122, Skipped: 0`** (49 s), 0 warnings.
+- **Honest note on order.** This increment was developed schema-first, so the Red landed *after* the column it depends on —
+  correct dependency order, not the sequence I worked in. The stash-and-rerun above is what keeps the Red real rather than
+  decorative: history now shows a commit where these eight tests exist and six of them fail, verified by execution rather
+  than asserted by a message.
+- **AC-9's non-empty rehearsal, on the real dev database** (the suite's own hosts migrate an *empty* `applications` table,
+  which AC-9 names as insufficient): three rows, zero accounts → **expand** adds `owner_id NULL` + index, backfills to
+  nothing, leaves all three unowned → **contract** raises
+  `AC-9 guard: applications has 3 of rows with owner_id is null…` → the transaction rolls back, `is_nullable` still `YES`,
+  migration history unchanged → seed an account, assign owners explicitly, re-run → **succeeds**, `nullable=NO`,
+  `default=NONE`, FK present. Rehearsal rows deleted afterwards.
+- **`FILTER` before the cast, `default` never:** EF generated `defaultValue: new Guid("00000000-…")` on the contract's
+  `AlterColumn`. Removed, and pinned by a test, because that default *is* the "owned by nobody" state this behaviour exists
+  to make unreachable — and it downgrades a clear `23502 not_null_violation` into an opaque `23503 FK violation`.
+- **The 404-not-403 rule is implemented as one composite predicate, not as a permission check.** `a.Id == guid &&
+  a.OwnerId == owner` makes a foreign row and a nonexistent row produce the identical `404 not-found` envelope (asserted
+  member-by-member on `type`/`title`/`status`/`code`, since `-053` established byte equality is impossible with the
+  framework's `traceId`).
+- **`B_writing_A_s_row_gets_404_even_with_a_correct_if_match` is the test this file exists for.** `-056`'s row warns that
+  `403` is an existence oracle. This app can also answer `409 Conflict` — through the concurrency token — so B supplying A's
+  *real* revision proves existence without any 403 being sent. Scoping in the id lookup is what closes it; the oracle would
+  have survived a review that only checked the 403 advice.
+- **`Ownership_cannot_be_forged_from_the_request_body`:** a POST carrying `ownerId` is ignored (unknown JSON members are not
+  this app's error surface) and the row is owned by whoever the gate authenticated, compared against the **actual** user id
+  read from the database rather than "not empty" — `Guid.Empty` would pass a null-coalescing bug, which is precisely what
+  EF wanted to make the default.
+- **Three assertions corrected by running them instead of reasoning:** PUT answers **200 + body** (`Results.Ok(entity)`),
+  not 204; a stale `If-Match` answers **409** (`Problems.Conflict`), not 412; and an open `NpgsqlDataReader` on a connection
+  makes the next command on it throw `NpgsqlOperationInProgressException` (my plumbing, reported as a product failure until
+  I read the stack). Also two compile errors (`JsonElement` is not `IDisposable`; a static helper calling an instance one)
+  and the boot-order trap: inserting the second account before any host boots hits `42P01 relation "users" does not exist`,
+  because **booting a host is what runs `Migrate()`**.
+- **⚠️ GAP, named and unowned: `/api/applications/events` is not owner-scoped.** Read from the source, not assumed:
+  `ApplicationEventBus` is one global `Channel<string>` of application ids and the stream writes
+  `event: change\ndata: {"id":"<guid>"}` to **every** subscriber. So B sees *that* one of A's records changed and when, and
+  gets valid ids to probe — not A's data, but an activity oracle across accounts, which is the class of thing `-056` exists
+  to eliminate. **No ladder row owns it** (`-046` is M3's stream test, `-056` is the CRUD surface), and the payload is
+  deliberately a "re-read" hint rather than a record, so the fix is small: one channel per owner, or filter by
+  `OwnerId == owner` at publish time. **Proposed as `-068`** rather than folded in here, because a fix nobody was asked for
+  is a second change riding inside this one, and because the human's pending coverage audit should be the thing that decides
+  whether it's p0.
+- **AC-7 and AC-9 checked.** 8 verified + 9 open = 17, asserted.
 
 ---
 

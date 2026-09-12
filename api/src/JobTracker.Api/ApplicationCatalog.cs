@@ -1,3 +1,4 @@
+using JobTracker.Api.Auth;
 using JobTracker.Api.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -24,12 +25,22 @@ public static class ApplicationCatalog
         // mean the read path keeps a change tracker alive for no reason. CancellationToken is bound by the framework to
         // the request aborting: a client that navigates away should stop the query rather than finish it into a socket
         // nobody reads.
-        endpoints.MapGet("/api/applications", async (JobTrackerDb db, CancellationToken ct) =>
-            await db.Applications.AsNoTracking().ToListAsync(ct));
+        endpoints.MapGet("/api/applications", async (JobTrackerDb db, HttpContext http, CancellationToken ct) =>
+        {
+            // BEHAVIOR-056 / spec 2.2: the list is scoped in SQL, not filtered after the fetch. `WHERE owner_id = @me` is
+            // one round trip and one index probe (-059 asserts the scan); `.ToList().Where(...)` would ship the whole
+            // table to the process and then decline to show it, which is a leak with a UI stapled on.
+            // RequireUserId is hoisted because EF translates the lambda: calling it inline asks Npgsql to interpret a
+            // .NET method, and the failure would surface at query time on a route no -056 test touches.
+            var owner = SessionGate.RequireUserId(http);
+            return await db.Applications.AsNoTracking()
+                .Where(a => a.OwnerId == owner)
+                .ToListAsync(ct);
+        });
 
         // BEHAVIOR-m3-backend-api-028. The lambda's inferred return type is Task<IResult>: both arms are results rather
         // than values, and letting the compiler arrive at that is clearer than annotating a union type by hand.
-        endpoints.MapGet("/api/applications/{id}", async (string id, JobTrackerDb db, CancellationToken ct) =>
+        endpoints.MapGet("/api/applications/{id}", async (string id, JobTrackerDb db, HttpContext http, CancellationToken ct) =>
         {
             // Guid.TryParse rather than a {id:guid} route constraint: a malformed id is the same fact to the client
             // ("there is no such record") and must not leave the endpoint answering with a framework envelope that has
@@ -39,7 +50,12 @@ public static class ApplicationCatalog
                 return Problems.NotFound(id);
             }
 
-            var application = await db.Applications.AsNoTracking().FirstOrDefaultAsync(a => a.Id == guid, ct);
+                        var owner = SessionGate.RequireUserId(http);
+            // The 404-not-403 rule lives here. An unscoped read that then compared owners would have to answer 403 to
+            // "right id, wrong account", and 403 is an existence oracle. One composite predicate makes another account's
+            // row indistinguishable from a row that never existed -- which is exactly what -056 asks for.
+            var application = await db.Applications.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == guid && a.OwnerId == owner, ct);
             return application is null ? Problems.NotFound(id) : Results.Ok(application);
         });
 
@@ -92,7 +108,7 @@ public static class ApplicationCatalog
             }
         });
 
-        endpoints.MapPost("/api/applications", async (NewApplicationRequest request, JobTrackerDb db, ApplicationEventBus bus, CancellationToken ct) =>
+        endpoints.MapPost("/api/applications", async (HttpContext http, NewApplicationRequest request, JobTrackerDb db, ApplicationEventBus bus, CancellationToken ct) =>
         {
             var (errors, value) = ApplicationValidation.Validate(request);
             if (errors.Count > 0)
@@ -103,6 +119,9 @@ public static class ApplicationCatalog
             var entity = new Application
             {
                 Id = value!.Id,
+                // Owned at birth. There is deliberately no path that creates an unowned row: -056's claim that B never
+                // sees A's list only means something if "nobody's" is not a state rows can be in.
+                OwnerId = SessionGate.RequireUserId(http),
                 CompanyName = value.CompanyName,
                 JobTitle = value.JobTitle,
                 Location = value.Location,
@@ -142,7 +161,7 @@ public static class ApplicationCatalog
         // 428 it names for a missing precondition is mapped to 409 by that same table — which falls out for free
         // here, because IsCurrent refuses an absent header exactly as it refuses a stale one. No branch of its own
         // to write, and no branch that could rot untested.
-        endpoints.MapPut("/api/applications/{id}", async (string id, NewApplicationRequest request, JobTrackerDb db,
+        endpoints.MapPut("/api/applications/{id}", async (HttpContext http, string id, NewApplicationRequest request, JobTrackerDb db,
             ApplicationEventBus bus, CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
         {
             // The path is authoritative for identity and the body's id is ignored. Nothing in the register covers
@@ -163,7 +182,8 @@ public static class ApplicationCatalog
                 return Problems.Validation(errors, $"/api/applications/{id}");
             }
 
-            var entity = await db.Applications.FirstOrDefaultAsync(a => a.Id == guid, ct);
+            var entity = await db.Applications.FirstOrDefaultAsync(
+                a => a.Id == guid && a.OwnerId == SessionGate.RequireUserId(http), ct);
             if (entity is null)
             {
                 return Problems.NotFound(id);
@@ -194,14 +214,15 @@ public static class ApplicationCatalog
         //
         // If-Match is ignored here, which is a known defect and not an oversight — 044's Red turns it into a
         // failing test first. See that commit's message for why a minimal 035 Green was written blind to it.
-        endpoints.MapDelete("/api/applications/{id}", async (string id, JobTrackerDb db, ApplicationEventBus bus, CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
+        endpoints.MapDelete("/api/applications/{id}", async (HttpContext http, string id, JobTrackerDb db, ApplicationEventBus bus, CancellationToken ct, [FromHeader(Name = "If-Match")] string? ifMatch) =>
         {
             if (!Guid.TryParse(id, out var guid))
             {
                 return Problems.NotFound(id);
             }
 
-            var entity = await db.Applications.FirstOrDefaultAsync(a => a.Id == guid, ct);
+            var entity = await db.Applications.FirstOrDefaultAsync(
+                a => a.Id == guid && a.OwnerId == SessionGate.RequireUserId(http), ct);
             if (entity is null)
             {
                 return Problems.NotFound(id);

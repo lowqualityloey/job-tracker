@@ -48,6 +48,22 @@ public static class SessionGate
         path.StartsWithSegments(DataPrefix)
         || (path.StartsWithSegments(AuthPrefix) && !path.Equals(LoginPath, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>Where the gate publishes the authenticated account. An <see cref="HttpContext.Items"/> key rather than a
+    /// claims principal: M4 has no authorisation layer to feed, and inventing one for a single Guid is the premature
+    /// abstraction AGENTS.md''"'"'s "avoid" list warns about.</summary>
+    internal const string UserIdItemKey = "jobtracker.auth.userId";
+
+    /// <summary>The acting account for a request that passed the gate.
+    /// <b>Throws rather than returning <see cref="Guid.Empty"/>:</b> reaching this with nothing published means a route was
+    /// added outside <see cref="IsProtected"/>, and <c>Guid.Empty</c> would query as "rows owned by nobody" and return an
+    /// empty list -- indistinguishable from a working system with no data. A 500 on a routing mistake is the loud version;
+    /// the quiet version is a feature that shows everyone nothing and passes every test that only checks shape.</summary>
+    public static Guid RequireUserId(HttpContext http) =>
+        http.Items[UserIdItemKey] is Guid id
+            ? id
+            : throw new InvalidOperationException(
+                $"no authenticated account on this request; {http.Request.Path} is not covered by {nameof(IsProtected)}");
+
     public static IApplicationBuilder UseSessionGate(this IApplicationBuilder app) =>
         app.Use(async (http, next) =>
         {
@@ -77,12 +93,17 @@ public static class SessionGate
                 // one that will decide whether this seam is acceptable in production. Standing up a seam a third of
                 // the way down the ladder and leaving one caller unswept is the half-done version of the same idea.
                 var now = DateTime.UtcNow;
-                var valid = await db.Sessions.AnyAsync(
-                    s => s.Id == sessionId && s.RevokedAt == null && s.ExpiresAt > now,
-                    http.RequestAborted);
+                // BEHAVIOR-056: the gate used to answer "is this a session?" and throw the verdict away. Now it answers
+                // "whose session is this?", because every data query needs the owner id and a handler that re-reads the
+                // cookie would be a second trust decision to keep in sync with this one. One lookup, one verdict, published.
+                var owner = await db.Sessions
+                    .Where(s => s.Id == sessionId && s.RevokedAt == null && s.ExpiresAt > now)
+                    .Select(s => (Guid?)s.UserId)
+                    .FirstOrDefaultAsync(http.RequestAborted);
 
-                if (valid)
+                if (owner is not null)
                 {
+                    http.Items[UserIdItemKey] = owner.Value;
                     await next();
                     return;
                 }

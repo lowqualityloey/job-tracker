@@ -3,6 +3,7 @@ using System;
 using JobTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace JobTracker.Api.Migrations
 {
     [DbContext(typeof(JobTrackerDb))]
-    partial class JobTrackerDbModelSnapshot : ModelSnapshot
+    [Migration("20260912094306_AddApplicationOwnerExpand")]
+    partial class AddApplicationOwnerExpand
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -58,7 +61,7 @@ namespace JobTracker.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("notes");
 
-                    b.Property<Guid>("OwnerId")
+                    b.Property<Guid?>("OwnerId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_id");
 
@@ -155,15 +158,6 @@ namespace JobTracker.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("users", (string)null);
-                });
-
-            modelBuilder.Entity("JobTracker.Api.Data.Application", b =>
-                {
-                    b.HasOne("JobTracker.Api.Data.User", null)
-                        .WithMany()
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("JobTracker.Api.Data.Session", b =>

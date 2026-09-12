@@ -56,6 +56,19 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
                 "applications_status_check",
                 "status in ('Saved', 'Applied', 'Interview', 'Rejected', 'Offer')"));
             entity.Property(e => e.Id).HasColumnName("id");
+            // BEHAVIOR-056 / AC-9. Every read is owner-scoped from here on, so this index is not optimisation on
+            // speculation: -059 asserts an index scan for exactly this column via EXPLAIN.
+            entity.Property(e => e.OwnerId).HasColumnName("owner_id");
+            entity.HasIndex(e => e.OwnerId, "applications_owner_id_idx");
+
+            // Restrict, not Cascade. Deleting a session because its user went away is correct (a session without an
+            // account is noise); deleting someone's applications because their account row was removed is data loss, and
+            // M4 has no user-deletion feature to reason about it. WithMany(): neither side carries a navigation property --
+            // User has no Applications collection, because nothing in M4 asks a user for its rows, and adding a collection
+            // invites lazy-loading through it. NO ACTION means the database refuses the delete and the
+            // operator finds out in one statement rather than in a backup restore.
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.OwnerId).OnDelete(DeleteBehavior.Restrict);
+
             entity.Property(e => e.CompanyName).HasColumnName("company_name");
             entity.Property(e => e.JobTitle).HasColumnName("job_title");
             entity.Property(e => e.Location).HasColumnName("location");
