@@ -49,6 +49,16 @@ public sealed class SpaHostingTests(PostgresFixture postgres) : IDisposable
 
     private readonly string _spaRoot = MakeBundle();
 
+    /// <summary>Directories a single test created and therefore owns. Deleted with the rest on disposal, because a
+    /// fixture that leaves scratch behind in <c>$TMPDIR</c> is how the next debugging session starts from a lie.</summary>
+    private readonly List<string> _scratch = [];
+
+    private string Track(string path)
+    {
+        _scratch.Add(path);
+        return path;
+    }
+
     private static string MakeBundle()
     {
         var root = Path.Combine(Path.GetTempPath(), "jt-spa-" + Guid.NewGuid().ToString("N"));
@@ -61,17 +71,21 @@ public sealed class SpaHostingTests(PostgresFixture postgres) : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_spaRoot, recursive: true); } catch (IOException) { /* temp scratch, already gone */ }
+        foreach (var path in new[] { _spaRoot }.Concat(_scratch))
+        {
+            try { Directory.Delete(path, recursive: true); } catch (IOException) { /* temp scratch, already gone */ }
+        }
     }
 
-    private SpaFactory Factory(string? environment, string? spaRoot) => new(environment, spaRoot, postgres.ConnectionString);
+    private SpaFactory Factory(string? environment, string? spaRoot, string? contentRoot = null) =>
+        new(environment, spaRoot, contentRoot, postgres.ConnectionString);
 
     /// <summary>
     /// The house shape (compare <c>BootGuardTests.TestFactory</c>, <c>BootstrapSeedTests.SeedFactory</c>): a sealed
     /// factory per file overriding <see cref="WebApplicationFactory{TEntryPoint}.ConfigureWebHost"/>, rather than the
     /// delegate-configured <c>CustomWebApplicationFactory</c> — one way to build a host across the whole suite.
     /// </summary>
-    private sealed class SpaFactory(string? environment, string? spaRoot, string connectionString)
+    private sealed class SpaFactory(string? environment, string? spaRoot, string? contentRoot, string connectionString)
         : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -79,6 +93,9 @@ public sealed class SpaHostingTests(PostgresFixture postgres) : IDisposable
             // Development is the shape the gate is written against; the connection string must be real either way,
             // because Program.cs migrates at startup and a missing one fails the boot for an unrelated reason.
             if (environment is not null) builder.UseEnvironment(environment);
+            // Only the relative-path case sets this: it exists to reproduce the arithmetic a developer's boot performs,
+            // where `Web:SpaRoot` is resolved against the content root rather than handed in already absolute.
+            if (contentRoot is not null) builder.UseContentRoot(contentRoot);
             builder.UseSetting("ConnectionStrings:Default", connectionString);
             if (spaRoot is not null) builder.UseSetting("Web:SpaRoot", spaRoot);
             // Only consumed by BootGuard, which refuses a Production boot carrying default credentials. Supplying
@@ -123,6 +140,43 @@ public sealed class SpaHostingTests(PostgresFixture postgres) : IDisposable
 
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         Assert.Contains(ShellMarker, await res.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Relative_SpaRoot_resolves_against_the_content_root()
+    {
+        // Every other case hands the app an ABSOLUTE path, but the value a developer actually gets is relative:
+        // `appsettings.Development.json` ships `../../../dist`. That gap was not hypothetical — the first real boot
+        // served `404` at `/` while this file was green, because the shipped default read `../../dist`, which resolves
+        // two levels short of the repository root. Only the warning named the path it had tried. **A default that no
+        // test touches is a default that rots**, so the relative form is asserted here rather than discovered at a boot.
+        var parent = Track(Path.Combine(Path.GetTempPath(), "jt-spa-parent-" + Guid.NewGuid().ToString("N")));
+        var bundle = Path.Combine(parent, "bundle");
+        Directory.CreateDirectory(bundle);
+        File.WriteAllText(Path.Combine(bundle, "index.html"),
+            $"<!doctype html><html><head>{ShellMarker}</head></html>");
+
+        // Content root = parent, SpaRoot = "bundle" relative to it. This is the same arithmetic `dotnet run` performs
+        // with `api/src/JobTracker.Api` as the content root and `../../../dist` reaching the repository's build output.
+        using var app = Factory("Development", "bundle", contentRoot: parent);
+        var res = await app.CreateClient().GetAsync("/");
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Contains(ShellMarker, await res.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Non_get_to_a_page_route_is_not_answered_with_the_shell()
+    {
+        // The shell route is a `MapGet`, so a POST to a page path matches nothing and routing answers 405 by itself —
+        // asserted rather than assumed, since the first shape tried (`MapFallback`, every method) needed a hand-written
+        // clause to reach the same verdict. What the case protects either way is identical: a `200` whose body is HTML
+        // is precisely how a client's JSON parser dies, so a write to a page route must never be answered with a page.
+        using var app = Factory("Development", _spaRoot);
+        var res = await app.CreateClient().PostAsync("/records/8f31/edit", new StringContent("{}"));
+
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, res.StatusCode);
+        Assert.DoesNotContain(ShellMarker, await res.Content.ReadAsStringAsync());
     }
 
     [Fact]
