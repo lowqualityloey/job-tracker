@@ -1,0 +1,13 @@
+{
+  "$comment": "The API's problem-document `code` vocabulary, as ONE artifact read by both suites. BEHAVIOR-060 / DECISION-m3-backend-api-004.",
+  "codes": ["conflict", "not-found", "unauthorized", "validation"],
+  "provenance": {
+    "emitted-by": "api/src/JobTracker.Api/Problems.cs (enumerated by reflection in ProblemCodeContractTests, not copied by hand)",
+    "consumed-by": "src/data/problemCodeContract.ts (typed table, asserted equal to this list in problemCodeContract.test.ts)"
+  },
+  "rules": [
+    "A code added to Problems.cs fails the API test until it appears here.",
+    "A code that appears here fails the frontend test until PROBLEM_CODE_TABLE has an explicit row for it.",
+    "The frontend's unknown-code branch stays fail-closed: an unmapped code must never render as a success."
+  ]
+}

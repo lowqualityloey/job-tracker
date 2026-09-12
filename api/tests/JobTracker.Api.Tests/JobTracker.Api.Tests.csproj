@@ -29,5 +29,9 @@
        behaviour exists to prevent. -->
   <ItemGroup>
     <Content Include="../fixtures/validation-cases.json" Link="validation-cases.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- BEHAVIOR-060: the problem-code vocabulary, shared with src/data/problemCodeContract.ts. Same mechanism as the
+         validation fixture above: one artifact, both suites, so drift between the API and the client is a failing test
+         rather than a comment that says "remember to update the frontend". -->
+    <Content Include="../../../contracts/problem-codes.json" Link="problem-codes.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

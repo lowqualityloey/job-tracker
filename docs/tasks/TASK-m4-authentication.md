@@ -725,6 +725,41 @@ configuration**, and states which literal it used; a delta quoted without its UR
 - **Limits stated, not implied:** this file cannot see the *handler's* predicate (that is `-056`'s behaviour and its tests), and
   it does not defend against assertion weakening inside M3's suite (`-058`'s known limit).
 
+**`TDD-EXEC-m4-authentication-060`** · `BEHAVIOR-060` (no AC of its own) · Red `583c160` → Green `993d5f8` · p0 · **Slice 4** (seam Unit FE, with a companion guard in the API suite)
+- **Red:** `npx vitest run src/data/problemCodeContract.test.ts` → **`Test Files 1 failed`** (the table module did not exist).
+  **Green:** focused **7/7**; **`npm run verify` exit 0** — typecheck, lint, lint:css, **204 FE tests / 21 files**, build; API
+  **`Failed: 0, Passed: 144, Skipped: 0`**, 46 s, 0 warnings.
+- **The defect was silent, not loud.** The adapter's `switch` had no branch for `unauthorized`, which the API has emitted since
+  `-052`, so a 401 fell to `default` → **`corrupt-data`** — the variant meaning *"the server sent something my contract does not
+  describe"*. "You are signed out" and "the response was garbage" became the same user-facing state, and nothing in the build
+  compared the server's code list with the client's because the two lists live in different languages.
+- **`contracts/problem-codes.json` is the increment.** One artifact both suites read, following M3's precedent
+  (`fixtures/validation-cases.json`, copied to output by a csproj `Content` entry) rather than inventing a mechanism. Guarded in
+  **both** directions: the FE test fails if a declared code has no row; `ProblemCodeContractTests` fails if the API emits a code
+  that isn't in the contract. The FE side uses a **typed JSON import**, so the contract's *shape* is in the type system
+  (`resolveJsonModule` was already on; `@types/node` is deliberately not).
+- **The API guard enumerates rather than restating.** It reflects over every static method on `Problems`, invokes it with inert
+  arguments, and reads the `code` extension off the result — so it contains no hand-written list to go stale, and a new
+  `Problems.SessionExpired(…)` reddens the suite that shipped it. Measured emissions:
+  `not-found`/404 · `conflict`/409 · `validation`/400 · `unauthorized`/401.
+- **Two of its three tests passed VACUOUSLY on the way to green** — my reflection enumerated nothing, and an empty set is a very
+  comfortable thing to assert against. The file now asserts `emitted.Count > 0` *with the skipped method names in the message*,
+  and the same class of hole is what `-058`'s no-`Skip` guard defends. Three reflection findings, all mine: the factories return
+  `ProblemHttpResult` (document behind an **internal** `ProblemDetails` property typed `Http.ProblemDetails`, runtime value the
+  `Mvc` subclass), and one `GetValue(result)` should have been `GetValue(document)` → `TargetException`.
+- **`unauthorized` has an explicit row that maps to `corrupt-data`, and that is deliberate.** DECISION-m4-auth-005 asks the owner
+  for a **ninth** `RepositoryError` variant; M2a froze the union at seven and `DECISION-006` widened it to eight **on an explicit
+  owner yes**, and the spec says so precisely so the next widening cannot ride along. A merge is not that yes for a change the
+  spec labels *"Owner decision required"*, so behaviour is unchanged and the approval becomes one line in the table plus the
+  provider behaviour in `-061`. The test asserts the provisional value, so **approving the variant fails a test** — the surprise
+  arrives at the moment of the change instead of after a deploy.
+- **`-060` verifies no AC.** It is the client half of every criterion that answers with a problem document, which is why the
+  count stays **11 verified + 6 open = 17** (asserted) while STATE moves to 15 behaviours executed.
+- **Also found by the gate, not by me:** `import.meta.url` is not a `file:` URL under Vitest (the module graph is served over
+  http), so `readFileSync(new URL(...))` dies with *"The URL must be of scheme file"*; and `node:fs`/`process` don't typecheck in
+  this project at all, because `tsconfig.app.json` lists `types` without `@types/node` — a deliberate constraint, respected rather
+  than widened for a test's convenience.
+
 ---
 
 `Pending` for Slices 1 (rest)–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had

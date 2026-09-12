@@ -14,6 +14,7 @@ import {
 // repository contract. TS2459 said so plainly: `applicationRepository` imports the type to build its union and
 // never exports it, so reaching for it there was a guess about a module's surface rather than a reading of it.
 import type { FieldError } from '../domain/validation'
+import { rowFor } from './problemCodeContract'
 
 /**
  * The HTTP adapter — the reason M3 exists.
@@ -141,26 +142,19 @@ async function mapFailure(response: Response, id: string | null): Promise<Reposi
     return { code: 'storage-error', detail: `HTTP ${response.status} with no readable problem document` }
   }
 
-  switch (problem.code) {
-    case 'validation': {
-      const fieldErrors = toFieldErrors(problem.errors)
-      return fieldErrors === null
-        ? { code: 'storage-error', detail: 'validation named a field this client does not have' }
-        : { code: 'validation', fieldErrors }
-    }
-
-    case 'not-found':
-      return id === null ? { code: 'corrupt-data', quarantinedAs: null } : { code: 'not-found', id }
-
-    case 'conflict':
-      return id === null ? { code: 'corrupt-data', quarantinedAs: null } : { code: 'conflict', id }
-
-    default:
-      // Includes the absent-code case. ASP.NET's own `ProblemDetails` for a 415 (verified live in `-045`) carries no
-      // `code` extension member, so "we do not recognise it" and "it never said" must land in the same place: both
-      // mean the client is looking at a response its contract does not describe.
-      return { code: 'corrupt-data', quarantinedAs: null }
+  // BEHAVIOR-060: this was a switch -- same branches, same results. The change is that they now live in a
+  // `Record<ServerProblemCode, …>`, which makes a declared code with no row a COMPILE error and lets a test compare
+  // the row list against the server's own vocabulary (contracts/problem-codes.json, enumerated there by reflection in
+  // ProblemCodeContractTests). One list per side, one file they both have to agree with.
+  const row = rowFor(typeof problem.code === 'string' ? problem.code : null)
+  if (!row) {
+    // Unrecognised, and absent: ASP.NET's own 415 body carries no `code` member at all, so "we do not know it" and "it
+    // never said" land together. DECISION-m3-backend-api-004 is unchanged by the refactor: unknown is corrupt-data, never
+    // a success, and never an exception.
+    return { code: 'corrupt-data', quarantinedAs: null }
   }
+
+  return row({ id, fieldErrors: toFieldErrors(problem.errors) })
 }
 
 function toFieldErrors(errors: unknown): FieldError[] | null {
