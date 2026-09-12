@@ -114,9 +114,14 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · Browser harness from a second origin (`jt-bridge` recipe in STATE §3A). **The positive control is mandatory:**
   without it a broken endpoint passes as a secured one.
 
-- [ ] **AC-12** — **SSE still delivers cross-tab while authenticated, in real Chromium.**
+- [x] **AC-12** — **SSE still delivers cross-tab while authenticated, in real Chromium.**
   · `docker exec … node /srv/httpCrossTab.mjs` → **7/7 with cookies**, no test-only shims.
   · **jsdom cannot attempt this** (no `EventSource`, no origin policy) — which is *why* it is an AC and not a nice-to-have.
+  *(verified 2026-09-12 by `-064`: 7/7 twice at the path this clause names, over `https://172.23.124.252:5443` with
+  `__Host-JTSession` asserted present and `secure=true` after a **form** login, and no product file changed; the same
+  checks **fail 4 of them** under `E2E_SKIP_LOGIN=1`, which is the control that makes the 7/7 mean what the clause says.
+  The clause's one PASS without a session — *nothing written to localStorage* — is recorded as a limitation of that
+  check, not smoothed over)*
 
 - [x] **AC-13** — **All 65 M3 API tests pass under auth with `Skipped: 0`.**  *(verified 2026-09-12 by `-058`: the 65 is now an executable manifest — 28 methods, 65 expanded cases, composition recorded — and proven to bite by three mutation probes; `Skipped: 0` is a standing assertion, not an observation)*
   · `dotnet test` → `Passed: 65, Failed: 0, Skipped: 0`. **Read `Skipped` as well as `Failed`** (M3 lost an hour to a
@@ -1146,6 +1151,79 @@ no `code`, where AC-8's contract says `400` + `code: "validation"`), unless Q4 l
 session is reachable. Its setup owes three things this record names: the harness must be built with `VITE_API_BASE_URL`
 pointing at the API's own origin (above), it must **clear cookies per case** or it fails green (the spike's finding), and it
 must address the host at a **non-loopback** IP over **TLS**, which is the only shape the container can reach.
+
+**`TDD-EXEC-m4-authentication-064`** · **verifies AC-12** · Browser seam · p0 · delivered 2026-09-12 19:43 UTC,
+**after `-071`**, which is why it is appended out of numeric order — the IDs are stable identifiers, not a sequence, and
+renumbering to keep the file tidy is exactly how M3's phantom cross-references were made.
+
+- **The row as ratified:** *"`httpCrossTab.mjs` → **7/7 while authenticated**, in real Chromium. **jsdom cannot attempt
+  this**: no `EventSource`, no origin policy."* **AC-12's evidence clause** is `docker exec … node /srv/httpCrossTab.mjs`
+  → 7/7 **with cookies**, no test-only shims — so the copy path inside the container is the one the AC names, verbatim,
+  rather than a `harness064.mjs` of my own devising.
+- **Result: 7/7, twice.** First passing run completed **19:40:49 UTC**, the second **19:42:51 UTC** — **`mtime` of the two
+  run logs**, taken from the files rather than from memory, which is what makes them citable. The second was after
+  changing only the destination path, so the identical output is a reproducibility result, not a re-echo. An earlier
+  attempt aborted at **19:39:22** on a CDP scoping error, recorded below rather than hidden.
+  ```
+  AUTHENTICATED  __Host-JTSession present (secure=true httpOnly=true sameSite=Lax domain=172.23.124.252)
+                 after a form login at https://172.23.124.252:5443
+  PASS  both tabs rendered the HTTP-backed build   — page and api both https://172.23.124.252:5443, tab B "list"
+  PASS  the first screen is an HTTP read …         — GETs seen: [200]
+  PASS  no application data was written to localStorage — keys: []
+  PASS  the create form opens in a real browser
+  PASS  a write through the real form reaches the API    — POST status: 201
+  PASS  the other tab learned without reloading — the SSE join is real — tab B navigation entries: 1
+  PASS  the marker record is removed again      — deleted 204
+  ```
+  **The URL literal used, stated because `-065` and any later re-run need it:** `https://172.23.124.252:5443` — the
+  sandbox's routable host address, **not** `localhost`. Two independent reasons, both measured: Chromium runs inside a
+  bridge-networked container whose loopback is its own, and the certificate's SAN is that IP.
+- **`sessions=1` in the scratch database afterwards** is the proof the login was server-side and not a client illusion;
+  `applications` rows matching `Crosstab %` **= 0** proves check 7 cleaned up rather than reporting that it did.
+- **This row's Red equivalent is the negative control, and it is run by the script, not by me.** `E2E_SKIP_LOGIN=1`
+  repeats all seven checks with no session: **4 fail** — `both tabs rendered` (tab B lands on `/login`),
+  `first screen is an HTTP read` (`GETs seen: [401,401]`, the gate in BEHAVIOR-055 answering in the browser), the create
+  form never opening, and the cleanup. `run-064.sh` **aborts the row if the control passes**.
+  **The control's one PASS is a real limitation and is stated, not smoothed:** *no application data was written to
+  localStorage* cannot fail when nothing was written anywhere, so it is a check on sufficiency, not on authentication.
+  A row whose control passes 7/7 would be a row proving nothing, and the only reason that is visible here is that the
+  control exists.
+- **Why the topology had to change with the authentication.** `-042` ran a page on `:4173` against an API on `:5080`
+  because two origins *was* the deployment shape and the point was to expose CORS. Under M4 that shape cannot
+  authenticate at all: `SameSite=Lax` does not carry `__Host-JTSession` on a cross-origin subresource request, and plain
+  `http` discards the prefix before it ever reaches the jar. So `APP` and `API` now default to the **same origin** and
+  the harness runs against the TLS endpoint `-071` built. `-042`'s 7/7 is not lost — it is simply no longer reachable
+  without a login, which is what `BEHAVIOR-055` was for.
+- **The jar-clearing rule, earned twice over.** CDP's cookie jar survives closed tabs and new targets in this image, so
+  `Network.clearBrowserCookies` runs **only on the tab that logs in**. Clearing per-tab would delete the session between
+  A and B, tab B would render `/login`, and the headline check would fail looking like a broken push channel. Its first
+  attempt was also the row's first failure: sent on the browser-level connection the call returns
+  `-32601 'Network.clearBrowserCookies' wasn't found` — `Network.*` is session-scoped (probe 5 passes a `sessionId`; I
+  did not, and found out at runtime).
+- **Login goes through the real form** (`#login-email`, `#login-password`, `form button[type="submit"]`) because
+  `-061`'s page, its redirect to `?next=`, and whatever the client actually puts on the wire are all things AC-12
+  depends on. A harness that posted to `/api/auth/login` itself would certify a login no user can perform.
+- **Check 1's predicate was widened deliberately, and the change is narrow.** It previously demanded *the first GET
+  ever* be a 200; under authentication the first GET is legitimately a 401 — that 401 is what produces the redirect to
+  `/login`. It now waits for an authenticated 200 and still asserts the same thing the row promised: the screen's data
+  came from the network, not from disk.
+- **No product code changed, and no shim was added** — AC-12's other clause. The only capability flag is
+  `--experimental-websocket`, because the container's Node is 20 and global `WebSocket` is flagged there; the host's
+  Node 24 needs nothing. The harness is still dependency-free raw CDP.
+- **A defect this row is positioned to see and did not fix, recorded as a proposal:**
+  `src/data/httpApplicationRepository.ts:211` opens `new EventSource(url)` **with no `withCredentials`**. That is correct
+  for the origin this run used and **silently wrong for the two-origin topology in `docs/aws-deployment.md`**, where an
+  authenticated stream would arrive uncooked as a 401 and every dev check here would stay green. Widening further:
+  `Lax` blocks the credentialed cross-origin case for `fetch` as well as for `EventSource`, so AC-16's
+  *credentials-on CORS* configuration and `DECISION-006`'s *`SameSite=Lax`* cannot both be load-bearing in the deployed
+  shape — the pair needs `SameSite=None; Secure`. **Stated as inference from cookie semantics, not as a measurement**:
+  `-064` runs same-origin and cannot observe it. Raising it as a row of its own rather than fixing it here, for the
+  standing reason that a fix nobody asked for is a second change riding inside this one.
+
+**Next:** `-063` (AC-11) — the two-case split the owner approved, each case with its own positive control, case 1 aimed
+at a state-changing verb because login takes no `X-CSRF-Token`. It needs the antiforgery gate to exist first: there is
+**no server-side check and no client-side header in the tree today**, which is also why `-064`'s cleanup `DELETE` sailed
+through unopposed.
 
 ### §6a. Durable checkpoint and handoff records (Level 2 gate)
 
