@@ -128,7 +128,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   did, making the delta uncomputable), and the **configuration is part of the number** (flag-off the adapter is
   tree-shaken and the delta is a flattering, meaningless 0 kB).
 
-- [ ] **AC-15** — **No new runtime dependency, and no credential literal in source.**
+- [x] **AC-15** — **No new runtime dependency, and no credential literal in source.**  *(verified 2026-09-12: deps 3/5 unchanged, 0 credential literals, guard live, seed landed — see §6 `-050b`)*
   · `node -p "Object.keys(require('./package.json').dependencies).length"` → **3**; `grep -rniE "password\s*=\s*\"|secret\s*=\s*\"" api src` → **0 matches**.
   · Plus: **the app refuses to boot with default credentials in `Production`** — a startup guard, because a seeded
   account is the failure mode of a published one.
@@ -272,7 +272,7 @@ configuration**, and states which literal it used; a delta quoted without its UR
   by the absence of the expected line.** What is actually attested is `Failed: 0, Passed: 74` on **two full-suite runs**
   (18 s), not two focused repeats.
 
-**`TDD-EXEC-m4-authentication-050`** · `BEHAVIOR-050` **PARTIAL** — guard executed, seed deferred (named below) · Red `63a70e0` → Green *(this commit)* · p0 · **Slice 1**
+**`TDD-EXEC-m4-authentication-050`** · `BEHAVIOR-050` — guard half (**seed half recorded directly below; it landed the same day**) · Red `63a70e0` → Green *(this commit)* · p0 · **Slice 1**
 - **Red:** `Failed: 3, Passed: 1` — three Production boots that must refuse all **succeeded** (`Assert.Throws() Failure: No
   exception was thrown`), while *Development boots with no credentials* passed on arrival. **A Red where all four fail would
   have meant the test was wrong about the world, not the code.**
@@ -302,6 +302,43 @@ configuration**, and states which literal it used; a delta quoted without its UR
 - **Deferred half, stated as a gap not a choice:** "seeded user comes from configuration" needs the `users` table (no
   migration exists) and `dotnet ef` is not installed here. Spec §4.2 orders the guard *before* the seed, so this lands now;
   **`-050` is not complete and is not recorded as complete.**
+  **→ Resolved:** the migration and the seed are executed in the next block, and `dotnet ef` turned out to need only a local tool manifest — plus a discovery that
+  `Microsoft.EntityFrameworkCore.Design` was *already* referenced, so the PR's warning about "5 → 6 PackageReferences" was wrong and nothing moved.
+
+**`TDD-EXEC-m4-authentication-050b`** · `BEHAVIOR-050` **seed half** — completes `-050` · Red `30da057` → Green *(this commit)* · p0 · **Slice 1**
+- **Red:** `Failed: 4, Passed: 0` — all four on `42P01: relation "users" does not exist`. Disclosed there and again here:
+  **uniform failure reasons mean one of those four asserted nothing** — the "no user is created when credentials are unset"
+  case asserts an absence, and an absence holds trivially with no table. Forward-looking regression cover, not a Red.
+- **Green:** focused **6/6**, full **`Failed: 0, Passed: 84, Skipped: 0`** (16 s), 0 warnings. Seeding runs
+  **after `Migrate()` and before `app.Run()`**, through `BootstrapUserSeed.SeedAsync`, using `-047`'s real
+  `IPasswordService` — the first production caller the seam ever had, which is why `PasswordService` is registered in
+  `Program.cs` *now* and not three behaviours ago.
+- **The load-bearing assertion is not "a row exists."** It is *"the stored value verifies against the application's own
+  hasher for the configured password and for no other"* — that single check rules out the cheap ways to satisfy the weak
+  claim (hard-coded email, plaintext password, a row nobody can authenticate against) — plus idempotency in **both**
+  directions: one row after a second boot, **and** the original hash untouched when the second boot was configured with a
+  different password. A seed that re-applies configuration on every restart silently undoes a legitimate password change.
+- **Schema, and the probe that saved me from a wrong conclusion.** The mapping declares `email` as `citext` with a unique
+  index, per spec §3 line 243. Two follow-up assertions then **failed**, and the obvious reading was "citext isn't
+  working, accounts differing only by case will duplicate." A direct catalog probe said otherwise:
+  `coltype=citext | exact=1 | mixed=1 | ext=1` — **the schema was right and both of my queries were wrong**: an inlined
+  literal compares case-insensitively while a *typed text parameter* does not resolve the same way (fixed with
+  `$1::citext`), and `pg_typeof(...) FROM users LIMIT 0` returns no rows at all, so the fallback reported citext as
+  `information_schema`'s "USER-DEFINED" — technically true and useless as an assertion. **Had I trusted the failure
+  instead of measuring the claim, I'd have "fixed" a correct schema.**
+- **`-049`'s lesson, arriving a behaviour later:** a `[Fact]` that throws on purpose is still in the assembly until it is
+  deleted, and the full suite ran with my probe file present because the `rm` shared a shell line with the `dotnet test`
+  that had already compiled it. **The run reported `Failed: 1, Passed: 84, Total: 85` and the only failing test was mine,
+  deliberately.** Reading *which* test failed is what turned an apparent defect into a note about my own cleanup order;
+  84/84 is from the clean rerun after deletion, verified with `ls`.
+- **Tooling decision executed as approved-by-merge (option (a)):** `dotnet-ef 10.0.12` in a new **`api/dotnet-tools.json`**
+  local manifest — no `PackageReference` added. Verified rather than assumed: **npm runtime deps 3, API
+  `PackageReference`s 5 (unchanged), credential-literal grep 0 hits.** The PR's claim that this would move the API to 6
+  references was false — `Microsoft.EntityFrameworkCore.Design` was already referenced — which is the third time this
+  session a number I quoted before looking turned out to be wrong, and is recorded as such rather than quietly corrected.
+- **`AC-15` flipped on this evidence** — no new runtime dependency, no credential literal in source, boot guard live, and
+  the seeded account it describes now exists. It had been left unchecked in the guard-half commit precisely because its
+  rationale was an account that did not exist yet.
 
 ---
 

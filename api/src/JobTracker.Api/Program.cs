@@ -14,6 +14,10 @@ builder.Services.AddProblemDetails();
 
 // BEHAVIOR-m3-backend-api-026: a catalog to be empty of. Registered here because the Red test above it fails
 // with 404 without it, and not earlier because nothing needed a database until a test asked the API one.
+// BEHAVIOR-047's service, registered now rather than at -047: the seam had no production caller until seeding needed
+// one, and registering an unused service would have implied a wiring that no test yet required.
+builder.Services.AddSingleton<IPasswordService, PasswordService>();
+
 builder.Services.AddDbContext<JobTrackerDb>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
@@ -63,7 +67,17 @@ BootGuard.EnsureSafeToStart(app.Configuration, app.Environment);
 
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<JobTrackerDb>().Database.Migrate();
+    var db = scope.ServiceProvider.GetRequiredService<JobTrackerDb>();
+    db.Database.Migrate();
+
+    // BEHAVIOR-050: the bootstrap account is created from configuration, after the schema exists and before any request
+    // can be served. Order matters: seeding before Migrate would fail on a fresh database, and seeding after app.Run()
+    // would let the first request win the race against the account it needs to authenticate.
+    await BootstrapUserSeed.SeedAsync(
+        db,
+        app.Configuration,
+        scope.ServiceProvider.GetRequiredService<IPasswordService>(),
+        scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(BootstrapUserSeed)));
 }
 
 // RFC 9457 (spec DECISION-m3-backend-api-004): unhandled exceptions become application/problem+json, and

@@ -55,7 +55,11 @@ public sealed class BootstrapSeedTests(PostgresFixture postgres)
         await using var conn = new NpgsqlConnection(postgres.ConnectionString);
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT email, password_hash FROM users WHERE email = $1";
+        // ::citext is not decoration. The probe that settled this: an inlined literal compares case-insensitively through
+        // citext's own operator, while a typed text parameter does not resolve the same way -- which is why this file's
+        // case-fold test failed as "collection was empty" and briefly looked like a broken schema instead of a broken
+        // query. Naming the type makes the assertion test the column's behaviour.
+        cmd.CommandText = "SELECT email, password_hash FROM users WHERE email = $1::citext";
         cmd.Parameters.AddWithValue(email);
         var rows = new List<(string, string)>();
         await using var reader = await cmd.ExecuteReaderAsync();
@@ -113,6 +117,48 @@ public sealed class BootstrapSeedTests(PostgresFixture postgres)
         var after = await ReadUsers(email);
         Assert.Single(after);
         Assert.Equal(original, after[0].Hash);
+    }
+
+    // ---- Two schema assertions, added after the fact and labelled as such: they arrive GREEN, so they carry no Red.
+    // They exist because the file's mapping comment claims citext gives case-insensitive uniqueness. A comment that
+    // asserts a schema property nobody checks is exactly the kind of claim this repo's ledger is full of, so the claim
+    // was converted into evidence instead of being left as prose. The `users` table already existed when both were
+    // written -- that is disclosed here rather than a Red being staged for a check that could not have failed.
+
+    [Fact]
+    public async Task The_email_column_is_citext_rather_than_plain_text()
+    {
+        // Direct evidence about the column type: pg_typeof, not an inference from behaviour that could have another cause.
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
+        // format_type against pg_attribute: it answers from the catalog, so it needs no rows to exist (the first draft
+        // used `LIMIT 0`, which returns no rows at all, fell through to information_schema, and reported citext as
+        // "USER-DEFINED" -- technically true, and useless as an assertion about this column).
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT format_type(a.atttypid, a.atttypmod)
+            FROM pg_attribute a JOIN pg_class cl ON cl.oid = a.attrelid
+            WHERE cl.relname = 'users' AND a.attname = 'email'
+            """;
+        Assert.Equal("citext", (string?)await cmd.ExecuteScalarAsync());
+    }
+
+
+    [Fact]
+    public async Task An_email_differing_only_in_case_is_not_seeded_as_a_second_account()
+    {
+        // The consequence the type was chosen for. Without citext these two boots would produce two rows whose emails are
+        // the same account to a human and distinct to the database -- and login would then resolve whichever row the
+        // index happened to return first.
+        var lower = UniqueEmail("casefold");
+        var mixed = char.ToUpper(lower[0]) + lower[1..];
+        using (var a = new SeedFactory(lower, SeedPassword, postgres.ConnectionString))
+            a.CreateClient();
+        using (var b = new SeedFactory(mixed, "second-boot-password-2c9e", postgres.ConnectionString))
+            b.CreateClient();
+
+        var rows = await ReadUsers(mixed);
+        Assert.Single(rows);
     }
 
     [Fact]
