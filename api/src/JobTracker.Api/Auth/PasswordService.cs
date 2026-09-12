@@ -47,13 +47,17 @@ public sealed class PasswordService : IPasswordService
     /// <c>BEHAVIOR-047</c> proves — so it is named here as an obligation on <c>BEHAVIOR-048</c> rather than left as a
     /// silent judgement call.
     ///
-    /// The reasoning is the lockout shape: <c>VerifyHashedPassword</c> returns <c>SuccessRehashNeeded</c> when the stored
-    /// envelope is well-formed but predates the current cost settings. Treat that as a failure and <c>-048</c> — whose
-    /// whole job is raising the iteration count above Identity's inherited 100,000 default — **silently locks out every
-    /// existing account the moment it goes green.** A password that is correct enough to need rehashing is correct.
+    /// <c>SuccessRehashNeeded</c> means "correct password, envelope predates our current settings", and a correct
+    /// password that is merely old is still correct -- so it verifies.
     ///
-    /// `-048` must therefore assert two things, and only the first is guaranteed to fail today: the envelope's iteration
-    /// count equals a configured value, **and** a hash made at a lower count verifies `true` while needing rehash.
+    /// <b>Correction, written rather than quietly fixed:</b> this passage originally justified the choice with a
+    /// lockout scenario ("raising the iteration count in -048 silently locks out every existing account"). -048's
+    /// probe measured that it does not happen: verification derives the subkey from the count <i>declared in the
+    /// envelope</i>, so an iteration change yields <c>Success</c> and the rehash signal never fires. The judgement
+    /// stands -- the signal is real for compatibility formats, PRF changes and key-size changes -- but its stated
+    /// reason was invented. <b>A comment that fabricates a threat to justify a decision is worse than the decision:</b>
+    /// nobody re-tests the threat, everyone trusts the sentence, and the next reader defends the code from a scenario
+    /// that cannot occur.
     /// </remarks>
     public bool Verify(string storedHash, string candidate)
     {
