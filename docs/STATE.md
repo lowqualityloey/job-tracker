@@ -80,10 +80,13 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **none.** **PR #58 is MERGED** — `47852a4` at 2026-09-12 16:09 UTC, verified both ways per the rule below
+- **In flight**: **PR #59** `docs/m4-q4-decision-ac-fix` @ `e8f66a9` — docs-only (5 files, no code), ratifying Q4 and
+  correcting the records; CI `verify` pass, `verify-api` **skipped by the docs-only detector** (its dotnet steps read
+  `skipped` while the job reports success — grill F-10's design, so this branch's 169/0 evidence is **local**, not CI).
+  **PR #58 is MERGED** — `47852a4` at 2026-09-12 16:09 UTC, verified both ways per the rule below
   (`state:MERGED` + the `TDD-EXEC-m4-authentication-069` marker present in `main`), and local `main` reconciled by
   `--ff-only` to the same SHA with a clean tree. `feat/m4-069-wrongtype-binding` (`Red b7d0f6c → Green 5655800 → docs
-  38ff6d2 → records f9482a5`) is fully absorbed (`git merge-base --is-ancestor f9482a5 main` OK), so nothing on the
+  38ff6d2 → records f9482a5`) is fully absorbed (`git merge-base --is-ancestor f9482a5 main` OK), so nothing on that
   branch is outside `main`. **`-069`**: a wrong-typed wire member
   (`companyName: 42`, `status: 5`, `notes: [1,2]`) and a truncated body answered
   **500 with no `code`**; they now answer **400 + `code: "validation"` + a `#/member` pointer**. Measured cause, from this
@@ -175,6 +178,8 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   the API origin — and run **`-064`** first, since it is the row whose whole purpose was the blocked one. **The four owed
   practice tasks (`-066`…`-069`) stay unstarted until invited.** The decision-free *server-side* queue is still empty after
   `-069`: everything newly unlocked is Browser or Build.
+  *(This record's own carrying work is **PR #59**, awaiting human review — review, merge, tags and releases are not agent
+  duties, so it stops there.)*
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 

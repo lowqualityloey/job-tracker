@@ -1,16 +1,30 @@
 # Checkpoint Record 001 — TASK-m4-authentication
 
-> **⚠️ AMENDED 2026-09-12 16:46 UTC, after it was consumed.** Nothing in the body above this line was rewritten; corrections
-> are **appended at their own sites** so the record still reads as history. Four things changed: **PR #58 was found merged**,
-> not open (§2's table, §8) · **Q4 was answered, option (a)** (§5, §6) · **H4's `169/0` did not reproduce on the first
-> re-run** (§3a) · **this record's open-AC list was false**, and the `13 + 4 = 17` counter that vouched for it could not
-> detect that (§2). Read §3a, §5, §6 and §8's amendment notes before acting on any number below.
+> **⚠️ AMENDED 2026-09-12 16:46 UTC, after it was consumed.** No original sentence below was deleted or rewritten; every
+> correction is **appended at its own site**, dated, so the record still reads as history. Four things changed:
+> **PR #58 was found merged**, not open (§2's table, §8) · **Q4 was answered, option (a)** (§5, §6) · **H4's `169/0` did not
+> reproduce on the first re-run** (§3a) · **this record's open-AC list was false**, and the `13 + 4 = 17` counter that
+> vouched for it could not detect that (§2). The two metadata bullets below the banner — **Execution State** and
+> **Branch / audited revision** — were also overtaken, so they carry their own notes rather than being edited here.
+> **Read §3a, §5, §6 and §8's amendment notes before acting on any number in this file.**
+>
+> *This banner's first draft said "nothing in the body **above this line**" — written before the banner was moved to the
+> top, so it described a position it did not have. Self-referential location claims belong in the same suspect class as
+> the commit-hash line below them.*
 
 - **Task ID**: `TASK-m4-authentication` · **Canonical record**: [`TASK-m4-authentication.md`](TASK-m4-authentication.md) (§6 carries the per-slice `TDD-EXEC` records; this file is a projection, not a replacement — the Task Record stays authoritative)
 - **Specification / planning**: [`docs/specs/2026-09-12-spec-m4-authentication.md`](../specs/2026-09-12-spec-m4-authentication.md) (approved by the merge of PR #34, `fa4ed7d`) · ladder [`docs/tests/2026-09-12-test-m4-authentication.md`](../tests/2026-09-12-test-m4-authentication.md) · grill [`docs/reviews/2026-09-12-m4-plan-grill.md`](../reviews/2026-09-12-m4-plan-grill.md)
 - **Checkpoint at**: 2026-09-12 15:55 UTC · **Trigger**: context compaction + milestone boundary (`-069` delivered, decision-free queue empty). Level 2, so this record is the durable gate, not the chat summary.
 - **Execution State**: `in_progress` — **not** `handoff_ready`. Nothing is blocked *for the agent*; the queue is empty because the next four rows need one owner answer, and PR #58 is with the human. No resume condition is unmet, so no stop state is warranted, and implementation edits, commits and PR actions remain permitted by this record's own terms.
+  > **Amended 16:46 UTC**: still `in_progress`, still not `handoff_ready`, but the *reason* inverted. PR #58 is **merged**; Q4
+  > **was asked and answered**. The queue is no longer empty — it now leads with **one further owner question** (`-063`/AC-11's
+  > restatement) followed by executable rows `-064` and `-065`. "Implementation edits, commits and PR actions remain
+  > permitted" still holds, and was used: `docs/m4-q4-decision-ac-fix` → **PR #59**.
 - **Branch / audited revision**: `feat/m4-069-wrongtype-binding` @ `38ff6d2` — three commits over `main` (`fea085c`, the `-068` merge), `git status --porcelain` empty, `git merge-base --is-ancestor fea085c HEAD` **OK**.
+  > **Amended 16:46 UTC**: that branch's tip was **`f9482a5`**, not `38ff6d2` — the fourth commit being the one carrying these
+  > two records, which the line below this one says cannot be named inside its own file. `main` has since moved to
+  > **`47852a4`** (`-069` merged, ff-reconciled), and the branch is **fully absorbed** into it
+  > (`git merge-base --is-ancestor f9482a5 main` → OK).
 - **Which commit carries these records**: not nameable inside its own file — a hash cannot contain its own commit's hash. Find it with `git log --grep='docs(m4): checkpoint' -1 --format='%h %s'` and validate **ancestry**, not equality (the same trap that made M2 checkpoint-002 reword this line).
 - **Scope changes since checkpoint-000 (there is no prior M4 checkpoint)**: three. `-066`, `-067`, `-068` and `-069` were all **ratified into the ladder at execution time** by dated §6 amendments to the spec (three amendment blocks, appended, never renumbered). `DECISION-m4-auth-005`'s ninth variant was approved by the owner explicitly; every other deviation was approved by merge-of-the-PR-that-asked.
 - **Release-evaluation handoff fragment**: **N/A** — no candidate, tag, QA gate or release decision exists for M4. Nothing in this file authorises a tag, release, publication, remote operation, deployment or rollback; those stay `pk:ship` + the human.
@@ -126,6 +140,7 @@ making this milestone.** The real value is `…Password=jobtracker-dev-only`, fr
 > created: put the `-063`/AC-11 two-case restatement to the owner before Slice 5 writes it**, because option (a) makes a
 > cross-site probe prove the Lax cookie rule rather than the antiforgery header, and silently "fixing" that in code would
 > change a ratified row's promise. Then implement (a) and run `-064`. The four practice tasks remain unstarted and
-> uninvited.
+> uninvited. *(The commit carrying these corrections is **PR #59**, branch `docs/m4-q4-decision-ac-fix` — published and
+> awaiting review, because review, merge, tags and releases are not agent duties.)*
 
 *End of checkpoint-001. Companion: [`handoff-001`](TASK-m4-authentication.handoff-001.md).*
