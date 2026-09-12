@@ -80,16 +80,18 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #62** `feat/m4-071-spa-hosting` (`Red 964fdc6 → Green 77ab86d → record 1ef21c7`, head verified
-  against `git rev-parse HEAD` at 19:27 UTC) — **the first product
-  code of Slice 5**: the API serves the built front end from its own origin under `DECISION-m4-auth-007 (a′)`. This one
-  **does move `api/` files, so `verify-api` runs rather than skipping** — the 179/0 evidence below is local, and CI's is the
-  independent copy. **PR #61 is MERGED** (`1819bbb`, 18:47:03Z, verified both ways), which is what reconciled `main` before
-  this branch was cut — the rule from the incident recorded just below, applied in the other direction: **this branch is
-  based on `1819bbb`, read at the time it was created, not from memory.**
-  ~~**PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b`~~ — the **real-app measurement** that closed the spike's last
-  hedge. Docs + probe sources only; `verify` exit 0 / 221 tests / 23 files / lint clean locally; `verify-api`
-  skipped on the docs-only detector, which was **correct there rather than a gap** — no `api/` file moved.
+- **In flight**: **PR #63** `test/m4-064-authenticated-crosstab` (`7f0b0ff` harness + driver → `6833a3c` record) —
+  **`-064`: cross-tab SSE verified in real Chromium while authenticated, which moves AC-12 to verified.** No `api/` file
+  moves, so CI's `verify-api` skip is **correct here rather than a gap**; the row's evidence is the browser run and its
+  negative control, both quoted in the PR. Head checked against `git rev-parse HEAD`, and the range against
+  `git rev-list --count main..HEAD` = 2.
+  **PR #62 (`-071`, the API serving the front end from its own origin) is MERGED** — `21f1f45` at 19:50:13Z, verified both
+  ways, **CI green on `verify` and `verify-api`** — so `main` is now the tree `-064` measured, which is what makes its
+  browser evidence usable rather than provisional. It was **the first product code of Slice 5**, under
+  `DECISION-m4-auth-007 (a′)`, cut from `1819bbb` read at the time rather than from memory.
+  ~~**PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b`~~ and **PR #60** — the spike, its probes, and the real-app
+  measurement that closed its last hedge. Docs + probe sources only; `verify-api` skipped on the docs-only detector, which
+  was **correct there rather than a gap** — no `api/` file moved.
   **Why a second PR exists off the same branch — read this as the rule, not the incident:** **PR #60 merged at 17:56:17Z
   (`7e13914`) while the measurement was still running**, and the branch was deleted with it. The next `git push` therefore
   reported **`* [new branch]`** and left `gh pr view 60 --json headRefOid` frozen at `ea4c91b`. Both signals were checked
@@ -266,11 +268,19 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   Two proposed rows came out of this boundary and are **recorded, not started**: **`-072`** (the `https` default, decided at
   D-2 above) and **`-073`** (the cross-origin credentialed-stream probe, recommended at D-3 but withheld, because it would
   reopen a ratified cookie decision on evidence `-064` cannot see).
-  *(**PR #60** merged `7e13914` 17:56:17Z · **PR #61** merged `1819bbb` 18:47:03Z · **PR #62** (`-071`) open, reviewed by no
-  one yet. `-064` sits **on top of `-071` as a descendant branch**, which is the only honest base: the row measures the
-  origin `-071` creates, so a PR against `1819bbb` could not carry its own evidence. **When #62 merges, GitHub retargets the
-  stacked PR to `main` automatically** — the base branch is deleted, and the open PR moves with it. Review, merge, tags and
-  releases stay human; the queue stops at the PR.)*
+  *(**PR #60** merged `7e13914` 17:56:17Z · **PR #61** merged `1819bbb` 18:47:03Z · **PR #62** (`-071`) merged
+  **`21f1f45` 19:50:13Z**, all three verified both ways — `gh pr view` plus the `TDD-EXEC-m4-authentication-071` marker
+  present in `main`, whose tip is now that merge commit. **CI passed independently** on #62: `verify` 1 m 30 s and
+  **`verify-api` 2 m 33 s**, the latter the reason a PR that moves `api/` files is worth its own green rather than my
+  local 179/0. **PR #63** (`-064`) is open against `main` with exactly those two commits and `headRefOid` equal to local
+  `HEAD`.
+  **A prediction that did not survive contact, corrected here rather than left standing:** this bullet previously said
+  "when #62 merges, GitHub retargets the stacked PR to `main` automatically". It was never tested, and what is tested is
+  different — the stacked PR **could not be created at all** once its base was gone:
+  `gh pr create --base feat/m4-071-spa-hosting` → *"Base sha can't be blank … No commits between …"*. Retargeting may
+  well happen to a PR that is already open; it cannot rescue one that was never opened. **A descendant branch and a
+  stacked PR are not the same thing** — the first is a git fact, the second needs a base that still exists at the moment
+  of creation. Review, merge, tags and releases stay human; the queue stops at the PR.)*
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 
