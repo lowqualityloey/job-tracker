@@ -83,7 +83,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
 
   · **⚠️ Restated by grill Q8 (2026-09-12).** The **assertions** are the byte-identical bodies, the identical status code, and the dummy verify's presence proven structurally. The 5 ms/50-sample timing bound is **reported with `n`, min/median/max and warm-up, and asserts nothing** — no run has measured whether that bound separates a 400 ms signal from noise. AC count stays 15; only this AC's gate weakened, deliberately and on the record.
 
-- [ ] **AC-4** — **Password cost is measured and bounded, and the assertion is the test.**
+- [x] **AC-4** — **Password cost is measured and bounded, and the assertion is the test.**  *(verified 2026-09-12 by `BEHAVIOR-048`+`-049`; percentiles from the dedicated bench — the committed in-suite guard is deliberately coarser, see §6)*
   · `dotnet test --filter ~PasswordCost` → `Hash` p95 < 1000 ms, `Verify` p50 within 200–800 ms; iterations recorded in
   the envelope. **No number is asserted in this record before that run.**
 
@@ -242,6 +242,35 @@ configuration**, and states which literal it used; a delta quoted without its UR
   scenario that measurement says cannot occur via iteration count. The absorption stays (the signal is real for compat
   formats, PRF and key-size changes) but the *stated reason* is replaced — **a comment that invents a threat to justify a
   judgement is worse than the judgement**, because the next reader will not re-test the threat, only trust the comment.
+
+**`TDD-EXEC-m4-authentication-049`** · `BEHAVIOR-049` · no Red commit *(disclosed below)* — negative control instead · single test-only commit on `feat/m4-049-cost-band` *(read its SHA with `git log --oneline main..HEAD`; none written here — this record has carried a fabricated SHA before)* · p2 · **Slice 1**
+- **Measured first, asserted second.** Spec §2.3's numbers were unrun when the plan was written; AC-4's own clause is
+  "**no number is asserted in this record before that run**". Dedicated bench, 13 iterations of each, first observation
+  **reported rather than hidden**:
+  `hash n=12 (warm-up excluded: 273.5) min=247.6 p50=279.1 p95=314.8 max=336.0` ·
+  `verify n=12 (warm-up excluded: 316.2) min=251.5 p50=271.2 p95=312.2 max=330.3` — **both ratified targets pass as
+  written** (314.8 < 1000; 271.2 ∈ 200–800) at the 350,000 iterations `-048` chose.
+- **No Red to fabricate.** The assertion was derived from a measurement of the code that already exists, so it passes on
+  arrival — same honest-no-Red case as `-043`/`-045`. Its substitute is the **negative control**: `MaxAcceptableMs`
+  temporarily `1000 → 1` produced `Failed: 1, Passed: 0` with `Assert.InRange() Failure`, file restored byte-identical
+  (`diff -q`). A cost guard nobody has watched fail is a comment with a green checkmark.
+- **This behaviour's real finding is that it disagreed with itself, and the test was right.** The first draft's doc comment
+  claimed the warm-up "was not slower than the steady state" — true of the bench (273.5 ms, inside the range). **In the
+  full suite the first `Hash` measured 1108.9 ms and failed the 1000 ms ceiling.** Both statements were true of their own
+  run; only the second one matters, because `xunit` runs test collections in parallel: **an in-suite timing assertion
+  measures the scheduler, not the hasher.** Fixed by a discarded warm-up call (now load-bearing, not precautionary) and by
+  splitting the jobs: the percentile claim belongs to the dedicated bench, the committed guard is deliberately coarse
+  (150–3000 ms per observation) so it catches a 10× change in either direction without ever flaking on contention.
+- **A lower bound with a purpose, stated:** the regression this suite would otherwise never see is cost going **down** — an
+  iteration count quietly returned to a demo-friendly value. `Verify` returning `true` says nothing about what it cost.
+  Measured floor 247.6 ms; 150 ms is far below it and still catches a 10× slip (~25 ms).
+- **AC-4 checked on this evidence — and the check is annotated, not bare**: percentile figures come from the bench, the
+  committed guard asserts a coarser envelope. Recorded so nobody later reads 3000 ms as the ratified target.
+- **Two process notes.** (1) `Assert.InRange(collection, lo, hi)` does not exist — `Assert.InRange<T>(T,T,T)` — so the first
+  run died with **CS0411**; the compiler caught a test that would have asserted nothing. (2) My "run it twice more" loop
+  printed nothing for both repeats: the grep pattern used single spaces against padded output. **Same rule-8 mistake, caught
+  by the absence of the expected line.** What is actually attested is `Failed: 0, Passed: 74` on **two full-suite runs**
+  (18 s), not two focused repeats.
 
 ---
 
