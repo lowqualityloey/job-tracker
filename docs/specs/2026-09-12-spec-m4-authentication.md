@@ -51,6 +51,22 @@ M3's five documentation-integrity findings are encoded here rather than re-learn
 | `ASSUMPTION-m4-auth-002` | Single user for M4's lifetime; registration is out of scope | Owner confirms | A `users` table with one row is wrong shape; multi-user needs `pk:data` rework |
 | `ASSUMPTION-m4-auth-003` | No rate limiter in M4 (M3's non-goal holds) because deployment is M5 | Owner confirms | A public login endpoint with a 600 ms hash is a cheap DoS; needs `Microsoft.AspNetCore.RateLimiting` |
 
+> **⚠️ `ASSUMPTION-m4-auth-001` is FALSE — proven 2026-09-12 17:37 UTC, in the browser the assumption named, not in jsdom.**
+> Full measurement in [`docs/spikes/2026-09-12-host-prefix-cookie-jar.md`](../spikes/2026-09-12-host-prefix-cookie-jar.md).
+> In Chromium 128 (the `jt-bridge` build `-064` would use), over `http://127.0.0.1` the page reports
+> `isSecureContext === true` **and accepts a `Secure` cookie**, but **discards an attribute-identical `__Host-` cookie** —
+> and `__Secure-` with it. The same `__Host-` cookie **is** accepted over `https://127.0.0.1` with a self-signed cert.
+> **So the two rules are different rules:** the `Secure` *attribute* is gated on **secure context**, where loopback is
+> allowed; the `__Host-`/`__Secure-` *prefix* is gated on the **scheme being cryptographic**, where it is not. The assumption's
+> premise was measured true and its conclusion false, and it was the inference between them that was the error.
+>
+> **Its own "if false" column is therefore the live problem, not the escape hatch**: the listed fallback — a distinct dev
+> cookie name — is the one move the mitigation column simultaneously forbids, because `AuthCatalog.cs:26` holds the name as a
+> `const` and the `Secure` in the emitted header is a literal, *precisely* so that dev cannot drift from production. The real
+> consequence is that **`-064`/AC-12 cannot run over plain HTTP at all**, and `DECISION-m4-auth-007` is amended below to
+> require **HTTPS in dev**. Nothing in the product changes either way: the emitted header is already correct, which is
+> exactly why `-051`'s header seam passed and why no test before this one could see the difference between *sent* and *kept*.
+
 ---
 
 ## Technology and Vendor Decision Records
@@ -182,6 +198,39 @@ worth more than AC-16's browser redundancy.** Recorded so nobody later finds the
 - **Still gated on a different answer:** **AC-3** sits behind its own restrike-or-restate decision, **not** behind Q4. The
   claim in `checkpoint-001` §2/§5 and `docs/STATE.md` §3A that "all four open ACs sit behind Q4" was false — see the
   correction appended there, which also records that AC-13 is *verified* and AC-18 does not exist.
+
+> ### 🔧 AMENDED BY MEASUREMENT, 2026-09-12 17:37 UTC — option (a) as written **cannot deliver `-064`**, and the answer needs one more decision
+>
+> Everything above about the **site** analysis is still true. What was missing is that same-origin also has to be a
+> *storable* origin, and it is not: per `ASSUMPTION-001`'s falsification at the top of this file, **Chromium discards
+> `__Host-JTSession` over plain `http` at any address, loopback included**
+> ([spike](../spikes/2026-09-12-host-prefix-cookie-jar.md)). So "(a) serve the harness from the API's origin" removes the
+> cross-site problem and replaces it with a larger one — the cookie is **never stored**, every authenticated request answers
+> `401`, and `-064` fails while looking like a broken login rather than a missing certificate.
+>
+> **Same-origin was necessary. It is not sufficient.** The sufficient shape is **(a′): same-origin *and* HTTPS in dev** —
+> `https://127.0.0.1:<port>` with `dotnet dev-certs https`, the `https` profile that already exists in
+> `launchSettings.json`, or a locally-trusted cert the CDP harness bypasses via `Security.setIgnoreCertificateErrors`.
+> Measured: over `https://127.0.0.1` with a **self-signed** cert, `__Host-JTSession` **is** accepted and carried. **The
+> product emits exactly the same header in every case**, which is the point — (a′) is the only row of the option table that
+> leaves AC-2's attributes untouched.
+>
+> **Two things this retro-actively corrects in the owner's own trade.** (1) Option **(c)**, `SameSite=None; Secure` in dev,
+> was rejected as "more permissive than production" — right conclusion, **wrong mechanism**: it was never a candidate at all,
+> because `None` governs *cross-site sending* and the measured failure is *storage* on a same-origin request. (c) would have
+> changed nothing. (2) "One dev-server change" understated (a′): it needs a **certificate**, and the obvious mechanism is
+> **measured unavailable here** — `dotnet dev-certs https` fails with *"error saving the HTTPS developer certificate to the
+> current user personal certificate store"* and never reaches `--trust`. The live route is a PEM handed to Kestrel directly
+> (`Kestrel__Certificates__Default__PemPath` / `KeyPath`), which the spike proves the **browser** accepts and the **server**
+> half of which is unverified — verifying it means booting the app against the developer's own database, whose startup seed
+> rotates the dev account password. **That is a decision, not a probe, so it is asked rather than taken.**
+>
+> **A fourth consequence, outside the harness:** `launchSettings.json`'s default `http` profile is
+> `http://localhost:5039`, so **a human running `dotnet run` today gets a `204` from login and a browser that silently keeps
+> no session.** Not measured against the real endpoint (the probes used a synthetic server emitting the same string), so it is
+> stated as inference from an identical wire shape and labelled as such in the spike's "Not measured". If it holds it is a
+> **development-experience defect in M4's own deliverable**, found by the measurement that was supposed to be about test
+> topology — and it argues for (a′) on product grounds rather than harness ones.
 
 ---
 
