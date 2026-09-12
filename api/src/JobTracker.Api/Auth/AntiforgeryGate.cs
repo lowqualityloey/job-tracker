@@ -56,7 +56,7 @@ namespace JobTracker.Api.Auth;
 /// across four documents and corrected where each is maintained. (3) <em><c>PersistKeysTo*</c></em> — no such extension is
 /// in the shared framework: reflection over <c>Microsoft.AspNetCore.DataProtection.dll</c> finds only the two
 /// <c>AddDataProtection</c> overloads, because the persistence family is separate packages. (4)
-/// <em><c>TDD-PRACTICE-m4-authentication-074</c></em> — that ID series does not exist either; the row lives in the behaviour
+/// <em><c>TDD-PRACTICE-m4-authentication-074</c></em> — that ID series never existed (`git grep -c TDD-PRACTICE origin/main -- docs`, anchored at a revision on purpose: a working-tree grep now matches the sentences correcting it); the row lives in the behaviour
 /// register as <c>-074</c> and its record is <c>TDD-EXEC-m4-authentication-074</c>.
 ///
 /// <b>And the last sentence is now false in the present tense, deliberately kept.</b> The ring is persisted:

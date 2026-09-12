@@ -1463,7 +1463,11 @@ whether a file is intact** — the third time today that a scripted edit wrote b
 issued it"* and framed the fault as something "single-instance dev cannot see". Both are annotated in place now: the
 paragraph was **wrong four times** — the visibility claim, the citation to a nonexistent `docs/aws-deployment.md`, the
 `PersistKeysTo*` API that is not in the framework, and an ID series (`TDD-PRACTICE-m4-authentication-074`) that has never
-existed in this repository (`grep -rn "TDD-PRACTICE" docs/` → nothing). The original sentences are kept, not deleted, with
+existed in this repository — **the check is anchored at a revision, not at the working tree:**
+`git grep -c TDD-PRACTICE origin/main -- docs` → **no files**. The naive form, `grep -rn "TDD-PRACTICE" docs/`, now returns
+**2** hits, both inside the sentences written to report its absence — which is the `-070` entry's own failure mode
+reproduced within the same afternoon as it was recorded. **A check whose result changes when you write about it was never
+a check**, and a claim about an absence has to name a revision or it rots the moment it is corrected. The original sentences are kept, not deleted, with
 the correction appended beneath them.
 
 **Next:** `-075` and `-076`, both `◆` rows about this repository's own tooling — or AC-3, which is an owner decision rather
