@@ -84,6 +84,25 @@ internal static class ApplicationValidation
     {
         var errors = new List<FieldError>();
 
+        // BEHAVIOR-057 / AC-8. The id is checked FIRST and kept out of the constructed value unless it parses, because the
+        // alternative -- letting handlers Guid.Parse after Validate returns -- re-creates the 500 one file over.
+        // Two messages rather than one, because they are two client mistakes: an empty id is a form the user cleared, a
+        // non-parsing id is a value that arrived from somewhere unexpected (a truncated paste, a client that serialised
+        // an object). Both answer 400 + pointer "#/id"; only the detail differs.
+        Guid? id = null;
+        if (string.IsNullOrWhiteSpace(request.Id))
+        {
+            errors.Add(new FieldError("id", "An id is required."));
+        }
+        else if (!Guid.TryParse(request.Id, out var parsedId))
+        {
+            errors.Add(new FieldError("id", "The id must be a GUID."));
+        }
+        else
+        {
+            id = parsedId;
+        }
+
         var companyName = TrimInvisible(request.CompanyName) ?? string.Empty;
         var jobTitle = TrimInvisible(request.JobTitle) ?? string.Empty;
         var location = TrimInvisible(request.Location);
@@ -128,7 +147,7 @@ internal static class ApplicationValidation
         // Two implementations agreeing is the point; neither is allowed to be the only check.
         return errors.Count > 0
             ? (errors, null)
-            : (errors, new ValidatedApplication(request.Id, companyName, jobTitle, location, request.Status, appliedAt, notes));
+            : (errors, new ValidatedApplication(id!.Value, companyName, jobTitle, location, request.Status, appliedAt, notes));
     }
 
     private static void RequiredText(List<FieldError> errors, string field, string label, string trimmed)

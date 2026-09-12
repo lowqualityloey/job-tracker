@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace JobTracker.Api;
 
 /// <summary>
@@ -15,7 +17,13 @@ namespace JobTracker.Api;
 /// fixture row <c>applied-at-empty-string</c>.
 /// </param>
 public sealed record NewApplicationRequest(
-    Guid Id,
+    // string?, not Guid -- BEHAVIOR-057. A non-nullable VALUE type in a wire record means the JSON binder is the parser,
+    // and a binder that cannot parse throws before any handler exists: `{"id":"not-a-guid"}` was a 500 whose problem
+    // document had no `code` member at all (DECISION-m3-backend-api-004's exact failure). Every other member here is a
+    // reference type, which is why a missing companyName already answers 400 -- nulls flow through to the validator.
+    // Widening the type so the app's validator, not the framework's deserializer, is the thing that judges the value.
+    [property: JsonConverter(typeof(AnyTokenToTextConverter))]
+    string? Id,
     string CompanyName,
     string JobTitle,
     string? Location,
