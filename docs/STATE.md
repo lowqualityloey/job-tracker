@@ -80,9 +80,12 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #59** `docs/m4-q4-decision-ac-fix` @ `e8f66a9` — docs-only (5 files, no code), ratifying Q4 and
-  correcting the records; CI `verify` pass, `verify-api` **skipped by the docs-only detector** (its dotnet steps read
-  `skipped` while the job reports success — grill F-10's design, so this branch's 169/0 evidence is **local**, not CI).
+- **In flight**: **PR #60** `spike/m4-host-prefix-cookie-jar` @ `e58ebed` — docs + probe sources only, **carrying the
+  measurement that refutes the premise of PR #59's own `DECISION-007`**. `verify` exit 0 / 221 tests / 23 files / lint clean
+  locally; `verify-api` skips on the docs-only detector, which is **correct here rather than a gap** — no `api/` file moves.
+  **PR #59 is merged** (`f2b8a3b`, 17:24:01Z, verified both ways: `gh pr view --json state,mergedAt,mergeCommit` **and** the
+  record marker in `main`), so it is no longer in flight; its history stands and this block does not pretend it said the
+  wrong thing — the correction rides on top of it.
   **PR #58 is MERGED** — `47852a4` at 2026-09-12 16:09 UTC, verified both ways per the rule below
   (`state:MERGED` + the `TDD-EXEC-m4-authentication-069` marker present in `main`), and local `main` reconciled by
   `--ff-only` to the same SHA with a clean tree. `feat/m4-069-wrongtype-binding` (`Red b7d0f6c → Green 5655800 → docs
