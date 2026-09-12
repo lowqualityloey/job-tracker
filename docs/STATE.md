@@ -80,12 +80,19 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #60** `spike/m4-host-prefix-cookie-jar` @ `e58ebed` — docs + probe sources only, **carrying the
-  measurement that refutes the premise of PR #59's own `DECISION-007`**. `verify` exit 0 / 221 tests / 23 files / lint clean
-  locally; `verify-api` skips on the docs-only detector, which is **correct here rather than a gap** — no `api/` file moves.
-  **PR #59 is merged** (`f2b8a3b`, 17:24:01Z, verified both ways: `gh pr view --json state,mergedAt,mergeCommit` **and** the
-  record marker in `main`), so it is no longer in flight; its history stands and this block does not pretend it said the
-  wrong thing — the correction rides on top of it.
+- **In flight**: **PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b` — the **real-app measurement** that closes this
+  spike's last hedge. Docs + probe sources only; `verify` exit 0 / 221 tests / 23 files / lint clean locally; `verify-api`
+  skips on the docs-only detector, which is **correct here rather than a gap** — no `api/` file moves.
+  **Why a second PR exists off the same branch — read this as the rule, not the incident:** **PR #60 merged at 17:56:17Z
+  (`7e13914`) while the measurement was still running**, and the branch was deleted with it. The next `git push` therefore
+  reported **`* [new branch]`** and left `gh pr view 60 --json headRefOid` frozen at `ea4c91b`. Both signals were checked
+  rather than assumed, and `git merge-base --is-ancestor 71fcb3b origin/main` said **NO**: 251 lines carrying the actual
+  result were **outside `main`**. This is `AGENTS.md`'s PR #4 failure named in advance — *"the branch having a commit is not
+  the same as the PR carrying it"* — and the only thing that made it catchable is that the push said **new** branch when
+  nothing was new. **A merged PR is a closed door on its branch: reconcile `main` first, then branch again.**
+  **PR #60 is merged** (`7e13914`, 17:56:17Z — the spike, its probes, and the refutation of `DECISION-007`'s premise), and
+  **PR #59 is merged** (`f2b8a3b`, 17:24:01Z), both verified both ways per the rule below. Their histories stand; each later
+  record corrects them from above rather than rewriting them.
   **PR #58 is MERGED** — `47852a4` at 2026-09-12 16:09 UTC, verified both ways per the rule below
   (`state:MERGED` + the `TDD-EXEC-m4-authentication-069` marker present in `main`), and local `main` reconciled by
   `--ff-only` to the same SHA with a clean tree. `feat/m4-069-wrongtype-binding` (`Red b7d0f6c → Green 5655800 → docs
@@ -209,11 +216,10 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   not the **verdict**, because Slice 0 measured `localhost` versus a 14-character IP moving the gzip sum by **9 B** against
   a row threshold of **3 kB**. **The four owed practice tasks (`-066`…`-069`) stay unstarted until invited**, and the
   decision-free *server-side* queue is still empty after `-069`: everything newly unlocked is Browser or Build.
-  *(**PR #60** carries the spike that refuted `DECISION-007`'s premise — **open, awaiting human review**, head `ea4c91b`
-  verified equal to local HEAD. **PR #59 is merged** at `f2b8a3b`, 17:24:01Z, proven both ways: `gh pr view
-  --json state,mergedAt,mergeCommit` **and** the record marker in `main`. Review, merge, tags and releases are not agent
-  duties, so the queue stops here even though the implementation is unblocked: the answer to Q4 changed what the next
-  branch must build, and that change is not merged yet.)*
+  *(**PR #60 — the spike, its probes, and the refutation of `DECISION-007`'s premise — is MERGED** at `7e13914`, 17:56:17Z.
+  **PR #61** carries the real-app measurement that came after it and is **open, awaiting human review**. Review, merge, tags
+  and releases are not agent duties, so the queue stops here even though the implementation is unblocked: the answer to Q4
+  changed what the next branch must build, and the record of that answer is not fully merged yet.)*
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 
