@@ -231,6 +231,36 @@ worth more than AC-16's browser redundancy.** Recorded so nobody later finds the
 > stated as inference from an identical wire shape and labelled as such in the spike's "Not measured". If it holds it is a
 > **development-experience defect in M4's own deliverable**, found by the measurement that was supposed to be about test
 > topology — and it argues for (a′) on product grounds rather than harness ones.
+>
+> **And it no longer rests on inference:** the identical run against the **real endpoint** (below) gives `204` from login, an
+> **empty cookie jar**, and `401` on the protected route over plain `http`.
+>
+> #### ✅ ANSWERED, 2026-09-12 ≈18:10 UTC — the owner chose **(a′)**, and the shape is now measured on the real app
+>
+> Direct answers to the refutation above, given with two others in one exchange:
+>
+> 1. **`(a′) same-origin + HTTPS in dev`** — over `(d)` ship-AC-12-unverified, over running `-065` first, and over `(b′)` a
+>    TLS-terminating proxy. The recommendation stood for the reason it was worth making: it is **the only option that leaves
+>    the shipped cookie attributes untouched.**
+> 2. **Verify against a scratch database on the same server, dropped afterwards** — explicitly *not* `api-db-1`'s
+>    `jobtracker`. Asked as its own question because the `-050b` seed rotates the Development bootstrap account's password on
+>    boot, and a decision-support probe does not earn that mutation by silence. Outcome in
+>    [the spike's follow-up](../spikes/2026-09-12-host-prefix-cookie-jar.md): **Kestrel loads a PEM from
+>    `Kestrel__Certificates__Default__Path` + `KeyPath`** — `PemPath` is **not** a key, and using it produces the same
+>    "no server certificate was specified" message as an absent cert store, two causes behind one symptom. Real login over
+>    `https://172.23.124.252:5443` with a self-signed cert: `204` → `__Host-JTSession` **in the jar** (`secure=true
+>    httpOnly=true`, `domain` with no leading dot, so host-only as `__Host-` requires) → **`200`** on the protected route.
+>    Identical run over `http`: `204` → **empty jar** → `401`. **`-064` is therefore executable**, in the only topology the
+>    container can reach — which also shows option (a) was never reachable there at loopback, because loopback inside
+>    `jt-bridge` is the container's own.
+> 3. **`-063`/AC-11 splits into two cases, each with its own positive control** — ratified, so the restatement is an
+>    owner-approved edit to a ladder row rather than an agent rewriting a ratified promise. It arrived with a datum worth
+>    having before the row is written: the login `POST` needs **no** `X-CSRF-Token` and answers `204`, so case 1 must target
+>    a **state-changing** endpoint (`PATCH`/`PUT`/`DELETE`) or it passes for a reason unrelated to the check it exists to prove.
+>
+> **What none of this changes:** the cost recorded in the original decision stands. Same-origin serving means **no preflight
+> ever occurs**, so AC-16's credentialed-CORS property remains proven at `CorsCredentialsTests` only. **HTTPS does not
+> restore it — the origins are still one origin.**
 
 ---
 

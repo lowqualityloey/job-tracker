@@ -80,12 +80,19 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #60** `spike/m4-host-prefix-cookie-jar` @ `e58ebed` — docs + probe sources only, **carrying the
-  measurement that refutes the premise of PR #59's own `DECISION-007`**. `verify` exit 0 / 221 tests / 23 files / lint clean
-  locally; `verify-api` skips on the docs-only detector, which is **correct here rather than a gap** — no `api/` file moves.
-  **PR #59 is merged** (`f2b8a3b`, 17:24:01Z, verified both ways: `gh pr view --json state,mergedAt,mergeCommit` **and** the
-  record marker in `main`), so it is no longer in flight; its history stands and this block does not pretend it said the
-  wrong thing — the correction rides on top of it.
+- **In flight**: **PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b` — the **real-app measurement** that closes this
+  spike's last hedge. Docs + probe sources only; `verify` exit 0 / 221 tests / 23 files / lint clean locally; `verify-api`
+  skips on the docs-only detector, which is **correct here rather than a gap** — no `api/` file moves.
+  **Why a second PR exists off the same branch — read this as the rule, not the incident:** **PR #60 merged at 17:56:17Z
+  (`7e13914`) while the measurement was still running**, and the branch was deleted with it. The next `git push` therefore
+  reported **`* [new branch]`** and left `gh pr view 60 --json headRefOid` frozen at `ea4c91b`. Both signals were checked
+  rather than assumed, and `git merge-base --is-ancestor 71fcb3b origin/main` said **NO**: 251 lines carrying the actual
+  result were **outside `main`**. This is `AGENTS.md`'s PR #4 failure named in advance — *"the branch having a commit is not
+  the same as the PR carrying it"* — and the only thing that made it catchable is that the push said **new** branch when
+  nothing was new. **A merged PR is a closed door on its branch: reconcile `main` first, then branch again.**
+  **PR #60 is merged** (`7e13914`, 17:56:17Z — the spike, its probes, and the refutation of `DECISION-007`'s premise), and
+  **PR #59 is merged** (`f2b8a3b`, 17:24:01Z), both verified both ways per the rule below. Their histories stand; each later
+  record corrects them from above rather than rewriting them.
   **PR #58 is MERGED** — `47852a4` at 2026-09-12 16:09 UTC, verified both ways per the rule below
   (`state:MERGED` + the `TDD-EXEC-m4-authentication-069` marker present in `main`), and local `main` reconciled by
   `--ff-only` to the same SHA with a clean tree. `feat/m4-069-wrongtype-binding` (`Red b7d0f6c → Green 5655800 → docs
@@ -180,6 +187,13 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   > **not yet measured against the real endpoint**, `launchSettings.json`'s default profile is `http://localhost:5039`, so a
   > human running `dotnet run` gets `204` from login and a browser that keeps no session — a development-experience defect in
   > M4's own deliverable, found by a measurement that was about test topology.
+  >
+  > **✅ ANSWERED ≈18:10 UTC, same day — `(a′)` approved**, plus a scratch database for the verification and the two-case
+  > split for `-063`. **The `(a′)` shape was then measured on the real app, and it holds**: Kestrel serves a PEM via
+  > `Kestrel__Certificates__Default__Path`+`KeyPath` (`dotnet dev-certs` is dead on this machine; `PemPath` is not a key),
+  > and a real login at `https://172.23.124.252:5443` yields `204` → **`__Host-JTSession` present in the Chromium jar** →
+  > `200` on the protected route; the same run over `http` yields `204` → **empty jar** → `401`. **`-064` is executable.**
+  > Receipt: [`docs/spikes/2026-09-12-host-prefix-cookie-jar.md`](../spikes/2026-09-12-host-prefix-cookie-jar.md).
   **Not** unblocked: `-063`/AC-11, which under (a) needs a **restatement** — a cross-site `Lax` POST carries no cookie, so
   the antiforgery check is never reached and the probe would prove the wrong thing; `-063` has to become **two cases, each
   with a positive control** (same-site write without the token → header check bites; cross-site write → `401`, the `Lax`
@@ -191,19 +205,21 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   must stay a 500; a non-400 `BadHttpRequestException` must not be relabelled as field validation). **Probe B deleted the
   guard and the suite stayed 169/0** — so the claim is recorded as reasoning, and it is `-069`'s practice task. Four
   practice tasks are owed (`-066`…`-069`), none started, all listed in the task record.
-- **Exactly one next action**: **put `(a′)` to the owner — same-origin plus HTTPS in dev — before any `-064` code is written**,
-  because the measurement at 17:37 UTC shows the ratified `(a)` cannot store the session cookie at all. The first item under
-  it is the same shape as ever: **a question, not a commit**, and it now carries a second one with it, **whether `-063`/AC-11
-  gets restated as two cases** (same-site write without `X-CSRF-Token` → the header check bites; cross-site → no cookie →
-  `401`), since a cross-site `Lax` probe cannot reach the antiforgery check the row exists to prove. **Then** implement (a′)
-  and run **`-064`**. **`-065` is not gated on the answer — but it must *name a configuration*, and the answer decides which
-  URL literal it names**: running it first risks a re-run for the **figure**, not the **verdict**, because Slice 0 measured
-  `localhost` versus a 14-character IP moving the gzip sum by **9 B** against a row threshold of **3 kB**. **The four owed practice tasks (`-066`…`-069`) stay unstarted until
-  invited**, and the decision-free *server-side* queue is still empty after `-069`: everything newly unlocked is Browser or
-  Build.
-  *(PR #59 — the commit carrying the previous corrections — is **merged**, `f2b8a3b`, 17:24 UTC, verified both ways; the
-  measurement above is why its `DECISION-007` already needs an amendment. Review, merge, tags and releases are not agent
-  duties.)*
+- **Exactly one next action**: **implement `(a′)` — serve the built front end from the API's own origin, over TLS — then run
+  `-064` (AC-12)**, which is the row the whole Q4 detour existed to unblock and which is now **executable rather than
+  blocked**: measured on the real app, a login over `https://172.23.124.252:5443` puts `__Host-JTSession` in a real
+  Chromium jar and the protected route answers `200`. The three questions that stood in front of it were **answered
+  ≈18:10 UTC** (see the Q4 bullet) — `(a′)` chosen, a scratch database approved for the verification, and **`-063`/AC-11
+  approved to split into two cases each with its own positive control**, so that restatement is now a sanctioned ladder
+  edit rather than an agent rewriting a ratified promise. **`-065` is not gated on any of it — but it must *name a
+  configuration*, and the answer decides which URL literal it names**: running it first risks a re-run for the **figure**,
+  not the **verdict**, because Slice 0 measured `localhost` versus a 14-character IP moving the gzip sum by **9 B** against
+  a row threshold of **3 kB**. **The four owed practice tasks (`-066`…`-069`) stay unstarted until invited**, and the
+  decision-free *server-side* queue is still empty after `-069`: everything newly unlocked is Browser or Build.
+  *(**PR #60 — the spike, its probes, and the refutation of `DECISION-007`'s premise — is MERGED** at `7e13914`, 17:56:17Z.
+  **PR #61** carries the real-app measurement that came after it and is **open, awaiting human review**. Review, merge, tags
+  and releases are not agent duties, so the queue stops here even though the implementation is unblocked: the answer to Q4
+  changed what the next branch must build, and the record of that answer is not fully merged yet.)*
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 

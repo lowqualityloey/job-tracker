@@ -134,23 +134,81 @@ verifying it needs the app booted, which is a decision, not a probe.**
    `ENOENT /srv/k.pem` because `docker cp` had copied the script and not the key material — a missing-file error, correctly
    loud, because nothing was piped.
 
-## Not measured
+## Follow-up, same day: the real endpoint, measured (owner approved a scratch database)
 
-- **The real `/api/auth/login` endpoint in Chromium.** The probes used a synthetic server emitting the same `Set-Cookie`
-  string. The conclusion about the *prefix rule* does not depend on the app, but "**dev login is broken over http**" is
-  inference from an identical wire shape and is labelled as such.
-- **Any Chromium newer than 128.** Loopback handling of `__Host-` could change; the image pin is what makes this a
-  reproducible claim, and the re-measurement instruction is in the table above.
-- ~~Whether `dotnet dev-certs https --trust` works in this sandbox~~ — **answered while this section was being written:
-  it never reaches the trust step, because creating the certificate fails** (the section above). The replaced unknowns are:
-  - **Whether Kestrel loads a PEM pair from configuration on this runtime** (`Kestrel__Certificates__Default__PemPath` /
-    `KeyPath`). Node's `https.createServer` proved the *browser* half; the *server* half is unverified.
-  - **Whether the container can reach a host `https` port.** M3 reached the host at `http://172.23.124.252:5080`, so the
-    routing exists for TCP; TLS on top is the new part, and the address is non-loopback, which the measurement above says is
-    **fine over `https` and fatal over `http`**.
-  - **The boot cost of the above**, which is the reason it is not measured here: exercising either one means running the real
-    app against the developer's database, whose startup path rotates the dev account password (`-050b`'s Development
-    placeholder seed).
+The section above closed with "dev login is broken over http" flagged as **inference from an identical wire shape**. That
+label has now been removed by running the **actual app** — `dotnet run` against a **scratch database**
+(`jobtracker_pemcheck`, created for the purpose and dropped afterwards; **`api-db-1`'s `jobtracker` database was never
+pointed at**, so the `-050b` seed never rotated the dev account's password), driven by the same CDP probe.
+
+**And it settled the open server question: Kestrel loads a PEM pair straight from configuration.**
+
+```
+Kestrel__Certificates__Default__Path     = /tmp/cookieprobe/c.pem     # the cert chain
+Kestrel__Certificates__Default__KeyPath  = /tmp/cookieprobe/k.pem     # the private key
+```
+
+`PemPath` **is not a key** — the first attempt used it and died with `Unable to configure HTTPS endpoint. No server
+certificate was specified, and the default developer certificate…`, which is the *same message* a missing cert store produces.
+Two distinct causes, one symptom; the `Path`/`KeyPath` spelling is what works.
+
+| Origin (real app) | login | jar after login | protected `GET /api/applications` |
+| :--- | :--- | :--- | :--- |
+| `http://172.23.124.252:5080` | **204** | **empty — discarded** | **401** |
+| `https://172.23.124.252:5443` (self-signed) | **204** | `__Host-JTSession` present | **200** |
+
+The stored cookie reads `secure=true httpOnly=true domain=172.23.124.252 sameSite=Lax` — `domain` with **no leading dot**, so
+it is host-only exactly as `__Host-` demands.
+
+**Three conclusions, and the first one loses its hedge.**
+
+1. **The plain-http dev case is now a measured product fact, not an inference.** Login returns `204 No Content` — the API
+   believes it authenticated the caller — and the browser keeps nothing. Nothing in the response tells the user; the failure
+   surfaces on the *next* request as a `401`. So `dotnet run` on the default `http` profile is a **silent**
+   development-experience defect, and this repository had no seam that could see it: `-051` asserts the header, and the header
+   is correct.
+2. **(a′) is deliverable in the only topology this sandbox can actually use.** The container cannot reach the host's loopback
+   (`172.17.0.1:5443` → connection refused; it is not routed to the app), so the harness must address the host
+   **`172.23.124.252`** — a non-loopback address. Under TLS that is fine: `__Host-` was accepted at it. Under plain http it
+   fails twice over. **Which retroactively says something about option (a) even had the prefix rule gone the other way**: (a)
+   was never reachable from inside `jt-bridge` at a loopback address, because loopback *there* is the container's own.
+3. **`-064` is therefore executable.** An authenticated Chromium session against the real API exists, over an origin the
+   container can reach, with the shipped cookie attributes untouched. The row is no longer blocked on a browser mystery.
+   What remains is the product change: serve the harness from that same origin over TLS.
+
+**One incidental datum for the `-063` restatement**: the login `POST` above carried **no `X-CSRF-Token`** and still returned
+`204`. Login is not antiforgery-gated, as expected — so `-063`'s "same-site write without the token" case must target a
+**state-changing** endpoint (`PATCH`/`PUT`/`DELETE`), not login, or it will pass for a reason that has nothing to do with the
+check it exists to prove.
+
+### Teardown, because a probe that edits the world owes a receipt
+
+`kill` on the recorded PID → **0 dotnet processes**, neither port listening, both scratch databases dropped
+(`pg_database LIKE 'jobtracker%'` returns the single row `jobtracker`), and the untouched dev DB still reads
+`users=1 applications=2 sessions=0` — **`sessions=0` is the proof that no probe authenticated against it.**
+
+One more harness trap in the same family as the empty `catch`: **`pgrep -f` and `pkill -f` match the checker's own command
+line.** A `pkill -f "JobTracker.Api"` SIGTERMed the shell running it, and a later `pgrep -f "dotnet.*JobTracker"` reported
+*"ORPHAN PROCESS ALIVE"* against a tree that was provably empty — **the second self-match of the session, both times inside
+the hour since the checkpoint warned about leftover servers.** A hygiene check that reports itself as its own subject is
+worse than no check, because it reads like diligence. Match on something the probe cannot contain (`pgrep -x dotnet`, or a
+port) and the verdict stops being self-referential.
+
+## What is *still* not measured
+
+This list survived the follow-up by shrinking. Three of its items were about the app, the cert, and the route — and all three
+were answered by running it, which is the argument for writing the list down rather than holding it in the head.
+
+- **A Chromium newer than 128.** Loopback handling of `__Host-` could change; the image pin is what makes this a reproducible
+  claim, and the re-measurement instruction is in the table above.
+- **A browser-trusted certificate.** Everything here ran with an **untrusted self-signed** cert plus
+  `Security.setIgnoreCertificateErrors`. A real developer's browser will not bypass its own interstitial, so the practical dev
+  story needs either a trusted local CA or an explicit "use the IP with a flag" instruction. **Not measured, and it is the
+  remaining cost of (a′) that a harness cannot hide.**
+- **Whether the two origins can be the same *port* as the app's own default.** The working shape here is the API on
+  `https://0.0.0.0:5443` serving both the API and, once implemented, the static bundle — but `dotnet run`'s default is still
+  the `http` profile, so shipping (a′) means the **default** has to change or every developer rediscovering this gets the
+  silent `401` measured above.
 
 ## Reproduce
 
@@ -174,3 +232,34 @@ still a private key, and `docs/` is the wrong place to learn that distinction un
 
 `--experimental-websocket` is **required** (finding 1 above); without it Node 20 in the image has no `WebSocket` and the
 probe dies reporting what looks like an unreachable browser.
+
+### The real-app probes (5 and 6) — these need a booted API, on a scratch database
+
+`probe5-real-app-https.mjs` and `probe6-real-app-http.mjs` are the same 30 lines with one literal changed, because the
+contrast *is* the experiment. Both POST a real `/api/auth/login` and read the answer out of the browser's jar via
+`Storage.getCookies` rather than trusting the page.
+
+**Point them at a scratch database, not the dev one.** The app's startup path runs `Migrate()` and then the `-050b` seed,
+which in Development **creates/rotates the bootstrap account** — harmless on a database you are about to drop, and a quiet
+surprise in someone's working data:
+
+```bash
+docker exec api-db-1 psql -U jobtracker -d postgres -c "CREATE DATABASE jobtracker_pemcheck OWNER jobtracker;"
+export ASPNETCORE_ENVIRONMENT=Development
+export ASPNETCORE_URLS='https://0.0.0.0:5443'                              # probe6 uses http://0.0.0.0:5080
+export ConnectionStrings__Default='Host=127.0.0.1;Port=5432;Database=jobtracker_pemcheck;Username=jobtracker;Password=<api/README.md:27>'
+export Kestrel__Certificates__Default__Path=/tmp/cookieprobe/c.pem         # NOT PemPath -- see the follow-up
+export Kestrel__Certificates__Default__KeyPath=/tmp/cookieprobe/k.pem
+export Auth__Bootstrap__Email='pemcheck@example.test'
+export Auth__Bootstrap__Password='a-sufficiently-long-dev-passphrase'
+dotnet run --project api/src/JobTracker.Api --no-launch-profile
+# from another shell:
+docker cp docs/spikes/2026-09-12-host-prefix-cookie-jar/probes/probe5-real-app-https.mjs jt-bridge:/srv/
+docker exec -e PROBE_HOST_IP=172.23.124.252 jt-bridge node --experimental-websocket /srv/probe5-real-app-https.mjs
+# teardown: kill the recorded PID, then DROP DATABASE jobtracker_pemcheck; verify with `pgrep -x dotnet` (not -f)
+```
+
+The **bootstrap** email and passphrase above are throwaway values for a database that is dropped at the end of the run, and
+they are written out so the probe is runnable. The **postgres** password is deliberately *not* copied a second time — it is
+already in [`api/README.md:27`](../../api/README.md), and a credential duplicated across files is a credential that gets
+rotated in one of them.
