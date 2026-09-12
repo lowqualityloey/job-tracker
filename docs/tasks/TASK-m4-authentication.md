@@ -272,6 +272,37 @@ configuration**, and states which literal it used; a delta quoted without its UR
   by the absence of the expected line.** What is actually attested is `Failed: 0, Passed: 74` on **two full-suite runs**
   (18 s), not two focused repeats.
 
+**`TDD-EXEC-m4-authentication-050`** · `BEHAVIOR-050` **PARTIAL** — guard executed, seed deferred (named below) · Red `63a70e0` → Green *(this commit)* · p0 · **Slice 1**
+- **Red:** `Failed: 3, Passed: 1` — three Production boots that must refuse all **succeeded** (`Assert.Throws() Failure: No
+  exception was thrown`), while *Development boots with no credentials* passed on arrival. **A Red where all four fail would
+  have meant the test was wrong about the world, not the code.**
+- **Green:** focused **4/4**, full **`Failed: 0, Passed: 78, Skipped: 0`** (15 s), 0 warnings, `bin/`+`obj/` deleted first.
+- **What the first attempt exposed about my own assumption.** I gave the boot test a bogus connection string, reasoning
+  "nothing touches the DB at startup". False: `Program.cs` runs `Database.Migrate()` before `app.Run()`, so every Production
+  case failed with `NpgsqlException : Failed to connect to 127.0.0.1:1`. **A test that asserts "boot threw" cannot
+  distinguish a working guard from a dead socket** — gap 12's lesson in mirror image, since this one would have gone green
+  for an unrelated reason. Fixed by joining `[PostgresCollection]` and asserting exception **type and message**.
+- **Design decision the test earned:** the guard runs **before** the migration. "Refuse to boot" should mean the process
+  does no work on the way out — checking after `Migrate()` would leave a half-migrated database behind from a deployment
+  that was never supposed to exist.
+- **Fails closed by inheritance:** `IsProduction()` is true when `ASPNETCORE_ENVIRONMENT` is unset, so forgetting to
+  configure an environment lands in the strict branch. **Not asserted** — `WebApplicationFactory` always sets an
+  environment, so the real default is untestable in-process; recorded as reasoning, not as a passing test.
+- **`AC-15`'s own grep caught my code before I ran it:** the sentinel was `PlaceholderPassword = "change-me-before-deploy"`,
+  which matches AC-15's `password\s*=\s*\"` pattern *while being the opposite of a secret* — a placeholder that must never
+  ship. The name changed (`PlaceholderSentinel`), not the check. **Negative control on the gate itself:** restoring the old
+  name produced **1 hit**; current state **0 hits**, file restored byte-identical. AC-15's dependency count is also
+  unchanged (npm deps still 3, API `PackageReference`s still 5 — no new package, `dotnet ef` is not installed and none was
+  added). **AC-15 stays unchecked**: its rationale is a seeded account, and the seed does not exist yet — flipping it now
+  would let a partially-true gate read as verified.
+- **Two of my own tool mistakes, both caught by reading:** the `using` I scripted landed *after* the line
+  `using (var scope = …)` — because "starts with `using `" matches a `using` **statement** as well as a directive — giving
+  CS1001; and the commit message for the Red initially claimed "no exception was thrown" from a grep that printed nothing,
+  so the claim was verified against the log before it was allowed to stand.
+- **Deferred half, stated as a gap not a choice:** "seeded user comes from configuration" needs the `users` table (no
+  migration exists) and `dotnet ef` is not installed here. Spec §4.2 orders the guard *before* the seed, so this lands now;
+  **`-050` is not complete and is not recorded as complete.**
+
 ---
 
 `Pending` for Slices 1 (rest)–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had

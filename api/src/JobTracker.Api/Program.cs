@@ -1,3 +1,4 @@
+using JobTracker.Api.Auth;
 using JobTracker.Api;
 using JobTracker.Api.Data;
 using Npgsql;
@@ -54,6 +55,12 @@ var app = builder.Build();
 // change expand-only, so a migration can never take a lock that breaks a reader. Who applies migrations at
 // *deploy* time is M5's subject (pk:ship), and the integration fixture depends on this line: it is how a
 // Testcontainers database gets its schema without the test reaching into EF internals.
+// BEHAVIOR-050: refuse to boot in Production with default credentials. BEFORE the migration on purpose — "refuse to
+// start" should mean the process does no work on its way out, not that it applies a schema and then dies in a
+// crash-loop. The alternative (a check after Migrate) would also leave a half-migrated database behind from an
+// deployment that was never supposed to happen.
+BootGuard.EnsureSafeToStart(app.Configuration, app.Environment);
+
 using (var scope = app.Services.CreateScope())
 {
     scope.ServiceProvider.GetRequiredService<JobTrackerDb>().Database.Migrate();
