@@ -91,6 +91,7 @@ app.UseStatusCodePages();
 app.UseCors();
 
 // Routes and handlers live in ApplicationCatalog (spec §4.1's deep module); Program is composition.
+app.MapAuthCatalog();
 app.MapApplicationCatalog();
 
 app.Run();
