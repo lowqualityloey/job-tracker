@@ -1051,8 +1051,7 @@ no `code`, where AC-8's contract says `400` + `code: "validation"`), unless Q4 l
 > 1. **`-068` never had a Browser half** — its ladder seam is Integration only. The phrase was carried forward from
 >    `-067`'s row, then repeated by a checkpoint, then a handoff, then a resume prompt: **a list propagating instead of
 >    being re-derived**, which is this task's own root cause wearing a different hat.
-> 2. **"all wait on the same answer" was false in kind, not degree.** (a) unblocks **`-064`** (AC-12, cross-tab SSE in real
->    Chromium — the row the question existed to unblock) and **`-065`** (AC-14), and `-065` must additionally **state which
+> 2. **"all wait on the same answer" was false in kind, not degree.** (a) unblocks **`-065`** (AC-14), and `-065` must additionally **state which
 >    URL literal it built with**: Slice 0 measured a 14-character IP versus a 9-character `localhost` moving the gzip sum by
 >    **9 B**, and choosing (a) is what fixes which spelling the harness now ships.
 > 3. **It converts `-063`/AC-11 from an execution into a restatement.** Same-origin means a **cross-site** POST under
@@ -1064,6 +1063,19 @@ no `code`, where AC-8's contract says `400` + `code: "validation"`), unless Q4 l
 >    preflight ever occurring, **`-067`'s credentialed-CORS property stops being exercised in the browser entirely** and
 >    survives at its Integration seam only (`CorsCredentialsTests`, real `WebApplicationFactory` host). **AC-12's truth was
 >    bought with AC-16's browser redundancy** — a trade, not an oversight.
+>
+> **⚠️ And point 2 overstated what (a) unblocks — measured 17:37 UTC the same day, before any `-064` code was written.**
+> Same-origin fixes the *site* problem and walks straight into a harder one: **Chromium discards `__Host-JTSession` over plain
+> `http` at every address, loopback included.** The `__Host-`/`__Secure-` **prefix** demands a cryptographic **scheme**; the
+> loopback secure-**context** allowance stops at the `Secure` *attribute*, which is accepted at the very same address. That
+> half-step is what made `ASSUMPTION-m4-auth-001` read as true, and its conclusion is false. **So `-064` needs `(a′)`:
+> same-origin *and* HTTPS in dev** — measured accepted over `https://127.0.0.1` with a self-signed cert.
+> Measurement, the isolated variable matrix, and three harness traps found on the way:
+> [`docs/spikes/2026-09-12-host-prefix-cookie-jar.md`](../spikes/2026-09-12-host-prefix-cookie-jar.md).
+> **This closes `-053`'s parked practice task** — "browser cookie jar over plain HTTP … gates `-063`/`-064`" — **answered:
+> no.** It also means **a plain-`http` dev profile cannot log in from a browser at all** (`204`, then no session), which is a
+> product-facing consequence of a question that was only about test topology; stated there as **inference from an identical
+> `Set-Cookie` string, not yet run against the real endpoint**.
 >
 > Also corrected here, from the same read: the four **open** ACs are **AC-3, AC-11, AC-12, AC-14**. AC-3 sits behind its own
 > restrike-or-restate decision and **never sat behind Q4**; a `checkpoint-001` §2/§5 and `docs/STATE.md` §3A claim naming

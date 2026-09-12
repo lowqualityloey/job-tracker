@@ -97,10 +97,11 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   (sliding/hard-capped sessions), `-067` (CORS credentials, **half delivered**), `-068` (owner-scoped SSE fan-out),
   `-069` (binding failures) — each by a dated §6 amendment to the spec, **appended, never renumbered**, so the document's
   own history stays readable as history. `-063`/`-064`/`-065` remain **unexecuted**; as of 16:46 UTC they are no longer all
-  gated on the same thing — **Q4(a) unblocks `-064` and `-065`**, and leaves **`-063` needing an owner-approved restatement**
-  (see the Q4 bullet). **`-067`'s Browser half is now unachievable rather than deferred**: under same-origin serving no
-  preflight occurs. `checkpoint-001` and this bullet both previously said "the Browser halves of `-067`/`-068`" — **`-068`
-  never had one**; its ladder seam is Integration only.
+  gated on the same thing — **Q4(a) unblocks `-065`**, `-064` additionally needs **(a′), HTTPS in dev** (see the Q4 bullet's
+  17:37 correction), and **`-063` needs an owner-approved restatement** (a cross-site `Lax` POST carries no cookie, so the
+  antiforgery check is never reached). **`-067`'s Browser half is now unachievable rather than deferred**: under same-origin
+  serving no preflight occurs. `checkpoint-001` and this bullet both previously said "the Browser halves of `-067`/`-068`" —
+  **`-068` never had one**; its ladder seam is Integration only.
 - **AC ledger**: **13 verified + 4 open = 17** (the invariant is asserted by the edit script at every write, not by me).
   **The four open ACs are AC-3, AC-11, AC-12 and AC-14** — read from the task record's checkbox lines at 2026-09-12 16:46 UTC.
   **This line previously named "12, 13, 14, 18", which was false twice over: AC-13 is *verified* (the 65-case M3 net, `-058`)
@@ -160,7 +161,18 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   shipping AC-12 unverified. **The accepted cost, from the grill's own Q4 text:** same-origin means **no preflight ever
   occurs**, so `-067`'s credentialed-CORS property stops being exercised in the browser and remains proven only at
   `-067`'s Integration seam (`CorsCredentialsTests`, a real `WebApplicationFactory` host).
-  Unblocks **`-064` (AC-12)** and **`-065` (AC-14, and it must state which URL literal it built with)**.
+  Unblocks ~~**`-064` (AC-12)**~~ and **`-065` (AC-14, and it must state which URL literal it built with)**.
+  > **Refuted by measurement 17:37 UTC — the strikethrough is the correction.** Chromium 128 **discards an attribute-identical
+  > `__Host-` cookie over plain `http` at any address, loopback included**, while `isSecureContext` reads `true` and a plain
+  > `Secure` cookie *is* accepted: the prefix is gated on the **scheme**, not the context. Proof in
+  > [`docs/spikes/2026-09-12-host-prefix-cookie-jar.md`](../spikes/2026-09-12-host-prefix-cookie-jar.md), which also
+  > **falsifies `ASSUMPTION-m4-auth-001`** and amends `DECISION-007`. Over `https://127.0.0.1` with a self-signed cert the
+  > cookie **is** accepted, so the sufficient shape is **(a′): same-origin *and* HTTPS in dev**. **What (a) alone unblocks is
+  > `-065` only; `-064` needs (a′) first.** Two further consequences: **(c) was rejected for the wrong reason** —
+  > `SameSite=None` governs cross-site *sending*, not *storage*, so it would have fixed nothing here; and, **not yet measured
+  > against the real endpoint**, `launchSettings.json`'s default profile is `http://localhost:5039`, so a human running
+  > `dotnet run` gets `204` from login and a browser that keeps no session — a development-experience defect in M4's own
+  > deliverable, found by a measurement that was about test topology.
   **Not** unblocked: `-063`/AC-11, which under (a) needs a **restatement** — a cross-site `Lax` POST carries no cookie, so
   the antiforgery check is never reached and the probe would prove the wrong thing; `-063` has to become **two cases, each
   with a positive control** (same-site write without the token → header check bites; cross-site write → `401`, the `Lax`
@@ -172,14 +184,17 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   must stay a 500; a non-400 `BadHttpRequestException` must not be relabelled as field validation). **Probe B deleted the
   guard and the suite stayed 169/0** — so the claim is recorded as reasoning, and it is `-069`'s practice task. Four
   practice tasks are owed (`-066`…`-069`), none started, all listed in the task record.
-- **Exactly one next action**: `-069` is merged and **Q4 is answered (a)**, so the queue is no longer empty — but the first
-  item in it is a **question, not a commit**: get the owner's ruling on **restating `-063`/AC-11 as two cases** (above),
-  because that decides what Slice 5's CSRF row promises before anyone writes it. Then implement (a) — serve the harness from
-  the API origin — and run **`-064`** first, since it is the row whose whole purpose was the blocked one. **The four owed
-  practice tasks (`-066`…`-069`) stay unstarted until invited.** The decision-free *server-side* queue is still empty after
-  `-069`: everything newly unlocked is Browser or Build.
-  *(This record's own carrying work is **PR #59**, awaiting human review — review, merge, tags and releases are not agent
-  duties, so it stops there.)*
+- **Exactly one next action**: **put `(a′)` to the owner — same-origin plus HTTPS in dev — before any `-064` code is written**,
+  because the measurement at 17:37 UTC shows the ratified `(a)` cannot store the session cookie at all. The first item under
+  it is the same shape as ever: **a question, not a commit**, and it now carries a second one with it, **whether `-063`/AC-11
+  gets restated as two cases** (same-site write without `X-CSRF-Token` → the header check bites; cross-site → no cookie →
+  `401`), since a cross-site `Lax` probe cannot reach the antiforgery check the row exists to prove. **Then** implement (a′)
+  and run **`-064`**; `-065` is unblocked either way. **The four owed practice tasks (`-066`…`-069`) stay unstarted until
+  invited**, and the decision-free *server-side* queue is still empty after `-069`: everything newly unlocked is Browser or
+  Build.
+  *(PR #59 — the commit carrying the previous corrections — is **merged**, `f2b8a3b`, 17:24 UTC, verified both ways; the
+  measurement above is why its `DECISION-007` already needs an amendment. Review, merge, tags and releases are not agent
+  duties.)*
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 
