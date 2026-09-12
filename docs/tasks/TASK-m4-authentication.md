@@ -139,8 +139,16 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · `dotnet test` → `Passed: 65, Failed: 0, Skipped: 0`. **Read `Skipped` as well as `Failed`** (M3 lost an hour to a
   filter matching only part of a `describe`).
 
-- [ ] **AC-14** — **The login route's bundle delta is < 3 kB against the Slice 0 baseline**, computed from build output,
+- [x] **AC-14** — **The login route's bundle delta is < 3 kB against the Slice 0 baseline**, computed from build output,
   **configuration named**.
+  *(verified 2026-09-13 at `b489f18` by `-065`: **1,242 B < 3,072 B**, configuration named below the number rather
+  than beside it — `VITE_API_BASE_URL=http://172.23.124.252:5080`, `node v24.20.0`, `npm 11.19.0`, `vite 5.4.21`,
+  `package.json` and `package-lock.json` verified byte-identical to the baseline commit before anything was built.)*
+  · **The baseline was rebuilt, not quoted**, in the same run and from the same dependency tree
+  (`git worktree add --detach /tmp/m4base-065 41b32af`, hard-linked `node_modules`): it reproduced Slice 0's
+  **60,118 B flag-off / 61,368 B flag-on exactly — off by +0 / +0 bytes**, which is what turns
+  *"the delta is 1,242 B"* from an arithmetic accident into a comparison. A remembered baseline subtracted from a
+  fresh build measures two afternoons, not one milestone.
   · `git worktree add /tmp/m4base <Slice 0 sha> && VITE_API_BASE_URL=… npx vite build && cat dist/assets/*.js | gzip -c | wc -c`.
   · *Two M3 lessons fused:* the baseline is captured **in advance** (§2.8 told Slice 3 to record it and Slice 3 never
   did, making the delta uncomputable), and the **configuration is part of the number** (flag-off the adapter is
@@ -1310,6 +1318,78 @@ after the gate landed: **7/7**, negative control still failing 4 of 5 as require
 **Next:** `-065` (AC-14, the login-route bundle delta) — the last unblocked ladder row, and it must **name the URL
 literal it built with**, because an empty `VITE_API_BASE_URL` selects the localStorage adapter and a 0 kB delta
 measured that way would be meaningless.
+
+---
+
+**`TDD-EXEC-m4-authentication-065`** · **verifies AC-14** · Build seam · p1 · delivered 2026-09-13
+
+**Harness** `ddaf7f2` → **its own defect fixed** `b489f18` → **measurement at `b489f18`** → this record. No Red/Green
+pair: this row produces a number, not a behaviour, and the assertion is the harness's exit code.
+
+**The measurement.** Both trees built in one run, same dependency tree, same literal, Slice 0's command verbatim:
+
+| configuration | baseline `41b32af` | head `b489f18` | delta |
+| :--- | ---: | ---: | ---: |
+| flag-off (`VITE_API_BASE_URL` unset) | **60,118 B** | 61,140 B | **+1,022 B** |
+| flag-on (`http://172.23.124.252:5080`) | **61,368 B** | 62,610 B | **+1,242 B** ← AC-14's figure |
+
+**1,242 B against a 3,072 B gate: PASS, at 40 % of budget.** The reproduced baseline matches Slice 0's record to the
+byte (`+0 / +0`), and the run refuses to proceed unless `package.json` **and** `package-lock.json` are identical
+between the two commits — a dependency that moved would make this number about npm rather than about the login route.
+
+**Four things the numbers say that the AC's single figure does not:**
+
+  · **The flag-off delta is 1,022 B, not 0.** Slice 0 anticipated that flag-off would produce "a flattering,
+  meaningless 0 kB" — it does not, because only the **HTTP adapter** is dead-code-eliminated by the `import.meta.env`
+  substitution. `LoginPage`, its route in `App.tsx`, and the session-facing store ship **regardless**. So the honest
+  decomposition of M4's client cost is: **1,022 B** of always-present auth UI + **220 B** that appears only when the
+  API is configured. (`-063`'s `csrfHeaders` and jar reads are inside that 220 B: the same-config comparison grew from
+  Slice 0's 1,250 B to 1,470 B across M4.)
+  · **`/login` is not a chunk.** The AC says "the login route's bundle", which implies a lazy boundary; there is none
+  — `src/App.tsx:4` imports `LoginPage` statically, so its bytes are in `index-*.js`. The measurement is the whole-JS
+  gzip sum, which happens to be exactly the command Slice 0 recorded. If anyone adds `lazy()`, what AC-14 *means*
+  changes and this record must be re-read rather than re-run.
+  · **One chunk only**: `index-CUYRe9uD.js`, 62,628 B gzipped on its own against 62,610 B for the concatenated stream.
+  The 18 B difference is the shared gzip dictionary across `cat`, and it is recorded because a per-chunk table and a
+  concatenated total are not the same metric and the AC names neither.
+  · **Reproduction stability is the finding worth keeping.** Byte-identical output across five hours and seven merged
+  PRs is what makes this seam usable as a gate at all — and it is now known to depend on the lockfile, since that is
+  the thing checked to make it true.
+
+**A defect in my own harness, found by reading its output instead of its exit code.** The run reported **exit 0** while
+step 3's report was shredded:
+
+    flag-off delta non-lazy B — what M4s  flag-off delta auth B — what M4s  flag-off delta code B — what M4s
+    # Reported beside the number, never inside it: Slice 0s B — what M4s  flag-off delta figures, B — what M4s
+
+An apostrophe inside a single-quoted `printf` format (`M4's`) closed the string, so the rest of the sentence became
+**extra printf arguments** — which printf re-uses the format for — and the unterminated quote ran on through a comment
+line whose own `Slice 0's` apostrophe was the next delimiter, swallowing the format string below it. Every number
+above that damage printed correctly; **the line that reports whether the reproduced baseline still agrees with
+Slice 0's did not**, and that is the one line whose job is to say whether the comparison is sound. `tail -1` would
+have shown a clean green. Fixed in `b489f18` by rephrasing the sentences (not by escaping: `'\''` in a log line is
+how the next person reintroduces it).
+
+**Two claims the harness makes about itself, verified rather than assumed:** `shellcheck` is **not installed** here, so
+the only static check that ran was `bash -n` — an early version of mine read an empty `shellcheck … | head` result as
+"clean", which was the pipe-`$?` trap again in a command I wrote to catch it. And the teardown safety note is load:
+dependencies are hard-linked rather than symlinked, and the final step asserts the repository's own `node_modules` is
+still populated (**376 entries, vite present**), because `git worktree remove --force` is not `rm -rf` and nothing in
+this run proves how it treats a `node_modules` pointing at the main repository.
+
+**Agent-decided (standing instruction, not owner ratification):** comparing against a **rebuilt** baseline rather than
+the quoted 61,368; reporting the flag-off figure and the single-chunk breakdown though AC-14 asks for one number; and
+adding `-076`, because the gate this row establishes is **not wired into CI** — measured,
+`grep -c bundleDelta .github/workflows/ci.yml` → **0** — so nothing re-checks it and a dependency bump could breach
+3 kB with every job still green.
+
+**Coupling:** none in code. The only file outside `tests/build/` this row touches is the register (`-076`).
+
+**Next:** the ladder has no unexecuted behaviour rows left. What remains is the four practice tasks carried from
+`-066`…`-069` (`grep -c 'AGENTS.md step 9' docs/tasks/TASK-m4-authentication.md` → **4**, each under its own record:
+`SessionPolicy` constants, empty-vs-absent `AllowedOrigins`, the linear-scan fan-out, the handler's untested
+declinations), the two rows `-063` produced (`-074` key ring, `-075` harness recipe), and `-076`. AC-3 is the only
+open acceptance criterion left, and it is gated on an owner decision, not on work.
 
 ### §6a. Durable checkpoint and handoff records (Level 2 gate)
 

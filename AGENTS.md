@@ -86,7 +86,9 @@ Do not claim success without reporting what was verified.
 
 ### Commit discipline
 
-Nine rules, each earned by a failure that actually happened on this repository:
+Ten rules, each earned by a failure that actually happened on this repository. **The count is the part that goes stale
+on its own** — a rule was added today, and for one commit the header still said nine while the list carried ten — so
+re-derive it instead of remembering it: `awk '/^### Commit discipline/,/^CI \(/' AGENTS.md | grep -c '^- \*\*'` → **10**.
 
 - **Gate commits on verification.** Never chain `verify && commit` on one shell line without
   `set -e` — a failing `tsc` does not stop the commit that follows it. A commit was once made
@@ -126,6 +128,16 @@ Nine rules, each earned by a failure that actually happened on this repository:
   I had not rebuilt. Same family as the `pipefail` rule: **filtering a command's output can destroy the only
   evidence that matters.** When a gate is strict and clean, run it strict and clean — delete `bin/ obj/`, pass
   the same flags, and read the whole output.
+- **Bound a projection edit by the section, never by "the next bullet."** Regenerating `docs/STATE.md` §3A whole means
+  rewriting bullets, and a bullet has no unique terminator. A helper that took a bullet from its first line to the next
+  line starting `- ` deleted **51 lines of §4's locked technical invariants** — once, and then again about two hours later
+  in the same file, the same way, because §3A's last bullet is followed by the `## 4` heading whose next `- ` item lives in
+  §5. Both times the only thing that caught it was reading the diff's hunk headers: **"64 lines removed, 2 added" is not
+  what editing a bullet looks like.** Both times the deletion was repaired from `HEAD`, and both times auditing the
+  surviving diff turned up *deliberate* losses sitting next to the accidental ones, which is the other half of the rule:
+  after a whole-section rewrite, account for every removed line. Verify structure, not only content —
+  `grep -c '^## '` plus the numbered-item count, both compared against `HEAD`. The safe forms are an anchor on the
+  section heading with the cut taken up to it, or a literal string replacement with an `assert` on the anchor.
 - **Never put backticks in `git commit -m`.** Inside double quotes, bash **executes** them as command substitutions, so the
   message silently loses whatever was quoted — and the commit message is the artifact that is supposed to be the permanent
   record. On 2026-09-11 a commit documenting a new defect lost the exception names that *were* its evidence, leaving

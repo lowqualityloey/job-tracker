@@ -80,46 +80,26 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **[PR #64](https://github.com/lowqualityloey/job-tracker/pull/64)** `feat/m4-063-antiforgery-gate`,
-  open against `main` at `9d4a2f7`, head verified equal to `git rev-parse HEAD` — **`-063`: AC-11 verified at the Browser
-  seam**, the antiforgery gate implemented. Commit ladder: **Red `cd72bbe` → Green `91f38be` → browser evidence
-  `28056b6` → record `a694baa` → `-075`'s own premise corrected `38a9e64` → dead import in the new harness `4b4fafd`**.
-  **CI is green on both jobs** (`verify` pass **42 s**, `verify-api` pass **2 m 22 s**), and "green" is not the claim —
-  *ran-or-skipped* is, because on #63 the same job took **6 s** on the docs-only detector and also reported pass. Three
-  independent reads of #64's api job, in descending strength: the **step list** shows step 5
-  *"Verify (build with warnings as errors → test against a real PostgreSQL)"* concluded `success` while the skip branch's
-  steps did not run; the **job log** carries the detector's own real output
-  `✓ API surface changed — running the .NET gate` and then
-  `Passed! - Failed: 0, Passed: 186, Skipped: 0, Total: 186, Duration: 1 m 39 s`, which is the same 186 the local run
-  reported; and `Build succeeded. / 0 Warning(s)` matches `-p:TreatWarningsAsErrors=true` at
-  [`.github/workflows/ci.yml:146`](../.github/workflows/ci.yml), read from the workflow rather than from the log,
-  **because a command line only ever appears in a log as echoed script — echoing it is not evidence that it ran that
-  way**. Two near-misses in that reading are worth the space: the detector string matches **twice** in the log, the first
-  being cyan-escaped *echoed source* rather than output, and my first grep pattern was loose enough to count it —
-  the same over-filtering that hid a warning locally once already. Retrieving the log was itself blocked for me
-  (`gh run view --log` writes to `~/.cache/gh`, outside the workspace; not escalated for a nice-to-have) and came from a
-  read-only watcher's copy instead.
-  It carries the new `antiforgery` problem code through all three places `-060`'s contract demands, the client header,
-  and the two ratified browser cases at **11/11 in real Chromium**. **This is the first M4 row since `-071` that changes
-  product behaviour**, and that is why the `verify-api` job has something to check: the skip that was *correct* on #63
-  would have been a hole here, and the step list above is what distinguishes the two cases from each other.
-   **PR #63 (`-064`, cross-tab SSE authenticated in Chromium) is MERGED** — `9d4a2f7` at 2026-09-12 20:07:33Z,
-   verified both ways (`state:MERGED` + the `TDD-EXEC-m4-authentication-064` marker present in `main`), local `main`
-   fast-forwarded by ref while `-063`'s work sat uncommitted on its own branch. **CI on #63: `verify` pass 42 s,
-   `verify-api` pass 6 s** — the latter the docs-only skip firing exactly as the PR body predicted, which is the
-   difference between a skip that is correct and a skip that is merely quiet.
-   **The rule that replaced this bullet's prediction, carried forward verbatim in substance:** *"when #62 merges,
-   GitHub retargets a stacked PR to `main` automatically"* was **false in a worse way than expected** — the stacked PR
-   could not be created at all once its base branch was deleted (`gh pr create --base feat/m4-071-spa-hosting` →
-   *"Base sha can't be blank … No co[mmits]"*). Retargeting is something that can happen to a PR that already exists;
-   it cannot rescue one that was never opened. **A merged branch and a usable base for a stacked PR are not the same
-   thing** — the first is a git fact, the second needs a branch that still exists at the moment of creation. So
-   `-063` was cut from `97a356a`, already an ancestor of `main`, and its PR carries only its own commits.
-   **PR #62 (`-071`, the API serving the front end from its own origin) is MERGED** — `21f1f45` at 19:50:13Z, CI green
-   on `verify` and `verify-api`, so `main` was the tree `-064` measured. It was **the first product code of Slice 5**,
-   under `DECISION-m4-auth-007 (a′)`, cut from `1819bbb` read at the time rather than from memory.
-   ~~**PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b`~~ and **PR #60** — the spike, its probes, and the
-   real-app measurement that closed its last hedge. Docs + probe sources only.
+- **In flight**: **PR #65** `feat/m4-065-bundle-delta` — **`-065`: AC-14 verified**, the login-route bundle delta
+  measured against a **rebuilt** Slice 0 baseline: **1,242 B under a 3,072 B gate**, flag-off **1,022 B** printed beside
+  it, and both baseline figures reproduced **to the byte**. Commit ladder: **harness `ddaf7f2` → its own `printf`
+  defect fixed `b489f18` → record `82cd12f` → the AGENTS rule that failure earned `2b1201b`**. Every number was taken at
+  `b489f18` on a clean tree — the harness aborts on a dirty one, because its output is pasted into a record that cites a
+  SHA, and `b489f18` is the last commit that touches anything a build reads. No product code moves, and **CI measured the consequence instead of
+  assuming it**: `verify` pass 56 s, `verify-api` pass **7 s** with steps 4 and 5 concluded `skipped` — the docs-only
+  detector firing correctly, the mirror image of #64, where step 5 ran and printed `Passed: 186`. Both reads come from
+  the job's step list, because **a `pass` conclusion is identical whether the suite ran or was skipped**; only the
+  duration differs, and a duration is a hint rather than evidence.
+  **PR #64 (`-063`, the antiforgery gate) is MERGED** — `893038f` at 21:29:05Z, verified both ways: `state:MERGED` with
+  head `f5687e3` equal to the local HEAD, **and** the `TDD-EXEC-m4-authentication-063` marker, `AntiforgeryGate.cs`
+  (167 lines), and AC-11's tick all present in `main` itself. Local `main` fast-forwarded to the merge commit; CI green
+  on `main`. **Its CI is worth reading as the counterexample to #63's**: `verify` 42 s / `verify-api` 2 m 22 s, and
+  *ran-or-skipped* was not in the conclusion — it was in the step list (step 5, *"Verify (build with warnings as errors →
+  test against a real PostgreSQL)"*, concluded `success`; the skip branch never ran) and in the log's real output
+  (`✓ API surface changed — running the .NET gate`, then `Passed: 186, Skipped: 0`). That detector string appears
+  **twice** in the log, the first time as cyan-escaped *echoed source*: reading a log and believing a log are different
+  acts. `-063`'s ladder: Red `cd72bbe` → Green `91f38be` → browser evidence `28056b6` → record `a694baa` → `-075`'s own
+  premise corrected `38a9e64` → dead import in the new harness `4b4fafd` → CI facts `f5687e3`.
 - **Why a second PR once existed off the same branch — read this as the rule, not the incident:** **PR #60 merged at
   17:56:17Z (`7e13914`) while the measurement was still running**, and the branch was deleted with it. The next
   `git push` reported **`* [new branch]`** and left `gh pr view 60 --json headRefOid` frozen at `ea4c91b`. Both signals were
@@ -130,7 +110,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   (`-063` was cut from `97a356a`, a SHA already inside `main`, for exactly this reason. It is the sibling of the
   stacked-PR finding below, not a repeat of it: reconciliation protects what was merged; a live base ref protects what is
   still being opened.)
-- **Ladder**: **26 rows**, recounted from the file at this boundary —
+- **Ladder**: **27 rows**, recounted from the file at this boundary —
   `grep -cE '^\| `…-0(4[7-9]|[5-7][0-9])`' docs/tests/2026-09-12-test-m4-authentication.md` → **26**, covering
   `-047`…`-069`, **`-070` left unassigned**, `-071`, and the two `◆` rows added by `-063`'s execution:
   **`-074`** (the ephemeral data-protection key ring, which is a deployment fault and not a test nuisance) and
@@ -148,14 +128,19 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   **`-071` is the fifth row ratified into the ladder at execution time** — the API serving the built front end as its own
   origin, which is `DECISION-m4-auth-007 (a′)`'s enabling half. Four were ratified before it: `-066` (sliding/hard-capped
   sessions), `-067` (CORS credentials, **half delivered**), `-068` (owner-scoped SSE fan-out), `-069` (binding failures).
-  `-074`/`-075` make it a pattern rather than a one-off: **appended, each by a dated §6 amendment, never renumbered into the
+  `-074`/`-075`/`-076` make it a pattern rather than a one-off: **appended, each by a dated §6 amendment, never renumbered into the
   slice that provoked them**, so the document's history stays readable as history.
-  **`-063` is executed and verified** (AC-11). **`-064` is executed and verified** (AC-12, PR #63). **One ladder row
-  remains open and unblocked: `-065`** (AC-14, the login-route bundle delta), which must **name the URL literal it
-  built with** — an empty `VITE_API_BASE_URL` selects the localStorage adapter, and a delta measured that way would be
-  a measurement of nothing. **`-067`'s Browser half stays unachievable rather than deferred**: under same-origin
+  **All three Browser/Build rows are executed and verified**: `-063` (AC-11, PR #64), `-064` (AC-12, PR #63),
+  **`-065` (AC-14, PR #65)** — 1,242 B under the 3,072 B gate, URL literal named, and the baseline **rebuilt in the same
+  run** rather than quoted: it reproduced Slice 0's 60,118 / 61,368 B to the byte, which is the only thing that makes the
+  subtraction a comparison rather than an arithmetic accident. **No behaviour row is left unexecuted.** **`-067`'s Browser half stays unachievable rather than deferred**: under same-origin
   serving no preflight occurs, so AC-16's pair is proven only in `CorsCredentialsTests`. **`-066` is a ratified row
-  still owed its `TimeProvider` config**, and the four owed practice tasks `-066`…`-069` are untouched.
+  still owed its `TimeProvider` config**. What is left on the ladder is the `◆` finding set — `-074` (key ring), `-075` (harness
+  recipe), `-076` (the bundle gate is wired into nothing: `grep -c bundleDelta .github/workflows/ci.yml` → **0**) — plus
+  the four practice tasks carried from `-066`…`-069`, now countable rather than remembered:
+  `grep -c 'AGENTS.md step 9' docs/tasks/TASK-m4-authentication.md` → **4**, each under its own record (the
+  `SessionPolicy` constants, empty-vs-absent `AllowedOrigins`, the linear-scan fan-out, the handler's untested
+  declinations).
 - **Decisions the agent now owns** *(owner instruction, 2026-09-12 ≈19:30 UTC: "decide your own recommendation from now
   on"). Recorded as **agent-decided**, deliberately not filed as owner ratification — the difference is the whole point of
   the ID-stable paperwork, and laundering it is the failure this file records most often.*
@@ -196,17 +181,28 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
    locked out of signing out. **`OPTIONS`/`HEAD` are out of the unsafe-verb allow-list**: a preflight that reaches the gate
    means CORS was already bypassed, and answering it `403` would disguise a different bug as this one. Both are written in
    `AntiforgeryGate.cs`, and the reasoning survives nowhere else — so if either calculus changes, it changes in a row.
-- **AC ledger**: **15 verified + 2 open = 17**, recounted from the checkbox lines at this boundary
-  (`grep -c '^- \[x\] \*\*AC-'` → **15**, `'^- \[ \] \*\*AC-'` → **2**). **The two open ACs are AC-3 and AC-14.**
+  · **D-7, `-065` compares against a baseline it rebuilds, and prints the flag-off figure even though AC-14 asks for
+  one number.** A remembered 61,368 minus a fresh build measures two afternoons; the harness builds both trees in one
+  run, with the dependency tree verified identical first. Reporting 1,022 B alongside 1,242 B is the same refusal to let
+  a single flattering figure stand in for the shape of the cost — flag-off is *not* "M4 absent", only "adapter absent".
+  · **D-8, `-076` was added rather than CI being wired up inside this PR.** The gate exists and nothing re-runs it
+  (`grep -c bundleDelta .github/workflows/ci.yml` → **0**), which is a defect in the *gate*, not in the number. Adding a
+  second build to every PR, with the URL literal pinned in the workflow, is a change to CI's contract and to everyone's
+  feedback loop; it is worth doing and it is not worth smuggling into a row that already shipped a measurement.
+- **AC ledger**: **16 verified + 1 open = 17**, recounted from the checkbox lines at this boundary
+  (`grep -c '^- \[x\] \*\*AC-'` → **16**, `'^- \[ \] \*\*AC-'` → **1**). **The one open AC is AC-3**, and it is open
+  because of an owner decision — restrike or restate — not because of missing work or a missing harness.
   **AC-11 moved to verified here, by `-063`** — 11/11 browser checks, both ratified cases, each with its positive
   control, and a scratch-database row count (`0` probe rows) rather than a status code as the proof that a refused
-  write did not happen. **AC-3 sits behind its own restrike-or-restate decision, not behind any harness**; AC-14 is
-  `-065`, unblocked and unstarted. The historical correction stands: this line once named "12, 13, 14, 18", which was
-  false twice over (AC-13 is verified; AC-18 does not exist), and the drift note is in
+  write did not happen. **AC-14 moved here, by `-065`** — flag-on delta **1,242 B** under the 3,072 B gate, against a baseline rebuilt in the
+  same run and reproduced **byte-for-byte** (`+0 / +0` off Slice 0's two figures), with the flag-off delta reported beside it
+  (1,022 B) because a lone figure would hide that M4's auth UI ships even when the API is switched off. **AC-3 is the only
+  criterion left open, and it waits on an owner decision — restrike or restate — not on work.** The historical correction stands:
+  this line once named "12, 13, 14, 18", which was false twice over (AC-13 is verified; AC-18 does not exist), and the drift note is in
   [`checkpoint-001` §2](../tasks/TASK-m4-authentication.checkpoint-001.md).
 - **Merged this session**: **#55** `ee994f5` (`-066`) · **#56** `538c77e` (`-067`) · **#57** `fea085c` (`-068`) ·
   **#58** `47852a4` (`-069`) · **#59** `f2b8a3b` · **#60** `7e13914` · **#61** `1819bbb` · **#62** `21f1f45` (`-071`) ·
-  **#63** `9d4a2f7` (`-064`). Each merge verified twice before anything was built on it: `gh pr view --json
+  **#63** `9d4a2f7` (`-064`) · **#64** `893038f` (`-063`). Each merge verified twice before anything was built on it: `gh pr view --json
   state,mergedAt,mergeCommit` **and** the `TDD-EXEC-m4-authentication-0NN` marker present in `main`.
 - **M3 residue still live**: gap 12 (`{"id":"not-a-guid"}` → 500) is **closed** by `-057`; `ASSUMPTION-m3-backend-api-002`
   (single instance) holds and **M5 must revisit the in-process bus** — the fix is PG `NOTIFY`, not Redis (grill Q16), and
@@ -239,6 +235,18 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   `pipefail` rule, broken while executing the handoff that states it), and an invented `ConnectionStrings__Default` because
   H4 elides the value — harmless only because Testcontainers builds its own database. Root cause of every one: **writing
   from intent instead of measurement.**
+- **Measured at the `-065` boundary, 2026-09-13 01:20 UTC** (every figure produced by this run, none quoted from an
+  earlier one): bundle **61,140 B** flag-off and **62,610 B** flag-on at the head, against **60,118 B** / **61,368 B**
+  rebuilt from `41b32af` in the same run — the reproduction is **byte-exact**, `+0 / +0`, and that is the fact that
+  licenses the subtraction · **AC-14 delta 1,242 B, gate 3,072 B → PASS at 40 % of budget** · flag-off delta
+  **+1,022 B**, so M4's client cost is 1,022 B always-present plus ~220 B that appears only when the API is configured ·
+  single chunk `index-CUYRe9uD.js`, 62,628 B gzipped alone vs 62,610 B concatenated (18 B is what the shared gzip
+  dictionary buys `cat`) · `node v24.20.0`, `npm 11.19.0`, `vite 5.4.21`, `package.json`/`package-lock.json` identical
+  to the baseline commit · runtime deps **3**, dev deps **19** · API suite unchanged at **186/186**, frontend
+  **227/227**, `npm run verify` exit **0** · ladder **27** rows · EXEC records **24** · ACs **16 verified + 1 open**.
+  **The harness's own defect is part of this record**: it exited 0 while its step-3 report was shredded by an
+  apostrophe in a single-quoted `printf` format — every number above survived, and the one line that died was the one
+  reporting whether the baseline reproduction agreed with Slice 0. Read whole output; `tail -1` is a way of not looking.
 - **Measured at the `-063` boundary, 2026-09-12 20:57 UTC** (every figure re-executed on this tree, none carried
   over): API **186 / 0 failed / 0 skipped** in 1 m 8 s — **`179 + 7 = 186`**, checked against the Red run's own total
   rather than asserted · `npm run verify` exit **0**, **227 tests / 23 files**, build **1.46 s** · ladder **26** rows ·
@@ -310,21 +318,19 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   must stay a 500; a non-400 `BadHttpRequestException` must not be relabelled as field validation). **Probe B deleted the
   guard and the suite stayed 169/0** — so the claim is recorded as reasoning, and it is `-069`'s practice task. Four
   practice tasks are owed (`-066`…`-069`), none started, all listed in the task record.
-- **Exactly one next action**: **`-065` (AC-14)** — the login-route bundle delta, the last open unblocked ladder row.
-  It must **name the URL literal it built with**, because Slice 0's **9 B** difference between `localhost` and an IP
-  address cannot move a **3 kB** gate: that is a figure concern, not a verdict one, and a delta reported without its
-  configuration is the false-green shape `-071`'s record names — an empty `VITE_API_BASE_URL` selects the localStorage
-  adapter and the measurement would be of nothing.
-  **`-063` and `-064` are both executed and verified** (PRs #64 and #63), so the antiforgery coupling that used to sit
-  between them is closed: `-064`'s harness now sends `X-CSRF-Token` on its cleanup `DELETE` and `run-064.sh` was
-  re-run after the gate landed — 7/7, negative control still failing 4 of 5, `deleted 204`. **The four owed practice
-  tasks (`-066`…`-069`) stay unstarted**, and so do the two rows this boundary added (`-074`, `-075`).
-  Two proposed rows came out of the ≈19:30 boundary and are **recorded, not started**: **`-072`** (the `https` default,
-  decided at D-2 above) and **`-073`** (the cross-origin credentialed-stream probe, recommended at D-3 but withheld,
-  because it would reopen a ratified cookie decision on evidence `-064` cannot see).
-  *(**PR #60** merged `7e13914` 17:56:17Z · **PR #61** merged `1819bbb` 18:47:03Z · **PR #62** (`-071`) merged
-  **`21f1f45` 19:50:13Z** · **PR #63** (`-064`) merged **`9d4a2f7` 20:07:33Z**, all four verified both ways —
-  `gh pr view` plus the row's own `TDD-EXEC-…` marker present in `main`.)*
+- **Exactly one next action**: **`-074` — make the data-protection key ring outlive the process that filled it.** The
+  ordering is mine, per the standing instruction, and the reason is that `-074` is the only remaining row describing a
+  **fault a user would hit**: as things stand a session may be written to only by the instance that issued it, so a
+  restart or a second instance turns a working log-in into a wall of `403`s. `-075` (recipe duplication) and `-076`
+  (bundle gate unwired) are real but only cost time; the four practice tasks cost nothing yet. `-066`…`-069`'s practice
+  tasks are listed in §3A's own bullet and countable at `grep -c 'AGENTS.md step 9' docs/tasks/TASK-m4-authentication.md`
+  → **4**.
+  **The ladder has no unexecuted behaviour rows**: `-063` (AC-11, PR #64), `-064` (AC-12, PR #63) and `-065` (AC-14,
+  PR #65) are all verified, leaving **AC-3** as the only open acceptance criterion — and it waits on the owner's
+  restrike-or-restate decision, not on work, harnesses, or Q4. **M4's execution queue is therefore empty in one sense
+  and full in another**, which is worth saying plainly rather than letting "27 rows, 24 executed" read as progress
+  toward a finish line nobody drew: the remaining rows are the ones this milestone produced *about itself*.
+
 ## 4. Locked Technical Invariants (Do Not Undo)
 
 Agreed decisions that survive any refactor. Deviating requires a new ADR.
