@@ -80,16 +80,21 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #65** `feat/m4-065-bundle-delta` — **`-065`: AC-14 verified**, the login-route bundle delta
-  measured against a **rebuilt** Slice 0 baseline: **1,242 B under a 3,072 B gate**, flag-off **1,022 B** printed beside
-  it, and both baseline figures reproduced **to the byte**. Commit ladder: **harness `ddaf7f2` → its own `printf`
-  defect fixed `b489f18` → record `82cd12f` → the AGENTS rule that failure earned `2b1201b`**. Every number was taken at
-  `b489f18` on a clean tree — the harness aborts on a dirty one, because its output is pasted into a record that cites a
-  SHA, and `b489f18` is the last commit that touches anything a build reads. No product code moves, and **CI measured the consequence instead of
-  assuming it**: `verify` pass 56 s, `verify-api` pass **7 s** with steps 4 and 5 concluded `skipped` — the docs-only
-  detector firing correctly, the mirror image of #64, where step 5 ran and printed `Passed: 186`. Both reads come from
-  the job's step list, because **a `pass` conclusion is identical whether the suite ran or was skipped**; only the
-  duration differs, and a duration is a hint rather than evidence.
+- **In flight**: **PR #66** `feat/m4-065-bundle-delta` — two docs commits that the merge of #65 left behind, which is
+  itself the incident this bullet describes: **`4a70e9a` was pushed after #65 merged**, into a branch GitHub had already
+  deleted, and reported `* [new branch]` on a branch that existed an hour earlier. That phrase is this repository's
+  recorded tell (PR #60, and the rule "a merged PR is a closed door on its branch"), and it fired again today on a
+  commit I wrote *about* not losing work. Carried here: (a) the `-065` integrity ledger entry naming the fabricated SHA
+  that reached #65's published body, and (b) this bullet's reconciliation.
+  **PR #65 (`-065`, AC-14) is MERGED** — `e4d1d2f` at 21:54:49Z, verified both ways: `state:MERGED` with head `5ec41b5`
+  equal to the pushed HEAD, **and** in `main` itself the `TDD-EXEC-m4-authentication-065` marker, AC-14's tick, and
+  `tests/build/bundleDelta.sh` (139 lines). Local `main` fast-forwarded to `e4d1d2f`, tree clean. **Numbers re-derived
+  on the merged tree rather than carried from the projection**: ladder **27** rows · ACs **16 verified + 1 open** (the
+  open id read out, not inferred: **AC-3**) · EXEC records **24** distinct · commit-discipline rules **10**.
+  The measurement #65 stands on, restated so the record survives the branch: **flag-on 62,610 B against a baseline
+  rebuilt in the same run at 61,368 B — a delta of 1,242 B under the 3,072 B gate**, flag-off **+1,022 B** reported
+  beside it, the baseline reproduction **byte-exact (`+0 / +0`)**, and both trees verified to share a
+  `package.json`/`package-lock.json` before anything was built.
   **PR #64 (`-063`, the antiforgery gate) is MERGED** — `893038f` at 21:29:05Z, verified both ways: `state:MERGED` with
   head `f5687e3` equal to the local HEAD, **and** the `TDD-EXEC-m4-authentication-063` marker, `AntiforgeryGate.cs`
   (167 lines), and AC-11's tick all present in `main` itself. Local `main` fast-forwarded to the merge commit; CI green
@@ -202,7 +207,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   [`checkpoint-001` §2](../tasks/TASK-m4-authentication.checkpoint-001.md).
 - **Merged this session**: **#55** `ee994f5` (`-066`) · **#56** `538c77e` (`-067`) · **#57** `fea085c` (`-068`) ·
   **#58** `47852a4` (`-069`) · **#59** `f2b8a3b` · **#60** `7e13914` · **#61** `1819bbb` · **#62** `21f1f45` (`-071`) ·
-  **#63** `9d4a2f7` (`-064`) · **#64** `893038f` (`-063`). Each merge verified twice before anything was built on it: `gh pr view --json
+  **#63** `9d4a2f7` (`-064`) · **#64** `893038f` (`-063`) · **#65** `e4d1d2f` (`-065`). Each merge verified twice before anything was built on it: `gh pr view --json
   state,mergedAt,mergeCommit` **and** the `TDD-EXEC-m4-authentication-0NN` marker present in `main`.
 - **M3 residue still live**: gap 12 (`{"id":"not-a-guid"}` → 500) is **closed** by `-057`; `ASSUMPTION-m3-backend-api-002`
   (single instance) holds and **M5 must revisit the in-process bus** — the fix is PG `NOTIFY`, not Redis (grill Q16), and
