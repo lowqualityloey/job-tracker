@@ -81,6 +81,8 @@ server-side sessions give revocation *and* the only credential form `EventSource
 > landed before this field was written. §7’s owner checkboxes remain physically unchecked in `main`. **Dissent costs
 > one commit** — but the field should not read as undecided when the process has decided it.
 
+> **Grill amendment Q1 (2026-09-12, [`reviews/2026-09-12-m4-plan-grill.md`](../reviews/2026-09-12-m4-plan-grill.md)) — the conclusion stands, the argument was overstated.** `EventSourceInit { withCredentials?: boolean }` is now measured from `lib.dom.d.ts:688`, so the header limitation is fact. But "Bearer is impossible" is not: a `fetch` + `ReadableStream` reader *can* send a header. The accurate justification is **keeps `-040`'s adapter, reconnect and frame parsing intact**, not "no alternative exists" — and a decision resting on a false impossibility would not be trustworthy the next time a real constraint arrives.
+
 ### DECISION-m4-auth-002 — Identity: **two tables, not ASP.NET Core Identity** · **Owner decision required**
 
 Identity's EF stack drags ~7 tables (`AspNetUsers`, claims, logins, roles…) and a package set, in exchange for features M4
@@ -89,6 +91,8 @@ password_hash, created_at)` + `sessions(id, user_id, created_at, expires_at, rev
 `System.Security.Cryptography`. **The deletion test:** if we deleted ASP.NET Identity, complexity would concentrate; adding
 it would *move* complexity behind an abstraction we'd have to learn to debug. Risk: we own hashing policy — mitigated by
 003 storing cost parameters per-hash.
+
+> **Grill amendment Q2 — scope narrowed.** This rejection was of Identity's **EF stores** (~7 tables, and the features `ASSUMPTION-002` excludes). It was read during the grill as also rejecting Identity's **hasher**, which is a separable half with a zero-package cost. See 003.
 
 ### DECISION-m4-auth-003 — Password hashing: **PBKDF2 via `Rfc2898DeriveBytes`, cost stored in the envelope**
 
@@ -103,6 +107,11 @@ pbkdf2$sha512$<iterations>$<salt-b64>$<hash-b64>
 *bounded* hash cost (a login that takes 4 s is a DoS; one that takes 4 ms is a GPU's friend). Argon2id is stronger and is
 **not taken**: it needs a native dependency, and the honest note is that this is a single-user local tool whose M5
 exposure plan is the real trigger to revisit.
+
+> **Grill amendment Q2 — the premise of this decision is FALSE and the decision is REVERSED.** The "no new runtime dependency" argument is an **npm** count (3, `src/**`) being used to decide a **backend** question; the API already carries **5** `PackageReference`s. Worse, `Microsoft.Extensions.Identity.Core.dll` — which *is* `PasswordHasher<TUser>` — **ships in the ASP.NET Core shared framework**, and this project is `<Project Sdk="Microsoft.NET.Sdk.Web">`, so it needs **zero** packages to use.
+>
+> **Revised choice: use `Microsoft.AspNetCore.Identity.PasswordHasher<TUser>`**, with `PasswordHasherOptions` iterations raised explicitly rather than inherited, and note that its `{PRF$iterations$salt$subkey}` envelope is **already self-describing** — the upgradeability property this decision claimed to want from a hand-rolled format. Hand-parsing crypto envelopes is the actual risk, and it was adopted to honour a number from the wrong layer.
+> **What survives:** Argon2id remains deferred with the same named trigger (M5 exposure). **What this is a lesson in:** bundling a correct rejection (the stores) with an adjacent one (the hasher) and letting the second inherit the first's justification unexamined.
 
 ### DECISION-m4-auth-004 — Ownership: **`owner_id` + client-minted ids stay, and non-owned rows read as 404, never 403**
 
@@ -171,6 +180,8 @@ cannot silently drift with a runtime upgrade.
 timing.
 · *Command:* `dotnet test --filter ~EnumerationResistance` — 50 responses each, Mann–Whitney or a documented median bound,
 and **a dummy hash verify when the user is absent** (the classic tell isn't the message, it's the missing 400 ms).
+
+- **⚠️ Restated by grill Q8 before any number was written.** A 5 ms bound over 50 samples is a claim about noise, and no run has measured the noise floor; the signal it is meant to detect is a ~400 ms missing verify. So: **asserted** = bodies byte-identical, status codes identical, and the dummy verify's presence proven **structurally**; **reported, not asserted** = the timing distribution with `n`, min/median/max and warm-up included. **An assertion that cannot separate signal from noise is not a gate — it is a coin flip with a green check.** This is §2.8's M3 sin (unmeasured thresholds) refused in advance rather than re-learned.
 
 **2.5** SSE still delivers cross-tab updates **while authenticated**, in a real browser.
 · *Command:* the M3 harness, `docker exec … node /srv/httpCrossTab.mjs` → **7/7**, with cookies. **jsdom cannot test
@@ -303,7 +314,8 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
       **deferred with a named trigger: M5 exposure**)
 - [ ] Owner confirms `ASSUMPTION-001` (localhost `__Host-`) via the browser harness, **002** (single user), **003** (no
       limiter yet)
-- [ ] Grilling (`pk:grill`) must challenge at least: cookie vs Bearer · server sessions vs JWT · `404` vs `403` on
+- [x] Grilling (`pk:grill`) must challenge at least: cookie vs Bearer · server sessions vs JWT · `404` vs `403` on
+      **Done 2026-09-12 — [`docs/reviews/2026-09-12-m4-plan-grill.md`](../reviews/2026-09-12-m4-plan-grill.md), Q1–Q9.** All seven promised targets were challenged, and the pass produced **one reversed decision (003), one narrowed one (002), one argument corrected (001), one target restated (2.4), and one new open item** (harness origin, Q4). *Evidence, per M3's precedent for ticking a "done" box:* `grep -c "^## Q" docs/reviews/ 2026-09-12-m4-plan-grill.md` → **9**, and `grep -oE "PasswordHasher|EventSourceInit|SameSite|404.*403|iterations|sliding|410"` over the grill's text is non-empty for each promised challenge — **M3 ticked a grill box that its own record proved had never mentioned `ENUM`, `timestamptz` or fan-out; that box is not getting a second chance here.**
       non-owned rows · PBKDF2 vs Argon2 vs Identity's default · whether **keeping client-minted ids is defensible after
       all** · `SameSite` choice · whether "no new dependency" is a real constraint or a habit · **and the enumeration
       target's statistical method** (a 5 ms bound on 50 samples can be noise)
