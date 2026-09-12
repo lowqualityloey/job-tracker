@@ -36,7 +36,7 @@ namespace JobTracker.Api.Tests;
 /// deviation is recorded rather than glossed.
 /// </summary>
 [Collection(PostgresCollection.Name)]
-public sealed class CorsCredentialsTests(PostgresFixture postgres)
+public sealed class CorsCredentialsTests(PostgresFixture postgres) : IDisposable
 {
     private const string AllowedOrigin = "http://cors-credentials.test";
     private const string DisallowedOrigin = "http://not-allowed.test";
@@ -62,8 +62,36 @@ public sealed class CorsCredentialsTests(PostgresFixture postgres)
         }
     }
 
-    private HttpClient Client(params string[] origins) =>
-        new OriginFactory(postgres.ConnectionString, origins).CreateClient();
+    /// <summary>
+    /// Hosts are tracked and disposed with the class, because a <c>WebApplicationFactory</c> owns a live host and this app
+    /// applies migrations at startup -- an undisposed factory is a process still holding the database that the whole
+    /// <c>postgres</c> collection shares.
+    ///
+    /// What this is NOT justified by: a timing win. Five leaking hosts here were blamed for the full suite going 38 s to
+    /// 74 s, and that claim was written into this file before it was checked. Disposing them made the suite *slower*
+    /// (1 m 36 s), and the class on its own runs in 7 s focused. The durations are real and the cause is not established;
+    /// what is established is that "I saw two numbers move and assumed which change moved them" is how this repository has
+    /// repeatedly manufactured a false record.
+    /// </summary>
+    private readonly List<IDisposable> _hosts = [];
+
+    private HttpClient AllowedClient() => _allowed ??= Track(new OriginFactory(postgres.ConnectionString, AllowedOrigin)).CreateClient();
+
+    private OriginFactory Track(OriginFactory factory)
+    {
+        _hosts.Add(factory);
+        return factory;
+    }
+
+    private HttpClient? _allowed;
+
+    public void Dispose()
+    {
+        foreach (var host in _hosts)
+        {
+            host.Dispose();
+        }
+    }
 
     private static async Task<HttpResponseMessage> PreflightAsync(HttpClient http, string method, string headers)
     {
@@ -98,7 +126,7 @@ public sealed class CorsCredentialsTests(PostgresFixture postgres)
     [Fact]
     public async Task The_preflight_for_a_credentialed_write_offers_the_credentials_line()
     {
-        var http = Client(AllowedOrigin);
+        var http = AllowedClient();
         var response = await PreflightAsync(http, "PUT", "content-type, if-match");
 
         Assert.Equal(AllowedOrigin, Header(response, "Access-Control-Allow-Origin"));
@@ -118,7 +146,7 @@ public sealed class CorsCredentialsTests(PostgresFixture postgres)
         // be on THAT response. A 401 without it is a browser-level network error, and the client cannot tell "you are
         // signed out" (redirect to login, -061's contract) from "the server is down" (retry, keep the rows on screen).
         // -062's stream probe is built on exactly that distinction.
-        var http = Client(AllowedOrigin);
+        var http = AllowedClient();
         var response = await GetAsync(http, AllowedOrigin);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -131,7 +159,7 @@ public sealed class CorsCredentialsTests(PostgresFixture postgres)
     {
         // Control case: passes today and must keep passing. Nothing about adding credentials may widen the boundary —
         // the failure mode AC-16 warns about is an author "fixing" CORS by relaxing the origin list.
-        var http = Client(AllowedOrigin);
+        var http = AllowedClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/applications");
         request.Headers.TryAddWithoutValidation("Origin", DisallowedOrigin);
         var response = await http.SendAsync(request);
@@ -146,28 +174,29 @@ public sealed class CorsCredentialsTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task A_wildcard_in_configuration_never_becomes_wildcard_plus_credentials()
+    public async Task A_wildcard_in_configuration_refuses_to_start_the_app()
     {
-        // The operator error AC-16 exists to make impossible: someone hits a CORS failure in a browser, reads the wrong
-        // Stack Overflow answer, and puts "*" in `Cors:AllowedOrigins`. Same-origin tests cannot see this, and the
-        // product must not be able to emit the pair.
-        var http = Client("*");
-        var preflight = await PreflightAsync(http, "PUT", "content-type");
-        var actual = await GetAsync(http, "http://anywhere.test");
-
-        foreach (var response in new[] { preflight, actual })
+        // The case AC-16 was written against was "the server emits `*` together with credentials", and the first version
+        // of this test asserted that pair never appears. It passed -- for a reason worth knowing: a literal "*" in
+        // Cors:AllowedOrigins goes to WithOrigins, which treats it as an ORIGIN STRING to match, and no browser ever
+        // sends `Origin: *`. Measured directly (probe, deleted): the preflight answers **204 with no Access-Control
+        // headers at all**. So the wildcard never becomes the forbidden pair; it becomes a CORS policy that matches
+        // nothing, every cross-origin client gets refused, and nothing says why.
+        //
+        // That is a worse operational failure than the one AC-16 named, because it looks like the browser being
+        // mysterious. The Green therefore adds a startup guard rather than only a header assertion: an inert policy is
+        // refused at boot with a message that names the key and the fix.
+        var factory = Track(new OriginFactory(postgres.ConnectionString, "*")); // disposed with the class
+        var failure = await Record.ExceptionAsync(async () =>
         {
-            var allowOrigin = Header(response, "Access-Control-Allow-Origin");
-            var allowCredentials = Header(response, "Access-Control-Allow-Credentials");
+            using var http = factory.CreateClient();
+            await GetAsync(http, "http://anywhere.test");
+            // unreachable when the guard works: CreateClient() throws during host build
+        });
 
-            Assert.False(allowOrigin == "*" && allowCredentials == "true",
-                "the response pairs a wildcard origin with credentials: browsers reject this silently and the user " +
-                "sees a fetch failure that looks exactly like the server being down");
-
-            // Belt to the same braces: if a wildcard ever appears at all, it must not be holding out an identity offer.
-            Assert.True(allowOrigin != "*" || allowCredentials is null,
-                "wildcard origin alongside a credentials header, in either order of appearance");
-        }
+        Assert.NotNull(failure);
+        Assert.Contains("Cors:AllowedOrigins", failure!.ToString(), StringComparison.Ordinal);
+        Assert.Contains("AC-16", failure.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -178,7 +207,7 @@ public sealed class CorsCredentialsTests(PostgresFixture postgres)
         // `Access-Control-Allow-Origin: http://cors-credentials.test` to a different site -- which that site's browser
         // then accepts, because it was told this origin is allowed. `Vary: Origin` is the instruction that makes the
         // response un-reusable. M5 is the AWS deploy milestone, so "later" here has a date attached.
-        var http = Client(AllowedOrigin);
+        var http = AllowedClient();
         var response = await GetAsync(http, AllowedOrigin);
 
         Assert.Contains("Origin", response.Headers.Vary, StringComparer.OrdinalIgnoreCase);
