@@ -161,6 +161,19 @@ true and nothing gets a number written from intent: credentials-on-CORS AC (Q3) 
 behaviours (Q5/Q6) · the harness-origin decision (Q4), which **must** be settled before Slice 2 · the
 `404`-gone-vs-`404`-not-yours split as M5 residue (Q7) · the AGENTS.md layer-scoping amendment (Q9).
 
+> **Q2's evidence, upgraded after the pass (2026-09-12).** "Zero packages" was first claimed from two facts: the
+assemblies exist in `shared/Microsoft.AspNetCore.App/` (**runtime**, which proves nothing about compilation), and a
+`FrameworkList.xml` grep that returned **nothing** — because my pattern was `Assembly Name="` with a space and the real
+attribute is `AssemblyName="`. **A pattern error, not an absence**: the exact failure class AGENTS.md names, and it cut
+both ways, since the same empty grep nearly became evidence that the reversal was *wrong*. Compile-time availability
+comes from the **ref** pack, which lists all three as `Type="Managed"` in `ref/net10.0/`. Then the decisive check: a
+throwaway `Sdk="Microsoft.NET.Sdk.Web"` `net10.0` project containing only `using Microsoft.AspNetCore.Identity;` plus
+`class C { PasswordHasher<U> H = new(); }`, with **zero** `PackageReference`s, built → **exactly one error: `CS5001`
+(no static `Main`). No `CS0246`, no `CS0234` — the type resolved.** The missing entry point is the probe's own artifact,
+not a finding. Probe deleted; worktree verified clean after (an untracked `.probe` would have made the next message's
+cleanliness claim false — rule 2). **General form: runtime presence ≠ compile-time availability, and only a compile
+proves the claim.** Same lesson as §2.8's clause read through `cut -c1-230`: **evidence is worth exactly what the tool
+that produced it can see.**
 **What the grill did not resolve, named:** whether Chrome accepts `__Host-` over plain `http://` on loopback in this
 build (`ASSUMPTION-001` — browser-only, deferred to `-051`) · whether `citext` is available in the pinned PostgreSQL image
 (`psql`-measurable, needs a container exec the sandbox gates behind approval) · Identity's exact table count (~7 by
