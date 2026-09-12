@@ -26,6 +26,9 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
     /// </summary>
     public DbSet<Application> Applications => Set<Application>();
 
+    /// <summary>M4's single bootstrap account (spec DECISION-m4-auth-002, ASSUMPTION-m4-auth-002).</summary>
+    public DbSet<User> Users => Set<User>();
+
     /// <summary>
     /// Naming is explicit, and it earned its keep: EF's default is the CLR name verbatim, so the first real
     /// migration this context produced was `CREATE TABLE "Applications" ("Id" uuid)`. The approved DDL
@@ -86,6 +89,22 @@ public sealed class JobTrackerDb(DbContextOptions<JobTrackerDb> options) : DbCon
             // on add and on update, so no code path has to remember to bump it and a read cannot bump it by
             // accident.
             entity.Property(e => e.Revision).HasColumnName("xmin").IsRowVersion();
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("users");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+
+            // citext, because "unique email" and "case-insensitive lookup" are contradictory promises in a plain text
+            // column: `Ops@Example.test` and `ops@example.test` would both insert, and then login finds whichever row
+            // Postgres happened to index first. The extension is created by the migration, and the unique index below
+            // therefore enforces case-insensitive uniqueness rather than byte equality.
+            entity.Property(e => e.Email).HasColumnName("email").HasColumnType("citext");
+            entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
+            entity.HasIndex(e => e.Email, "users_email_idx").IsUnique();
         });
     }
 }
