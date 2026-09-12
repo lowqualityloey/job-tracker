@@ -3,6 +3,8 @@ using JobTracker.Api;
 using JobTracker.Api.Data;
 using Npgsql;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,7 +69,10 @@ builder.Services.AddSingleton<ApplicationEventBus>();
 // `Cors:AllowedOrigins` can never produce the forbidden pair.
 //
 // **The one thing this cannot make loud from here:** whether a real browser accepts the pair and attaches the cookie.
-// That is `-064`'s Chromium harness, still gated on the Q4 origin answer.
+// That is `-064`'s Chromium harness, which DECISION-m4-auth-007 (a′) unblocked — and note the interaction with `-071`
+// directly below: once the harness page is served from THIS origin, it is same-origin, so **no preflight occurs at all**
+// and this policy stops being exercised in the browser. That trade is accepted and recorded in the decision, not
+// discovered later; `CorsCredentialsTests` is now the only place the pair is proven, and it stays a real host, not a mock.
 // AC-16's operator error, made loud at boot instead of quiet at request time. Measured, not assumed: a literal "*" in
 // this list goes to WithOrigins, which treats it as an origin string to match against a request's Origin header -- and no
 // browser ever sends Origin: "*". The result is a policy that matches nothing: the preflight answers 204 with no
@@ -136,11 +141,112 @@ app.UseCors();
 
 // BEHAVIOR-055 / spec 2.1: the gate runs AFTER UseCors on purpose -- a preflight must not be refused for lacking a
 // cookie it cannot carry -- and before the routes, so nothing can stream a single byte anonymously.
+// `-071`'s static-file block is registered *below* this line rather than beside UseCors, so the gate still sees every
+// request first and adding a file server cannot create a path that skips it. The reasoning lives with the block.
 app.UseSessionGate();
 
 // Routes and handlers live in ApplicationCatalog (spec §4.1's deep module); Program is composition.
 app.MapAuthCatalog();
 app.MapApplicationCatalog();
+
+// BEHAVIOR-071 / DECISION-m4-auth-007 option (a′), as amended by measurement — **the API serves the SPA as its own
+// origin, in Development only.**
+//
+// Why: Chromium's *site* is scheme + host and **ignores the port**, so a harness page on one port talking to an API on
+// another is two sites, `SameSite=Lax` refuses to attach the session cookie, and AC-12 fails while nothing in the
+// product is broken. Serving the page from the API's origin removes that whole class of false failure. The measurement
+// recorded at the decision's foot adds the other half: over plain `http` Chromium will not **store** a `__Host-` cookie
+// at *any* address, loopback included — so same-origin is necessary and not sufficient, and the origin has to be TLS.
+// TLS needs no code here: Kestrel reads a certificate from `Kestrel__Certificates__Default__Path` + `__KeyPath`.
+//
+// Why Development only: `docs/aws-deployment.md` puts the front end and the API on **different origins** when deployed,
+// which is exactly what makes AC-16's credentialed CORS load-bearing. Serving a bundle from the API in production would
+// place a second copy of the app on the API's own origin, where its requests bypass the boundary everyone believes in.
+if (app.Environment.IsDevelopment())
+{
+    // Relative to the content root, so `appsettings.Development.json` can name `../../dist` — the Vite output, two
+    // levels up from `api/src/JobTracker.Api` — without this file learning where the repository lives.
+    var configured = app.Configuration["Web:SpaRoot"];
+    var spaRoot = string.IsNullOrWhiteSpace(configured)
+        ? null
+        : Path.GetFullPath(Path.IsPathRooted(configured)
+            ? configured
+            : Path.Combine(app.Environment.ContentRootPath, configured));
+
+    if (spaRoot is null)
+    {
+        // Unset is the normal state on a machine that has never built the front end, and in CI's api job. Logged rather
+        // than left silent because the person who *means* to serve a bundle would otherwise read a wall of 404s and
+        // look for the bug in the API.
+        app.Logger.LogInformation(
+            "Web:SpaRoot is not set, so this process serves the API only. Build the front end and point Web:SpaRoot at " +
+            "the output directory to serve it from this origin as well.");
+    }
+    else if (!Directory.Exists(spaRoot))
+    {
+        app.Logger.LogWarning(
+            "Web:SpaRoot is configured as {SpaRoot} and no such directory exists, so this process serves the API only.",
+            spaRoot);
+    }
+    else
+    {
+        // An explicit provider, not `webroot`: `wwwroot` would mean copying the build output into the API project, and
+        // the bundle is a frontend artefact that happens to be published by this process.
+        var bundle = new PhysicalFileProvider(spaRoot);
+        app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = bundle });
+        app.UseStaticFiles(new StaticFileOptions { FileProvider = bundle, RequestPath = "" });
+
+        var shell = Path.Combine(spaRoot, "index.html");
+
+        // Two shapes were tried before this one, and each was rejected by an observed failure rather than a preference:
+        //
+        //   · **Middleware that awaits the pipeline and looks for a 404.** It does not work in *this* pipeline:
+        //     `app.UseStatusCodePages()` is registered above it and defers the status write, so the 404 was not
+        //     observable where the check asked for it. Eight of this row's cases still passed — only the deep-route case
+        //     reads that status — which is the whole lesson: a nearly-green file hid a dead branch. The mechanism is
+        //     stated only as far as it is proven, and the fix removes the dependency on the read rather than trusting an
+        //     explanation that had not been pinned down.
+        //   · **`MapFallback`.** It passed `-071` and **broke a ratified row**: `ApplicationsCommandTests.Non_json_body_rejected`
+        //     went `415 → 404`, in isolation, with the SPA block as the only difference. A *fallback* is consulted for
+        //     requests the API ought to be deciding for itself, so the `/api` clause below converted the framework's 415
+        //     into a 404 — quietly destroying `-045`'s guard, which makes Content-Type the thing that refuses a simple
+        //     cross-origin write. Only the full suite saw it; this row's own cases were all green.
+        //
+        // A catch-all `MapGet` ranks below a literal route, so the API's endpoint wins selection and keeps its status —
+        // and the verb discipline arrives free: a POST to a page path matches nothing, and routing answers 405.
+        //
+        // Two guards remain, and neither is decoration:
+        //   · `nonfile` — a path containing a dot is a named file, and a missing one must stay a `404`. Answering
+        //     `/assets/typo.js` with the shell produces a `200` full of HTML handed to a script tag, which a browser
+        //     reports as a syntax error with no hint that the file was never there;
+        //   · the `/api` clause below — `nonfile` happily matches `/api/anything-without-a-dot`, so without this a
+        //     typo'd or removed endpoint becomes `200 text/html` carrying the app shell. For a JSON client that is the
+        //     worst shape available: the status says success, the body is not the contract, and the failure surfaces as
+        //     a parser error far from its cause.
+        app.MapGet("/{*path:nonfile}", async ctx =>
+        {
+            if (ctx.Request.Path.StartsWithSegments("/api"))
+            {
+                // Not the shell's request. Empty body, and `UseStatusCodePages` above gives it the same RFC 9457
+                // problem document every other 404 in this API carries.
+                ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            if (!File.Exists(shell))
+            {
+                // Rebuilt away from under a running process, most likely. Fall through to the API's own 404 problem
+                // document rather than throwing from a catch-all, which would turn a missing file into a 500 on every
+                // route in the application.
+                ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            ctx.Response.ContentType = "text/html; charset=utf-8";
+            await ctx.Response.SendFileAsync(shell);
+        });
+    }
+}
 
 app.Run();
 

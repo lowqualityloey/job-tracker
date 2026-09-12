@@ -44,6 +44,15 @@ got built instead of what was demanded.
 | `…-067` ★ | `-067` | CORS echoes the **exact** origin with `Access-Control-Allow-Credentials: true` and **never `*`** — because browsers reject the wildcard+credentials pair *silently*, and ASP.NET will not stop you writing it | Integration + Browser | p0 |
 | `…-068` ◆ | `-068` | The change stream is **scoped to the owner of the changed record**: a write by B never reaches A's open stream — and **both of A's tabs still receive A's write**, because an unscoped broadcast was a fine answer until `-050` made this multi-user and the frame body carries `data: {"id": …}` | Integration | p0 |
 | `…-069` ◆ | `-069` | A **wrong-typed wire member** (`companyName: 42`, `status: 5`, `notes: [1,2]`) and a malformed body are `400` + `code: "validation"` naming the member — the framework already logged `InvalidJsonRequestBody` with a 400 in hand, and the app was answering 500 with no discriminator | Integration | p0 |
+| `…-071` | `-071` | **The API serves the built front end as its own origin** (DECISION-007 `(a′)`): the shell at `/`, a real asset as **itself**, a deep client route as the **fallback** — and **`/api/**` still answers as the API**: an unknown API path is a `404` **problem document, never the HTML shell**, and a gated one is still `401`. Gated to Development: **a Production boot with the bundle present serves nothing** | Integration | p0 |
+
+> **`-070` is deliberately unassigned — it is a phantom, found while allocating this number.** Two records
+> (`TASK-m4-authentication.checkpoint-001.md` and `docs/STATE.md` §3A) list "**`-070`'s scoped-mutation-gate verdict**" among
+> the things the owner owes, and `grep -rln "scoped.mutation" docs/` returns **those two files and nothing else** — no ladder
+> row, no task-record entry, no spec reference, no EXEC record. Same defect class as the false AC list corrected on
+> 2026-09-12: a list **propagated rather than re-derived**, this time a *number* cited as though assigned. Skipped rather
+> than reused on purpose — quietly making it this hosting behaviour would leave the two records that reference it reading as
+> satisfied while whatever was actually meant goes unaddressed. **Asked, not repaired.**
 
 ★ = **grill-derived additions** (`Q5`/`Q6` expiry+prune, `Q3` credentialed CORS). Appended as `-066`/`-067` rather than
 renumbered into their slices: **renumbering a ratified ladder is exactly how M3's phantom cross-references were made.**
