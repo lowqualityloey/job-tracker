@@ -863,6 +863,14 @@ configuration**, and states which literal it used; a delta quoted without its UR
   **Next:** `-063` (a cross-site write without `X-CSRF-Token` is rejected, and the same write *with* it succeeds — AC-11), which
   needs the browser harness and is therefore gated on the Q4 harness-origin question.
 
+  *(**Superseded twice over, in the same day.** Q4 was answered — `DECISION-m4-auth-007 (a′)`, implemented by this very
+  row's parent — and `-063` then ran and moved AC-11 to verified. The gating clause is kept because it records what was
+  true at the `-071` boundary: an unanswerable harness question was genuinely between this row and its evidence. What is
+  **not** kept is the habit: **two** records in this file ended by pointing at `-063` (`grep -n 'Next:\*\* \`-063'` → lines
+  863 and 1241), and both read as pending until marked, which is how a delivered row can outlive its own completion in the
+  document that delivered it. The count was re-run after this sentence was written, because the last time I quoted a
+  figure like this from memory it was wrong in the same direction.)*
+
 **`TDD-EXEC-m4-authentication-066`** · `BEHAVIOR-066` (+ **AC-17**) · Red `1028bf6` → Green `a1f82f6` · p0 · seams Integration + DB
 - **Red:** `dotnet test --filter ~SessionExpiryTests` → **`Failed: 5, Passed: 1, Skipped: 0`**, five distinct missing
   behaviours (no slide, no cap, no idle enforcement, no prune, no retention) and one **control that passes today**:

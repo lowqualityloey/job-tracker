@@ -80,11 +80,29 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #64** `feat/m4-063-antiforgery-gate` — **`-063`: AC-11 verified at the Browser seam**, the
-antiforgery gate implemented (Red `cd72bbe` → Green `91f38be` → browser evidence `28056b6` → record). It carries the
-new `antiforgery` problem code through all three places `-060`'s contract demands, the client header, and the two
-ratified browser cases at 11/11 in real Chromium. **This is the first M4 row that changes product behaviour in
-`Slice 5` since `-071`**, so CI's `verify-api` job runs for real here rather than skipping on the docs-only detector.
+- **In flight**: **[PR #64](https://github.com/lowqualityloey/job-tracker/pull/64)** `feat/m4-063-antiforgery-gate`,
+  open against `main` at `9d4a2f7`, head verified equal to `git rev-parse HEAD` — **`-063`: AC-11 verified at the Browser
+  seam**, the antiforgery gate implemented. Commit ladder: **Red `cd72bbe` → Green `91f38be` → browser evidence
+  `28056b6` → record `a694baa` → `-075`'s own premise corrected `38a9e64` → dead import in the new harness `4b4fafd`**.
+  **CI is green on both jobs** (`verify` pass **42 s**, `verify-api` pass **2 m 22 s**), and "green" is not the claim —
+  *ran-or-skipped* is, because on #63 the same job took **6 s** on the docs-only detector and also reported pass. Three
+  independent reads of #64's api job, in descending strength: the **step list** shows step 5
+  *"Verify (build with warnings as errors → test against a real PostgreSQL)"* concluded `success` while the skip branch's
+  steps did not run; the **job log** carries the detector's own real output
+  `✓ API surface changed — running the .NET gate` and then
+  `Passed! - Failed: 0, Passed: 186, Skipped: 0, Total: 186, Duration: 1 m 39 s`, which is the same 186 the local run
+  reported; and `Build succeeded. / 0 Warning(s)` matches `-p:TreatWarningsAsErrors=true` at
+  [`.github/workflows/ci.yml:146`](../.github/workflows/ci.yml), read from the workflow rather than from the log,
+  **because a command line only ever appears in a log as echoed script — echoing it is not evidence that it ran that
+  way**. Two near-misses in that reading are worth the space: the detector string matches **twice** in the log, the first
+  being cyan-escaped *echoed source* rather than output, and my first grep pattern was loose enough to count it —
+  the same over-filtering that hid a warning locally once already. Retrieving the log was itself blocked for me
+  (`gh run view --log` writes to `~/.cache/gh`, outside the workspace; not escalated for a nice-to-have) and came from a
+  read-only watcher's copy instead.
+  It carries the new `antiforgery` problem code through all three places `-060`'s contract demands, the client header,
+  and the two ratified browser cases at **11/11 in real Chromium**. **This is the first M4 row since `-071` that changes
+  product behaviour**, and that is why the `verify-api` job has something to check: the skip that was *correct* on #63
+  would have been a hole here, and the step list above is what distinguishes the two cases from each other.
    **PR #63 (`-064`, cross-tab SSE authenticated in Chromium) is MERGED** — `9d4a2f7` at 2026-09-12 20:07:33Z,
    verified both ways (`state:MERGED` + the `TDD-EXEC-m4-authentication-064` marker present in `main`), local `main`
    fast-forwarded by ref while `-063`'s work sat uncommitted on its own branch. **CI on #63: `verify` pass 42 s,
