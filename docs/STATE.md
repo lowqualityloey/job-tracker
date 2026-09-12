@@ -217,7 +217,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   or (c) an interaction with the shared-container fixture — and guessing is how false root causes get recorded. **If it
   recurs, `dotnet test > /tmp/dt.log 2>&1` and dump that row's `created_at`/`updated_at` verbatim from the log before
   reading anything else.** It is AC-13's own net, so it is a real risk to the net's credibility, not a nuisance.
-- **Documentation-integrity ledger (17)**: M3's ten (AC-13's box · a fabricated SHA · AC-11's · AC-14's · refs to a
+- **Documentation-integrity ledger** — *(no number in this title, deliberately: it asserted **17** while its own items add to 20 under one reading of "two false Reds" and 19 under another, and every boundary since has appended an entry without recomputing the total — the exact behaviour its own AC-ledger item warns about: "a counter guards a number; only a re-derived list guards an identity". The number is withdrawn rather than corrected, because restating it would be the same error at a later date.)* **M3's ten** (AC-13's box · a fabricated SHA · AC-11's · AC-14's · refs to a
   nonexistent §10 · gap 10a · two orphaned measurements · **gap 10b's false charge, bought an approval and was retracted in
   #31** · §7's "four boxes" miscount and `-046`'s missing block · marking the grill "done" on a record grep proves never
   mentioned it) **plus six from this span**: two false Reds that were harness holes (missing `[Collection]`; a
@@ -234,7 +234,15 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   the agent writing this line**: `dotnet test 2>&1 | tail -40`, which reported **exit 0 on a run that had failed** (AGENTS.md's
   `pipefail` rule, broken while executing the handoff that states it), and an invented `ConnectionStrings__Default` because
   H4 elides the value — harmless only because Testcontainers builds its own database. Root cause of every one: **writing
-  from intent instead of measurement.**
+  from intent instead of measurement.** **One more, from the `-065` boundary, and it is the same species again:** PR #65's
+  body was published with a rollback list containing **`8e18377`, a commit that does not exist**. The mechanism matters more
+  than the typo: a scripted edit named a SHA for a commit that the *same* command chain was about to create; that
+  `git commit` then failed on an assert whose anchor I had copied from memory instead of from the file (a two-space indent
+  read as three); and the publishing step was separated by `;` rather than `&&`, so it ran regardless and the fabricated
+  identifier reached a reviewed artifact. It surfaced only while re-deriving an unrelated count from
+  `git log --format=%h main..HEAD` — **which is the sole reason this entry exists instead of the phantom shipping in the
+  merge**. A SHA is read, never predicted; rollback instructions should be generated from `git log`, and this PR's list now
+  is. 
 - **Measured at the `-065` boundary, 2026-09-13 01:20 UTC** (every figure produced by this run, none quoted from an
   earlier one): bundle **61,140 B** flag-off and **62,610 B** flag-on at the head, against **60,118 B** / **61,368 B**
   rebuilt from `41b32af` in the same run — the reproduction is **byte-exact**, `+0 / +0`, and that is the fact that
