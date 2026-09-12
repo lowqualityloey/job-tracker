@@ -1481,6 +1481,66 @@ editing a projection while two PRs deep it is exactly how it drifts. The §3A li
 are listed in the PR body rather than left to memory: next action (`-074` → delivered), ladder status (27 rows, three `◆`
 findings left), EXEC count (24 → 25), and D-3's phantom citation.
 
+
+---
+
+**`TDD-EXEC-m4-authentication-076`** · **no `BEHAVIOR-*` of its own** · Build/infra seam · p2 · delivered 2026-09-13
+
+**No Red/Green pair, deliberately:** this row changes what CI asserts, not what the app does, so its "test" is the gate
+script and the assertion is its exit code. Its evidence is therefore two controls instead of a failing test — see below.
+**Verifies no AC** (AC-14 was verified by `-065`); what it does is stop AC-14 from quietly becoming a description of a
+build nobody ships.
+
+**The gap it closes, measured before writing it:** `-065` recorded 1,242 B under a 3,072 B budget and `grep -c
+bundleDelta .github/workflows/ci.yml` → **0**. Nothing re-checked it. The `-076` row in the register named that as a
+defect in the *gate*, not in the number, and this is that gate.
+
+**Three pieces.** `tests/build/bundle-baseline.json` carries the baseline **with its provenance** (commit, UTC, URL
+literal, toolchain, command, and the fact that the reproduction was byte-exact) because a bare number in config is
+exactly the "orphaned measurement" this repository's ledger already has entries for. `tests/build/bundleGate.sh` builds
+the head once at the pinned literal and fails over budget, naming a dependency as the usual suspect and stating that
+raising `GATE_BYTES` is an acceptance-criterion decision rather than a fix. And `bundle-baseline-recheck` — dispatch-only,
+`fetch-depth: 0` — re-runs `bundleDelta.sh`, which rebuilds `41b32af` beside the head.
+
+**The compromise, owned rather than buried.** `-065`'s whole point was refusing to quote a baseline; a per-PR gate quotes
+one, because a depth-1 checkout cannot `worktree add` a five-month-old commit and four builds per push buys a number that
+moves only when a dependency moves. The counterweight is that the quoted value is **periodically re-proved**, and the
+recheck job asserts equality between the fixture and the rebuilt baseline — so the quote is auditable rather than
+faithful.
+
+**Two controls, because a gate that cannot fail is decoration.** Positive: head **62,610 B** vs fixture **61,368 B** →
+**+1,242 B, PASS** — which independently reproduces `-065`'s figure from one build, on a tree three commits past the run
+that produced it. Negative: `GATE_BYTES=1` → **exit 1** with the breach text and guidance. The override exists so the
+teeth are demonstrable instead of asserted, and the run that proves it is in this record rather than in a claim.
+
+**Three defects in my own wiring, all caught before push — and all of them the row's own subject, measurement over
+intent:**
+
+  * The re-derivation step first went into the `verify` job, whose checkout defaults to **depth 1**: `git worktree add
+    41b32af` could not resolve, so it would have failed on its first trigger. It now has its own job with
+    `fetch-depth: 0` — which is also where four builds belong, not on every push.
+  * A comment said the recheck job "fails if the reproduction drifts". It did not: `bundleDelta.sh` prints the drift and
+    asserts only the head-vs-rebuilt budget. Rather than soften the prose to match the code, the code now matches the
+    prose — the script emits `RESULT_FILE` key/values and the job asserts fixture equality itself.
+  * The hygiene assertion was a copy of DEBT-11's `git status --porcelain` check, and it failed on **this row's own
+    uncommitted source files**. Untracked work-in-progress is not build leakage; the assertion is now bounded to what a
+    build can actually leave — a config shadow, a `*.tsbuildinfo`, or a tracked-file change. The general form: an
+    assertion copied from a neighbouring step imports that step's assumptions.
+
+**Verified as executed, not as reviewed:** the workflow's assertion snippet was run locally against the emitted env file
+— passes with the real fixture, **fails with `fixture=99999`**, and the budget comparison reads `1242 B under budget`.
+Shell inside YAML that has never run is a wish, and this repository has already been charged for that one. `bundleDelta.sh`
+reproduced **61,368 / 60,118 B** again on this tree — byte-exact a second time, now across four merged PRs.
+
+**Coupling:** the register row and `-065`'s record both claimed the gate was unwired; both are now superseded, and AC-15's
+`PackageReference` figure (**4** in the API project, **6** in the test project, its evidence says **5**) remains
+unre-derivable and is `-076`'s sibling problem rather than this row's: a count nobody can recompute will keep being wrong
+in whichever direction memory points.
+
+**Next:** `-075`, the last open `◆` row — two CDP harnesses and two boot scripts sharing a recipe, provable only by
+re-running `-063`'s and `-064`'s browser rows against the extraction. The ordering is mine, and `-076` went first because
+it protects a number this milestone already claims while `-075` only costs time.
+
 ### §6a. Durable checkpoint and handoff records (Level 2 gate)
 
 | Sequence | File | Trigger | State |
