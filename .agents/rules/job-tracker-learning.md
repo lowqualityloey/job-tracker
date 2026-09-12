@@ -75,6 +75,10 @@ Mirrored from `AGENTS.md` (canonical) — every rule below came from a failure o
   before committing, and write a ref into a document only after measuring it. When a section is a *projection*
   of another record (STATE.md §3A), regenerate it whole at each boundary — bullet-wise patching across turns
   left it contradicting itself.
+- **Bound a projection edit by the section, not by "the next bullet."** A helper that walked a `STATE.md` §3A bullet to
+  the next line starting `- ` deleted 51 lines of §4's locked invariants — twice in one day, because §3A's last bullet is
+  followed by a heading whose next bullet lives in §5. Read the diff's hunk headers: 64 lines removed is not a bullet
+  edit. Then audit every removed line, because deliberate losses hide among the accidental ones.
 - **Reproduce the gate's conditions before quoting its verdict.** CI's first .NET run failed on
   `error CS8605` in code I had called clean: my build was incremental and my grep pattern omitted
   `warning`, so the evidence was thrown away by the reading. Delete `bin/ obj/`, pass the same flags CI
