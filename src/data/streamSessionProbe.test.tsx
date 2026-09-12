@@ -66,7 +66,10 @@ class FakeEventSource {
   }
 
   static last(): FakeEventSource {
-    const instance = FakeEventSource.instances.at(-1)
+    // Index math, not `.at(-1)`: the app project targets ES2020 and `Array.prototype.at` is ES2022, so the
+    // typecheck (TS2550) refuses it even though Node and every current browser have it. The tsconfig target is the
+    // contract here, not the runtime I happen to test on.
+    const instance = FakeEventSource.instances[FakeEventSource.instances.length - 1]
     if (!instance) {
       throw new Error('no EventSource was constructed')
     }
@@ -135,7 +138,7 @@ function Board(): JSX.Element {
   )
 }
 
-function Harness({ answer }: { answer: Answer }): JSX.Element {
+function Harness(): JSX.Element {
   const [viewMounted, setViewMounted] = useState(true)
 
   return (
@@ -157,7 +160,7 @@ function mount(answer: Answer): void {
   answerAs(answer)
   render(
     <MemoryRouter initialEntries={['/applications']}>
-      <Harness answer={answer} />
+      <Harness />
     </MemoryRouter>,
   )
 }

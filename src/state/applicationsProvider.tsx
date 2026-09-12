@@ -53,6 +53,11 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
       return false
     }
 
+    // Order matters only for the reader: close the channel first, because everything below this line is a re-render, and a
+    // re-render that happens while the stream is still open can queue another probe from the browser's next retry tick.
+    unsubscribeRef.current?.()
+    unsubscribeRef.current = null
+
     setApplications([])
     setError(error)
     setStatus('error')
@@ -85,6 +90,12 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
   // tree is gone. The effect body sets it back to true so React 18's double-invoke stays correct.
   const mounted = useRef(true)
 
+  // BEHAVIOR-062: the stream's teardown handle, kept where a *verdict* can reach it. The provider used to close the stream
+  // only on unmount (spec B-1); now a session known dead closes it too, because an EventSource the browser keeps retrying
+  // against a 401 is the loop this row exists to end -- and after a redirect to /login nothing unmounts, since the provider
+  // sits above the router on purpose.
+  const unsubscribeRef = useRef<(() => void) | null>(null)
+
   const reload = useCallback(async () => {
     const result = await repository.list()
 
@@ -93,24 +104,50 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
     }
   }, [repository, applyListResult])
 
+  /**
+   * BEHAVIOR-062: ask the server, once, whether this session is still alive — and act on exactly one answer.
+   *
+   * A probe reuses `list()` rather than minting a session endpoint: it is the same authenticated read the app already makes,
+   * its 401 already maps to `unauthorized` through `-060`'s table, and `GET /api/auth/session` (spec §4.3) still has no
+   * ladder row. Deliberately NOT routed through `applyListResult`: a probe whose failure means "the server is busy" must not
+   * blank a board that is showing readable rows. Only `unauthorized` is a verdict; every other outcome is "the outage was the
+   * network, carry on".
+   */
+  const probeSession = useCallback(async () => {
+    const result = await repository.list()
+
+    if (mounted.current && !result.ok && result.error.code === 'unauthorized') {
+      sessionEnded(result.error)
+    }
+  }, [repository, sessionEnded])
+
   useEffect(() => {
     mounted.current = true
 
     void reload()
 
-    // The provider asks *whether* its data changed, never *how*. `repository.subscribe` is the
+    // The provider asks *whether* its data changed, and since BEHAVIOR-062 the single bit of *how* that a 401 needs. `repository.subscribe` is the
     // seam: the localStorage adapter answers with a key-filtered StorageEvent, an in-memory store
     // has nothing to report, and M3's HTTP client can answer with polling or a pushed event
     // without a line of this file changing. Unsubscribing here is spec B-1's mitigation.
-    const unsubscribe = repository.subscribe(() => {
+    const unsubscribe = repository.subscribe((reason) => {
+      // The sentence below came from M3 and was true then; -062 spent one bit of it. The provider still asks *whether* its
+      // data changed, and now distinguishes the one case where re-reading is the wrong question to ask.
+      if (reason === 'error') {
+        void probeSession()
+        return
+      }
+
       void reload()
     })
+    unsubscribeRef.current = unsubscribe
 
     return () => {
       mounted.current = false
+      unsubscribeRef.current = null
       unsubscribe()
     }
-  }, [repository, reload])
+  }, [repository, reload, probeSession])
 
   // BEHAVIOR-026: a read that failed means this tab cannot say what the store holds, and writing
   // now would overwrite bytes it has not read. The refusal carries the *existing* error rather than
