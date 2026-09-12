@@ -1044,6 +1044,17 @@ no `code`, where AC-8's contract says `400` + `code: "validation"`), unless Q4 l
 **Next:** `-068`/`-069` were the last two unratified probe proposals, so the decision-free server-side queue is empty;
 `-063`/`-064`/`-065` and the Browser halves of `-067`/`-068` all wait on the same **Q4 harness-origin** answer.
 
+### §6a. Durable checkpoint and handoff records (Level 2 gate)
+
+| Sequence | File | Trigger | State |
+| :--- | :--- | :--- | :--- |
+| `checkpoint-001` | [`TASK-m4-authentication.checkpoint-001.md`](TASK-m4-authentication.checkpoint-001.md) | context compaction + milestone boundary, 2026-09-12 15:55 UTC (`-069` delivered) | `in_progress` — deliberately not a stop state |
+| `handoff-001` | [`TASK-m4-authentication.handoff-001.md`](TASK-m4-authentication.handoff-001.md) | same boundary; receiver runs its §2 (H1–H10) before editing | receiver must validate Task ID, revision, ACs, invariants, blockers, and the one next action |
+
+This file (§6) remains the **Local Task Source**: the checkpoint and handoff are projections of it, and any mismatch leaves
+execution reconciling rather than advancing. Neither record authorises a tag, release, publication, remote operation,
+deployment or rollback.
+
 
 
 
