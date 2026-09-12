@@ -300,17 +300,32 @@ export function createHttpApplicationRepository(baseUrl: string): ApplicationRep
       // re-read recovers. Re-reading on `error` instead would fire while the browser is still backing off, which
       // turns one outage into a request per retry tick per tab.
       let opened = false
+      // BEHAVIOR-062: `error` is reported AT MOST ONCE per subscription, and the counting belongs here rather than in the
+      // provider because this is where the browser's retry ticks actually land. The comment above this block, from `-040`,
+      // explains why re-reading on error used to be refused outright: "one outage turns into a request per retry tick per
+      // tab." That reasoning still holds — it is about *unbounded* probing — and it predates authentication, which is what
+      // turned a silent background failure into an endless 401 loop. So the bound survives and the first tick is now heard.
+      let errorReported = false
 
       source.addEventListener('change', () => {
-        onExternalChange()
+        onExternalChange('change')
       })
 
       source.addEventListener('open', () => {
         if (opened) {
-          onExternalChange()
+          onExternalChange('change')
         }
 
         opened = true
+      })
+
+      source.addEventListener('error', () => {
+        if (errorReported) {
+          return
+        }
+
+        errorReported = true
+        onExternalChange('error')
       })
 
       return () => {

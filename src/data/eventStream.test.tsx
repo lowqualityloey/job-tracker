@@ -120,11 +120,15 @@ describe('subscribe — the adapter over Server-Sent Events', () => {
 
     const stream = FakeEventSource.last()
     stream.emit('message')
-    stream.emit('error')
     stream.emit('ping')
 
     // The server sends `event: change`; a default `message` listener would also receive SSE comment frames' siblings
     // and any future event type the endpoint grows, driving re-reads for reasons nobody subscribed to.
+    //
+    // `error` was emitted in this case until BEHAVIOR-062 made it a channel the client DOES listen for: after M4 a stream
+    // that never reopens may mean "your session ended", not "the network is busy". Leaving it here would have this test
+    // asserting the opposite of its own title, so it moved to the probe suite (streamSessionProbe.test.tsx) and what stays
+    // is the part still true — event types nobody subscribed to must not drive reads.
     expect(onChange).not.toHaveBeenCalled()
   })
 
@@ -143,21 +147,33 @@ describe('subscribe — the adapter over Server-Sent Events', () => {
     expect(onChange).toHaveBeenCalledTimes(3)
   })
 
-  it('subscribe does not re-read when a connection drops, only when it comes back', () => {
+  it('subscribe reports a dropped connection once, then re-reads when it comes back', () => {
     const onChange = vi.fn()
     createHttpApplicationRepository(BASE).subscribe(onChange)
 
     const stream = FakeEventSource.last()
     stream.emit('open')
-    stream.emit('error')
-    stream.emit('error')
-    // The re-read boundary, asserted from the other side: `error` fires while the stream is still trying to
-    // reconnect, and `EventSource` retries on a backoff of its own. Re-reading per error turns one outage into a
-    // request per retry tick.
+    // Still nothing: this is the connection that arrived alongside the caller's own first read. Unchanged by -062.
     expect(onChange).not.toHaveBeenCalled()
 
-    stream.emit('open')
+    // The re-read boundary, asserted from the other side, and the one place `-062` narrowed `-040`'s decision rather than
+    // overturning it. `-040`'s reason stands verbatim: `error` fires while the stream is still trying to reconnect,
+    // `EventSource` retries on a backoff of its own, and re-reading per error "turns one outage into a request per retry
+    // tick". What M4 changed is that the FIRST tick can no longer be ignored, because a permanently 401ing stream would
+    // otherwise leave a board full of another session's rows under a spinner that never resolves.
+    //
+    // So the bound moved from ZERO reports per subscription to ONE. Two errors, one report -- that arithmetic is the whole
+    // case, and removing the adapter's `errorReported` guard turns it into 2 here and 5 in the probe suite.
+    stream.emit('error')
     expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledWith('error')
+
+    stream.emit('error')
+    expect(onChange).toHaveBeenCalledTimes(1)
+
+    stream.emit('open')
+    expect(onChange).toHaveBeenCalledTimes(2)
+    expect(onChange).toHaveBeenNthCalledWith(2, 'change')
   })
 
   it('subscribe interleaves change events and reconnects without dropping either', () => {
@@ -171,9 +187,10 @@ describe('subscribe — the adapter over Server-Sent Events', () => {
     stream.emit('change')
     stream.emit('error')
 
-    // one per change (2) + one for the reconnect (1). The count is the contract; the ordering inside the adapter is
-    // not observable from here, which is the point of asserting the total.
-    expect(onChange).toHaveBeenCalledTimes(3)
+    // one per change (2) + one for the reconnect (1) + one for the drop (1) = 4, the last term being BEHAVIOR-062's
+    // addition. The count is the contract; the ordering inside the adapter is not observable from here, which is the point
+    // of asserting the total. -062 moved one term from 0 to 1 — not to "once per tick", which the case above pins down.
+    expect(onChange).toHaveBeenCalledTimes(4)
   })
 
   it('subscribe opens the stream at the configured base url, trailing slash and path prefix intact', () => {
