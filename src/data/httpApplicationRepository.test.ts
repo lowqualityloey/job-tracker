@@ -185,3 +185,162 @@ describe('httpApplicationRepository — the §4.3 error mapping is total', () =>
     expect(new Headers(init?.headers).get('accept')).toBe('application/json')
   })
 })
+
+/**
+ * BEHAVIOR-m4-auth-063 / AC-11, client half. The server refuses a state-changing request that carries a session but
+ * no `X-CSRF-Token`; this block is the other half of that handshake.
+ *
+ * Scope note, stated because it is easy to over-claim here: **jsdom cannot prove the antiforgery property.** It has no
+ * same-site model, no cookie jar restrictions, and will happily hand back a `__Host-` cookie it never validated. What
+ * these cases can prove is the part that is actually this file's job — that the adapter reads the token and attaches
+ * it to exactly the verbs the server checks. The property itself ("a cross-site page cannot do this") is `-063`'s
+ * browser row, and a unit test that appeared to prove it would be the most misleading kind of passing test.
+ */
+describe('httpApplicationRepository — the antiforgery header (BEHAVIOR-m4-auth-063)', () => {
+  const TOKEN = 'CfDJ8A1b+Zx9kQ==T0k3n' // shaped like data-protection output: Base64 with +, / and = padding
+
+  // **Measured, not assumed: jsdom will not store a `__Host-` cookie at all.** Setting one through the real jar yields
+  // an empty `document.cookie` for `__Host-JTCsrf=x`, and also for `__Host-JTCsrf=x; Secure; Path=/`, while an
+  // unprefixed `JTCsrf=x` stores fine — probed directly, not inferred. So the prefix rule is enforced by the cookie
+  // *jar implementation*, not only by Chromium, and `-042`'s finding was not a browser quirk.
+  //
+  // Hence the jar is stubbed at the string the adapter actually reads. That narrows what these cases can claim, and
+  // the narrowing is the point of this comment: they cover **how the adapter parses a jar and which verbs it puts the
+  // token on**. They do not cover whether a real browser accepts the cookie the server writes — that is `-063`'s
+  // browser row, and it is the only seam where `__Host-` can be tested honestly.
+  const realJar = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie')
+  let jar = ''
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+    // Reset at file scope, not inside a nested block: `jar` is shared state the adapter reads on every call, so a
+    // leftover from a sibling `describe` would make these cases order-dependent. AGENTS.md named this mistake before
+    // it was ever made here.
+    jar = ''
+    Object.defineProperty(document, 'cookie', { configurable: true, get: () => jar })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    if (realJar) {
+      Object.defineProperty(document, 'cookie', { ...realJar, configurable: true })
+    }
+  })
+
+  /**
+   * Headers of the request that used `method`, not of `calls[0]`.
+   *
+   * The distinction arrived the hard way: `update()` reads the current record before it writes (it needs the revision
+   * for `If-Match` and the untouched fields for the replacement body), so the first call in the mock is a `GET` — and
+   * a positional assertion there passes for every verb except the one it claims to check. `create` and `remove` send
+   * one request each, so the bug would have shown up in exactly this one case, which is the kind of coverage that
+   * looks green while being blind.
+   */
+  function headersFor(method: string): Headers {
+    const calls = (fetch as Mock).mock.calls as [unknown, RequestInit | undefined][]
+    const hit = calls.find(([, init]) => String(init?.method ?? 'GET').toUpperCase() === method)
+    if (!hit) {
+      throw new Error(
+        `no ${method} request was sent; verbs seen: ` +
+          JSON.stringify(calls.map(([, init]) => String(init?.method ?? 'GET'))),
+      )
+    }
+
+    return new Headers(hit[1]?.headers)
+  }
+
+  it('attaches the token to a create, byte for byte', async () => {
+    jar = `__Host-JTCsrf=${TOKEN}`
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 201 }))
+
+    await createHttpApplicationRepository(BASE).create({
+      companyName: 'Hooli',
+      jobTitle: 'Engineer',
+      location: 'NY',
+      status: 'Saved',
+    })
+
+    // Compared through `Headers`, which lowercases on the way in and back out, so this asserts the value and not
+    // the casing of the key we chose to write. The casing that matters is the server's, and that is `-063`'s API row.
+    expect(headersFor('POST').get('x-csrf-token')).toBe(TOKEN)
+  })
+
+  // A wire record, because `update` cannot be reached without it: the method reads the current row first (it needs the
+  // revision for `If-Match` and the untouched fields for the replacement body) and returns early if that read does not
+  // parse. Responding `null` to it meant no `PUT` was ever sent, and the header assertion was checking a `GET`.
+  const RECORD = {
+    id: ID,
+    companyName: 'Hooli',
+    jobTitle: 'Engineer',
+    location: 'NY',
+    status: 'Saved',
+    appliedAt: '2026-09-12',
+    notes: null,
+    // Both required by `isWireApplication`, which checks `createdAt: string` and `revision: number` — omitting them
+    // made the read fail as corrupt-data and `update` return before its PUT, which is how this fixture's own shape
+    // became the bug rather than the assertion.
+    createdAt: '2026-09-11T09:00:00.000Z',
+    revision: 3,
+  }
+
+  it.each([
+    // `update(id, patch)` — two arguments, from the interface line rather than from the shape of a `JobApplication`. It
+    // is the third case today where the harness failed because a call was written from a remembered signature.
+    ['update', (repository: ApplicationRepository) => repository.update(ID, { status: 'Interview' }), 'PUT',
+      () => new Response(JSON.stringify(RECORD), { status: 200, headers: { 'content-type': 'application/json' } })],
+    // §4.3 answers `204` to a delete and `remove` deliberately does not parse a body, so an empty one is the truth.
+    ['remove', (repository: ApplicationRepository) => repository.remove(ID), 'DELETE',
+      () => new Response(null, { status: 204 })],
+  ])('attaches it to %s as well, because every unsafe verb is checked', async (_name, invoke, verb, respond) => {
+    jar = `__Host-JTCsrf=${TOKEN}`
+    vi.mocked(fetch).mockImplementation(async () => respond())
+
+    await invoke(createHttpApplicationRepository(BASE))
+
+    expect(headersFor(verb).get('x-csrf-token')).toBe(TOKEN)
+  })
+
+  it('sends no token on a read, so the exempt verb stays exempt on the client too', async () => {
+    jar = `__Host-JTCsrf=${TOKEN}`
+    vi.mocked(fetch).mockResolvedValue(new Response('[]', { status: 200 }))
+
+    await createHttpApplicationRepository(BASE).list()
+
+    expect(headersFor('GET').get('x-csrf-token')).toBeNull()
+  })
+
+  it('sends no header when the cookie is absent, and lets the server decide what that means', async () => {
+    // The tempting client-side "fix" is to synthesise a token or skip the request with a friendly error. Both make
+    // the failure undiagnosable: the server's 403 + `antiforgery` code is the only place anyone learns that the
+    // session and the token disagree.
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 201 }))
+
+    await createHttpApplicationRepository(BASE).create({
+      companyName: 'Hooli',
+      jobTitle: 'Engineer',
+      location: 'NY',
+      status: 'Saved',
+    })
+
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(headersFor('POST').get('x-csrf-token')).toBeNull()
+  })
+
+  it('re-reads the jar on every call rather than caching the first token it saw', async () => {
+    // The case that distinguishes "reads document.cookie" from "read it once at module scope". A cached token
+    // survives one login and then silently breaks every write after the user signs out and back in — a 403 with no
+    // explanation, and the worst kind to debug because it only happens the second time.
+    const repository = createHttpApplicationRepository(BASE)
+    jar = `__Host-JTCsrf=${TOKEN}`
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 201 }))
+    await repository.create({ companyName: 'First', jobTitle: 'A', location: 'NY', status: 'Saved' })
+    const first = headersFor('POST').get('x-csrf-token')
+
+    jar = '__Host-JTCsrf=rotated-value'
+    ;(fetch as Mock).mockClear()
+    await repository.create({ companyName: 'Second', jobTitle: 'B', location: 'NY', status: 'Saved' })
+
+    expect(first).toBe(TOKEN)
+    expect(headersFor('POST').get('x-csrf-token')).toBe('rotated-value')
+  })
+})

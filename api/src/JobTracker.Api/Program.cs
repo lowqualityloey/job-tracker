@@ -37,6 +37,12 @@ builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
 builder.Services.AddSingleton<IPasswordService, PasswordService>();
 
+// BEHAVIOR-m4-auth-063: the antiforgery token is a *protected* session id, and the key ring is the framework's rather
+// than a secret configured per environment — `Antiforgery`'s comment carries where that deviates from DECISION-m4-auth-006's
+// "HMAC over the session id" wording, and why. Stated explicitly because this app never asked for data protection
+// implicitly, and a service that arrives by accident is one nobody notices being removed.
+builder.Services.AddDataProtection();
+
 builder.Services.AddDbContext<JobTrackerDb>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
@@ -144,6 +150,14 @@ app.UseCors();
 // `-071`'s static-file block is registered *below* this line rather than beside UseCors, so the gate still sees every
 // request first and adding a file server cannot create a path that skips it. The reasoning lives with the block.
 app.UseSessionGate();
+
+// BEHAVIOR-m4-auth-063 / AC-11. Registered strictly **after** the gate above, and the order carries meaning twice over.
+// A request with no session is a `401` — an authentication failure the client maps to "sign in"; a request *with* one but
+// without a matching token is a `403`. Run in the other order and every anonymous probe becomes a `403` describing a
+// token the caller never had a chance to hold, which would also move `DataRouteAuthTests`' ratified 401s under a row that
+// has no business touching them. Both directions are asserted: `…AntiforgeryGateTests` for the 403, and that existing
+// file for the 401s it must not disturb.
+app.UseAntiforgeryGate();
 
 // Routes and handlers live in ApplicationCatalog (spec §4.1's deep module); Program is composition.
 app.MapAuthCatalog();

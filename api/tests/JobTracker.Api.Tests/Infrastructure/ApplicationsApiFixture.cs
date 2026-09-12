@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Net.Http;
+using JobTracker.Api.Auth;
 using DotNet.Testcontainers.Builders;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -106,12 +107,43 @@ public sealed class ApplicationsApiFixture : IAsyncLifetime
                 $"fixture login failed: {(int)login.StatusCode} {await login.Content.ReadAsStringAsync()}");
         }
 
-        var cookie = login.Headers.TryGetValues("Set-Cookie", out var values)
-            ? values.First().Split(';', 2)[0]
-            : throw new InvalidOperationException("fixture login issued no Set-Cookie header");
+        // Selected by name instead of `values.First()`, which was positionally correct while login set one cookie and
+        // became silently load-bearing the moment it set two: `-063` adds the antiforgery token, and a fixture that
+        // grabbed whichever header happened to come first would attach a token where a session belongs.
+        string? Pair(string name) => login.Headers.TryGetValues("Set-Cookie", out var values)
+            ? values.Select(v => v.Split(';', 2)[0]).FirstOrDefault(v => v.StartsWith(name + "=", StringComparison.Ordinal))
+            : null;
+
+        var cookie = Pair(AuthCatalog.SessionCookieName)
+            ?? throw new InvalidOperationException("fixture login issued no session cookie");
+        // `Pair` returns the whole `name=value` pair, which is what a `Cookie:` header wants and what a *token value*
+        // must not have. The first run of this row sent `X-CSRF-Token: __Host-JTCsrf=CfDJ8…` and every gated write came
+        // back 403 — a fixture bug, diagnosed only because the probe printed the value instead of inferring it.
+        // `AntiforgeryGateTests` had the strip right all along, which is why 7/7 passed while 36 cases in another file
+        // did not: the same mistake, seen twice, is a helper's fault, and the helper is this method.
+        var tokenPair = Pair(Antiforgery.CookieName);
+        var token = tokenPair is null ? null : tokenPair[(Antiforgery.CookieName.Length + 1)..];
 
         http.DefaultRequestHeaders.Remove("Cookie");
         http.DefaultRequestHeaders.Add("Cookie", cookie);
+
+        // BEHAVIOR-m4-auth-063: the antiforgery token, as a default header on the same client the session belongs to.
+        //
+        // What this scaffolding decision buys, and what it therefore *costs in evidence*, is worth being exact about.
+        // The ~80 pre-existing tests that write through this fixture are about validation, ownership, concurrency and
+        // event fan-out — none of them is about antiforgery, and making each carry the token by hand would have
+        // rewritten 85 call sites to express one property that `AntiforgeryGateTests` already pins at the seam where it
+        // belongs. So the fixture holds the token the way a browser holds the cookie: without each test deciding to.
+        //
+        // The cost is the sentence to remember when reading a green suite: **these tests no longer prove the header is
+        // required, because something is always sending it.** That claim lives in `AntiforgeryGateTests`, which builds
+        // its own clients and deliberately omits the header, and in `-063`'s two browser cases. A fixture that
+        // supplied the token there too would turn the only real evidence into plumbing.
+        http.DefaultRequestHeaders.Remove(Antiforgery.HeaderName);
+        if (token is not null)
+        {
+            http.DefaultRequestHeaders.Add(Antiforgery.HeaderName, token);
+        }
     }
 
     public async Task ExecuteAsync(string sql)

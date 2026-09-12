@@ -1,6 +1,12 @@
 {
   "$comment": "The API's problem-document `code` vocabulary, as ONE artifact read by both suites. BEHAVIOR-060 / DECISION-m3-backend-api-004.",
-  "codes": ["conflict", "not-found", "unauthorized", "validation"],
+  "codes": [
+    "conflict",
+    "not-found",
+    "unauthorized",
+    "validation",
+    "antiforgery"
+  ],
   "provenance": {
     "emitted-by": "api/src/JobTracker.Api/Problems.cs (enumerated by reflection in ProblemCodeContractTests, not copied by hand)",
     "consumed-by": "src/data/problemCodeContract.ts (typed table, asserted equal to this list in problemCodeContract.test.ts)"

@@ -386,12 +386,26 @@ async function main() {
     }
 
     // 4. Cleanup, so the harness is re-runnable against a persistent database.
+    //
+    // Two changes here, both forced by `-063`:
+    //
+    //   · The `DELETE` now carries `X-CSRF-Token`. `SessionGate` let an authenticated-but-tokenless write through until
+    //     this row; this cleanup is exactly such a write, so the gate turned it into a `403` and the harness would have
+    //     started leaking a marker row into every subsequent run.
+    //   · The verdict is no longer `'deleted ' + res.status` for any status. That string passed on `403` and `500`, which
+    //     made check 7 a check that the request *ran*. It reads as a small thing, and it is the same defect `-063`
+    //     exists to prevent on the server: a refusal and a success that look identical from where the assertion sits.
     const del = await evalJs(call, a.sessionId, `(async () => {
       const list = await (await fetch('${API}/api/applications')).json()
       const hit = list.find((r) => r.companyName === ${JSON.stringify(marker)})
       if (!hit) return 'nothing to clean'
-      const res = await fetch('${API}/api/applications/' + hit.id, { method: 'DELETE', headers: { 'If-Match': '"' + hit.revision + '"' } })
-      return 'deleted ' + res.status
+      const token = (document.cookie.match(/(?:^|; )__Host-JTCsrf=([^;]*)/) ?? [])[1]
+      if (!token) return 'no __Host-JTCsrf in the jar — this DELETE would be refused, not verified'
+      const res = await fetch('${API}/api/applications/' + hit.id, {
+        method: 'DELETE',
+        headers: { 'If-Match': '"' + hit.revision + '"', 'x-csrf-token': token },
+      })
+      return (res.ok ? 'deleted ' : 'refused ') + res.status
     })()`)
     record('the marker record is removed again', String(del.value ?? '').startsWith('deleted'), String(del.value))
   } catch (err) {

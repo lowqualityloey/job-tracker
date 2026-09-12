@@ -55,6 +55,18 @@ type WireApplication = Omit<JobApplication, 'location' | 'appliedAt' | 'notes'> 
 /** §4.3's `errors[].pointer` values are wire member names, and only these are legal to highlight in a form. */
 const KNOWN_FIELDS = ['companyName', 'jobTitle', 'location', 'status', 'appliedAt', 'notes'] as const
 
+/**
+ * The antiforgery pair from BEHAVIOR-m4-auth-063 / DECISION-m4-auth-006, spelled here and nowhere else in the client.
+ * Both literals must match the server's `Antiforgery.HeaderName` / `Antiforgery.CookieName`, and the seam that keeps
+ * them honest is `-063`'s browser row, not a unit test: a jsdom test can only prove this file agrees with itself.
+ * `contracts/problem-codes.json` is the pattern the pairing should eventually follow — one artifact, two readers —
+ * and `-065` is where that is worth arguing for, because it needs both names too.
+ */
+const CSRF_COOKIE_NAME = '__Host-JTCsrf'
+
+/** Mirrors the server's `AntiforgeryGate.UnsafeMethods`. `GET`/`HEAD` are absent by design: no token, no exception. */
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
 function isWireApplication(candidate: unknown): candidate is WireApplication {
   if (typeof candidate !== 'object' || candidate === null) {
     return false
@@ -233,12 +245,44 @@ export function createHttpApplicationRepository(baseUrl: string): ApplicationRep
     return { code: 'storage-error', detail: String(cause) }
   }
 
+  /**
+   * The `403` of BEHAVIOR-m4-auth-063 / DECISION-m4-auth-006: a state-changing request must carry the token the server
+   * issued at login, in a header, because a header is the one thing a cross-site page cannot set while the browser is
+   * still willing to attach cookies.
+   *
+   * Read from the cookie on **every** call rather than cached at module load. A cached copy survives login in one
+   * tab and goes stale in another the moment the session rotates, and the failure it produces — writes refused after
+   * the user signed out and back in — is exactly the kind that gets blamed on the server.
+   *
+   * Returns nothing when the cookie is absent. That is not a silent pass: the server then answers `403`, and
+   * `problemCodeContract` maps it. Emptying the header client-side to "handle" the missing case would turn a loud
+   * refusal into a guess about why the cookie is gone.
+   */
+  function csrfHeaders(method: string): Record<string, string> {
+    if (!UNSAFE_METHODS.has(method.toUpperCase())) {
+      return {}
+    }
+
+    const jar = typeof document === 'undefined' ? '' : (document.cookie ?? '')
+    const prefix = `${CSRF_COOKIE_NAME}=`
+    for (const pair of jar.split(';')) {
+      const cookie = pair.trim()
+      if (cookie.startsWith(prefix)) {
+        // No decoding: the value is data-protection Base64 (`A–Z a–z 0–9 + / =`), every character of which is legal in
+        // a cookie value, and a `decodeURIComponent` here would corrupt any future token that ever contained a `%`.
+        return { 'x-csrf-token': cookie.slice(prefix.length) }
+      }
+    }
+
+    return {}
+  }
+
   async function send(path: string, init: RequestInit, id: string | null): Promise<Result<Response>> {
     let response: Response
     try {
       response = await fetch(`${root}${path}`, {
         ...init,
-        headers: { accept: 'application/json', ...init.headers },
+        headers: { accept: 'application/json', ...csrfHeaders(String(init.method ?? 'GET')), ...init.headers },
       })
     } catch (cause) {
       return err(transportError(cause))

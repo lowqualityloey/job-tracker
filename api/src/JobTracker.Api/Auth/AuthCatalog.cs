@@ -1,5 +1,6 @@
 using JobTracker.Api.Auth;
 using JobTracker.Api.Data;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 namespace JobTracker.Api;
@@ -31,7 +32,8 @@ public static class AuthCatalog
     public static IEndpointRouteBuilder MapAuthCatalog(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/auth/login", async (
-            LoginRequest? request, JobTrackerDb db, IPasswordService passwords, HttpContext http, TimeProvider time) =>
+            LoginRequest? request, JobTrackerDb db, IPasswordService passwords, HttpContext http, TimeProvider time,
+            IDataProtectionProvider protection) =>
         {
             var errors = new List<FieldError>();
             if (request is null || string.IsNullOrWhiteSpace(request.Email))
@@ -123,6 +125,16 @@ public static class AuthCatalog
 
             http.Response.Headers.Append("Set-Cookie",
                 $"{SessionCookieName}={session.Id}; Secure; HttpOnly; SameSite=Lax; Path=/");
+
+            // BEHAVIOR-m4-auth-063 / DECISION-m4-auth-006 -- the antiforgery token, issued **here and only here**,
+            // because login is the one moment the server is certain of a session id to bind it to. No `HttpOnly`: the
+            // client has to read this one to echo it, and `AntiforgeryGate`'s comment is the defence of that choice
+            // rather than a note that it was omitted. Same `Secure`/`Path`/`SameSite` and the same no-`Domain` rule as
+            // the session cookie, so `__Host-` is satisfiable for both; and, like the session cookie, **not conditional
+            // on environment** — a prefix discipline that varies by deployment is a prefix discipline that fails in the
+            // one environment nobody tested.
+            http.Response.Headers.Append("Set-Cookie",
+                $"{Antiforgery.CookieName}={Antiforgery.Issue(protection, session.Id)}; {Antiforgery.CookieAttributes}");
             return Results.NoContent();
         });
 
@@ -154,6 +166,13 @@ public static class AuthCatalog
             // trusted from the spec.
             http.Response.Headers.Append("Set-Cookie",
                 $"{SessionCookieName}=; Max-Age=0; Secure; HttpOnly; SameSite=Lax; Path=/");
+
+            // BEHAVIOR-m4-auth-063: cleared with the same constraints, for the same reason as above — a token cookie
+            // that outlives its session is a value sitting in a jar with nothing left to bind it to. `Asserted in
+            // -054's test rather than trusted from the spec` applies verbatim here, and `Logout_clears_the_token_cookie_
+            // as_well_as_the_session` is that assertion.
+            http.Response.Headers.Append("Set-Cookie",
+                $"{Antiforgery.CookieName}=; Max-Age=0; {Antiforgery.CookieAttributes}");
             return Results.NoContent();
         });
 

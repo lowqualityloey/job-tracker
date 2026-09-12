@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
+using JobTracker.Api.Tests.Infrastructure;
 
 namespace JobTracker.Api.Tests;
 
@@ -96,18 +97,16 @@ public sealed class SessionExpiryTests(PostgresFixture postgres)
         var response = await http.SendAsync(request);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var values), "login issued no cookie");
-        var cookie = Assert.Single(values.ToList());
-
-        // Trimmed to name=value: the attributes belong to the browser, and echoing "Secure; HttpOnly" back in a request
-        // header is how a cookie test quietly stops testing the thing it names.
-        return cookie.Split(';', 2)[0];
+        // The name=value trimming rule — and the reason for it — now lives in `TestCookies.Pair`. `SessionOf` also
+        // records the token the same login issued, which is what lets this file's replayed cookies pass `-063`'s gate
+        // without every case threading a second value through a signature.
+        return TestCookies.SessionOf(response);
     }
 
     private static async Task<HttpStatusCode> ReadAsync(HttpClient http, string cookie)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/applications");
-        request.Headers.Add("Cookie", cookie);
+        TestCookies.Attach(request, cookie);
         return (await http.SendAsync(request)).StatusCode;
     }
 
@@ -286,7 +285,7 @@ public sealed class SessionExpiryTests(PostgresFixture postgres)
 
         using (var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout"))
         {
-            request.Headers.Add("Cookie", cookie);
+            TestCookies.Attach(request, cookie);
             Assert.Equal(HttpStatusCode.NoContent, (await http.SendAsync(request)).StatusCode);
         }
 
