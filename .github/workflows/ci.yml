@@ -44,6 +44,14 @@ jobs:
       - name: Verify (typecheck → lint → stylelint → tests → build)
         run: npm run verify
 
+      # -076: AC-14's budget, checked on every pull request rather than remembered. `-065` measured the number once and
+      # nothing has verified it since (`grep -c bundleDelta .github/workflows/ci.yml` → 0 before this step existed), so a
+      # dependency bump of ~2 kB would reach `main` with every job green while AC-14 stayed a checked box describing a
+      # build that no longer exists. This is a second full build per PR — the cost `-076` names and accepts; the thing it
+      # buys is that the acceptance criterion is now a gate instead of a recollection.
+      - name: Bundle gate (AC-14, -076)
+        run: bash tests/build/bundleGate.sh
+
       # Permanent teeth for DEBT-11. `tsc -b` (inside `npm run build`) emits next to its inputs unless
       # `tsconfig.node.json` keeps `"noEmit": true`; the emitted `vite.config.js` then shadows the real
       # `vite.config.ts` for `vite dev`/`vite build` — Vite resolves `.js` before `.ts` — while Vitest
@@ -66,6 +74,51 @@ jobs:
             exit 1
           fi
           echo "✓ no config shadow, no leaked build output"
+
+  # -076's other half. `bundleGate.sh` compares against a fixture because a per-PR job cannot afford four builds and has
+  # no history checked out (`actions/checkout` defaults to depth 1). This job is the counterweight: manually triggered,
+  # full history, and it rebuilds the baseline commit itself — the `-065` procedure, kept runnable so the fixture cannot
+  # rot quietly. What it asserts, precisely: `bundleDelta.sh` rebuilds `41b32af` and the head in one run and fails if the
+  # head's delta breaches the budget — and it only *prints* how far the reproduced baseline sits from `-065`'s figures.
+  # The fixture-vs-reproduction equality is therefore asserted here, from the machine-readable line the script emits, so
+  # a baseline that has silently moved fails the job instead of appearing as a curious number in a log. Two different
+  # checks, one per script: `bundleGate.sh` asks "did the app grow", this job asks "is the number the gate trusts still
+  # the number history produces".
+  bundle-baseline-recheck:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install (lockfile-exact)
+        run: npm ci
+
+      - name: Rebuild the baseline commit and the head in one run
+        env:
+          RESULT_FILE: /tmp/bundle-recheck.env
+        run: |
+          set -euo pipefail
+          bash tests/build/bundleDelta.sh
+          . "$RESULT_FILE"
+          fixture=$(node -e 'process.stdout.write(String(require("./tests/build/bundle-baseline.json").flag_on_bytes))')
+          echo "reproduced baseline=$REPRODUCED_BASELINE_ON_B at $BASE_COMMIT_REF · fixture says $fixture · head=$HEAD_ON_B"
+          if [ "$REPRODUCED_BASELINE_ON_B" != "$fixture" ]; then
+            echo "::error::the committed baseline no longer reproduces ($REPRODUCED_BASELINE_ON_B vs $fixture B at $URL_LITERAL_B). The per-PR gate is comparing the head against a number that history does not produce — update tests/build/bundle-baseline.json from tests/build/bundleDelta.sh output and say why in the commit."
+            exit 1
+          fi
+          echo "✓ fixture still reproduces byte-exact; the gate's baseline is honest"
+          if [ $((HEAD_ON_B - REPRODUCED_BASELINE_ON_B)) -ge 3072 ]; then
+            echo "::error::head exceeds AC-14's budget by the re-derived measure too ($(($(HEAD_ON_B - REPRODUCED_BASELINE_ON_B))) B)"
+            exit 1
+          fi
 
   # --- M3 Slice 0: the API gate --------------------------------------------------------------------
   #
