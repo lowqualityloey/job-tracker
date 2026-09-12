@@ -760,6 +760,51 @@ configuration**, and states which literal it used; a delta quoted without its UR
   this project at all, because `tsconfig.app.json` lists `types` without `@types/node` — a deliberate constraint, respected rather
   than widened for a test's convenience.
 
+**`TDD-EXEC-m4-authentication-061`** · `BEHAVIOR-061` (verifies no AC — it is Slice 4's frontend seam) · Red `72cd779` → Green `0dd0661` · p0 · **Slice 4** (seam Unit FE)
+- **Red:** `npx vitest run src/data/problemCodeContract.test.ts` → **`Failed 1, Tests 1 failed | 6 passed`**, with
+  `expected { code: 'corrupt-data', … } to deeply equal { code: 'unauthorized' }` — the assertion `-060` left failing on
+  purpose; and `npx vitest run src/pages/loginPage.test.tsx` → **`Test Files 1 failed`** with
+  `Failed to resolve import "./LoginPage"`.
+  **Green:** focused **10/10**; **`npm run verify` exit 0** — typecheck, lint, lint:css, **214 FE tests / 22 files**, build;
+  API **`Failed: 0, Passed: 144, Skipped: 0`**, 38 s, 0 warnings.
+- **DECISION-m4-auth-005 — APPROVED by the owner on 2026-09-12**, explicitly, when asked: `{ code: 'unauthorized' }` is the
+  **ninth** `RepositoryError` variant, the second widening of M2a's frozen union, made on the same footing as `DECISION-006`'s
+  first. A merge was deliberately *not* read as this yes, which is why `-060` shipped a provisional row with a test watching
+  it; the test broke on approval, exactly as designed.
+- **Four pieces.** The variant, in the union. The table row, now returning its own value. `sessionEnded` in the provider —
+  a 401 from **any** seam (first read, re-read, `create`, `update`, `remove`) drops the snapshot. `RequireSession` + `LoginPage`
+  + the `/login` route, so the redirect has somewhere to go.
+- **Why the write paths are included.** A tab usually discovers a dead session on a *write*: the read that filled the screen
+  happened while the session was alive. Without the write paths the 401 stops at a page's toast and the board keeps showing
+  rows that belonged to someone's ended session. Only the session state clears; the in-progress form draft does not — that is
+  what "draft-free" means in the decision's wording.
+- **`?next=` is validated, not trusted.** `safeDestination` refuses anything not root-relative, including `//evil.test`
+  (protocol-relative) and `/\evil.test` (the same trick in a parser's face), because honouring a stranger's URL right after a
+  password is the credential hand-off. Both are tested; the `%2F%2F` form is the one a URL-decoding reader would miss. The
+  destination is also **visible** on the screen — a redirect a user cannot see is one they cannot check.
+- **Login success does `window.location.assign`, not `useNavigate`** — a consequence of the clear above: the snapshot was
+  dropped and the provider re-reads only at boot, so an in-SPA redirect lands on a board that still believes it failed.
+  Injected as a prop so the test watches a call instead of fighting jsdom's unimplemented navigation.
+- **`eslint` earned its keep twice:** `no-base-to-string` on `String(init.body)`, and three `useCallback` dep arrays missing
+  `sessionEnded`, which I would otherwise have shipped as a stale-closure bug. Typecheck passed *unchanged* by the widening,
+  because `ApplicationFormPage`'s switch has a `default`: **the compiler enforces a missing table row, not a missing prose
+  case** — so the `unauthorized` sentence added there is a choice, and `default` would have rendered a retry invitation for a
+  401, the precise failure the variant exists to prevent.
+- **Three failures of mine, all found before committing:** a missing close-paren in my own test made the first Red a parse
+  error rather than the missing-module Red I described (fixed, re-measured); an open-redirect case that rendered **two** login
+  screens in one test produced "multiple elements named /sign in/i" — assertion right, fixture wrong, split into two; and two
+  scripted edits anchored on prose I had reconstructed instead of read (`helper anchor`, `repository.delete(id)` where the
+  method is `remove`) — each aborted before writing, so nothing half-applied. **`npm run verify` is the reason none of these
+  reached `main`.**
+- **Note for whoever re-runs AC-15** (static analysis, test-plan row 15: dependency count + credential literals): this
+  increment adds `src/pages/loginPage.test.tsx`, which contains **fake** credentials (`hunter2`, `correct horse`) as form
+  input. They are test fixtures, not source secrets — the check's scope is product source and config, and `package.json`
+  dependencies remain **3** (react, react-dom, react-router-dom — all already present; no library was added to build a
+  login screen).
+- **Verifies no AC**, so the count stays **11 verified + 6 open = 17** (asserted). STATE moves to 16 behaviours executed.
+  **Next:** `-062` (an `EventSource` failure probes the session once rather than retrying forever), which the ninth variant
+  finally makes expressible.
+
 ---
 
 `Pending` for Slices 1 (rest)–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had

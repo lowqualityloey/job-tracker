@@ -129,7 +129,7 @@ Migration is **Expand–Contract** — never a single instantaneous `ADD COLUMN 
 | 2 Assert | `ALTER … ALTER COLUMN owner_id SET NOT NULL` **after** the count of NULL rows is verified 0 | Yes |
 | 3 Scope | Repository/catalog filter by owner; unauthenticated → 401 | Yes, same release |
 
-### DECISION-m4-auth-005 — The **ninth** `RepositoryError` variant: `unauthorized` · **Owner decision required**
+### DECISION-m4-auth-005 — The **ninth** `RepositoryError` variant: `unauthorized` · **Owner decision required — GIVEN, 2026-09-12**
 
 M2a froze the union at seven; `DECISION-006` widened it to eight and that widened a locked invariant on an owner's
 explicit yes. **This does it again**, so it gets its own row rather than riding along: `{ code: 'unauthorized' }`, plus the
@@ -318,7 +318,7 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
 - [ ] **Owner decides `DECISION-001` (cookie vs Bearer) as written down.** This one is load-bearing: **`EventSource`'s
       missing header option, not taste, is doing the work**, and it is the sort of constraint that reads as trivia until
       someone tries to bolt Bearer onto `-040` a year later
-- [ ] **Owner approves the ninth `RepositoryError` variant** — the second widening of M2a's locked invariant, and it
+- [x] **Owner approves the ninth `RepositoryError` variant** — **approved 2026-09-12**, when the agent asked rather than inferring it from a merge; `DECISION-006` set the precedent that this class of change needs an explicit yes. Landed in `-061`. — the second widening of M2a's locked invariant, and it
       should be as deliberate as `DECISION-006` was
 - [ ] Owner approves `DECISION-002` (two tables over ASP.NET Identity) and `003` (PBKDF2 with no new dependency, Argon2
       **deferred with a named trigger: M5 exposure**)
