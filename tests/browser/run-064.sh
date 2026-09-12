@@ -50,8 +50,9 @@ cleanup() {
   # Every branch `|| true`: under `set -e` a cleanup that fails for an uninteresting reason (already dead, already
   # dropped) would mask the real result of the run above it by deciding the script's exit code.
   if [ -n "$API_PID" ] && kill -0 "$API_PID" 2>/dev/null; then kill "$API_PID" 2>/dev/null || true; fi
+  pkill -x JobTracker.Api 2>/dev/null || true
   docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d postgres \
-    -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};" >/dev/null 2>&1 || true
+    -c "DROP DATABASE IF EXISTS ${SCRATCH_DB} WITH (FORCE);" >/dev/null 2>&1 || true
   rm -f "$CERT" "$KEY" || true
 }
 trap cleanup EXIT
@@ -66,7 +67,11 @@ docker exec "$CONTAINER" test -x /ms-playwright/chromium-1129/chrome-linux/chrom
 echo "origin $ORIGIN · container $CONTAINER · scratch db $SCRATCH_DB · bootstrap user $BOOTSTRAP_EMAIL"
 
 step "1 — scratch database (created empty; EF migrates it on boot)"
-docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d postgres -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};" >/dev/null
+# A leftover process from an earlier run holds it: `dotnet run` does not forward SIGTERM to the application
+# it launched, so killing the parent leaves the server connected, and `DROP DATABASE` then fails with
+# "being accessed by other users" — measured on the run after this one was aborted. `WITH (FORCE)` (PG 13+) is the
+# difference between a runner that cleans up and one that reports its own predecessor.
+docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d postgres -c "DROP DATABASE IF EXISTS ${SCRATCH_DB} WITH (FORCE);" >/dev/null
 docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d postgres -c "CREATE DATABASE ${SCRATCH_DB};" >/dev/null
 echo "created $SCRATCH_DB"
 
