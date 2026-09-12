@@ -90,6 +90,10 @@ app.UseStatusCodePages();
 // the endpoint they add next — which would strand the stream cross-origin while every write kept working.
 app.UseCors();
 
+// BEHAVIOR-055 / spec 2.1: the gate runs AFTER UseCors on purpose -- a preflight must not be refused for lacking a
+// cookie it cannot carry -- and before the routes, so nothing can stream a single byte anonymously.
+app.UseSessionGate();
+
 // Routes and handlers live in ApplicationCatalog (spec §4.1's deep module); Program is composition.
 app.MapAuthCatalog();
 app.MapApplicationCatalog();

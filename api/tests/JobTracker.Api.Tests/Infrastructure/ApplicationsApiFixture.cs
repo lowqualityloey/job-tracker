@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Net.Http;
 using DotNet.Testcontainers.Builders;
 using Microsoft.AspNetCore.Hosting;
@@ -26,6 +27,15 @@ public sealed class ApplicationsApiFactory(string connectionString) : WebApplica
     /// </summary>
     public const string AllowedOrigin = "http://allowed.test";
 
+    /// <summary>
+    /// The fixture's own bootstrap account, configured through the same <c>Auth:Bootstrap:*</c> keys the product reads.
+    /// Deliberately <b>not</b> inserted with SQL: seeding through configuration means these tests exercise the real
+    /// credential path, so a login route that quietly stopped working would be noticed by every test in the file
+    /// rather than only by the ones about login.
+    /// </summary>
+    public const string BootstrapEmail = "fixture-user@example.test";
+    public const string BootstrapPassword = "the-fixture-session-password-9d1";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder) =>
         // UseSetting, not environment variables: it lands in the same configuration pipeline the app reads at
         // startup, and it keeps the fixture honest about *what* it is overriding.
@@ -35,7 +45,11 @@ public sealed class ApplicationsApiFactory(string connectionString) : WebApplica
         // config happens to allow a browser on this particular machine. Index-key form because `UseSetting` has no
         // array overload — and that also proves the app must read the section as an array, not a delimited string.
         builder.UseSetting("ConnectionStrings:Default", connectionString)
-            .UseSetting("Cors:AllowedOrigins:0", AllowedOrigin);
+            .UseSetting("Cors:AllowedOrigins:0", AllowedOrigin)
+            // The gate (BEHAVIOR-055) refuses anonymous reads, so a host with no configured account would be a host
+            // no test can use.
+            .UseSetting("Auth:Bootstrap:Email", BootstrapEmail)
+            .UseSetting("Auth:Bootstrap:Password", BootstrapPassword);
 }
 
 /// <summary>
@@ -61,7 +75,12 @@ public sealed class ApplicationsApiFixture : IAsyncLifetime
     /// trackers — so the only thing the two can share is PostgreSQL. That is the failure mode worth catching: a
     /// "backend" that keeps the catalog in process memory would satisfy every other test in this file.
     /// </summary>
-    public HttpClient CreateIndependentHost() => new ApplicationsApiFactory(ConnectionString).CreateClient();
+    public async Task<HttpClient> CreateIndependentHost()
+    {
+        var http = new ApplicationsApiFactory(ConnectionString).CreateClient();
+        await AttachSessionAsync(http);
+        return http;
+    }
 
     /// <summary>Valid only after <see cref="InitializeAsync"/>; mapped port, not 5432, by construction.</summary>
     public string ConnectionString => _container.GetConnectionString();
@@ -72,6 +91,29 @@ public sealed class ApplicationsApiFixture : IAsyncLifetime
     /// Arrange-and-clean escape hatch. Public on purpose: tests need the table in a known state and the API has
     /// no create endpoint yet (and even once it does, see 027's comment on why GET is not proven with POST).
     /// </summary>
+    /// <summary>
+    /// Logs in through the real endpoint and pins the resulting cookie onto the client as a default header.
+    /// The header is set by hand rather than via a CookieContainer because these tests assert on what a client
+    /// holding a session receives; -051 covers the raw Set-Cookie string separately, where a container would hide it.
+    /// </summary>
+    private static async Task AttachSessionAsync(HttpClient http)
+    {
+        var login = await http.PostAsJsonAsync("/api/auth/login",
+            new { email = ApplicationsApiFactory.BootstrapEmail, password = ApplicationsApiFactory.BootstrapPassword });
+        if (login.StatusCode != System.Net.HttpStatusCode.NoContent)
+        {
+            throw new InvalidOperationException(
+                $"fixture login failed: {(int)login.StatusCode} {await login.Content.ReadAsStringAsync()}");
+        }
+
+        var cookie = login.Headers.TryGetValues("Set-Cookie", out var values)
+            ? values.First().Split(';', 2)[0]
+            : throw new InvalidOperationException("fixture login issued no Set-Cookie header");
+
+        http.DefaultRequestHeaders.Remove("Cookie");
+        http.DefaultRequestHeaders.Add("Cookie", cookie);
+    }
+
     public async Task ExecuteAsync(string sql)
     {
         await using var connection = OpenConnection();
@@ -87,6 +129,7 @@ public sealed class ApplicationsApiFixture : IAsyncLifetime
         // which does not exist until the container is running.
         Factory = new ApplicationsApiFactory(ConnectionString);
         Http = Factory.CreateClient();
+        await AttachSessionAsync(Http);
     }
 
     public async Task DisposeAsync()
