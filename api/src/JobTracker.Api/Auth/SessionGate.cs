@@ -28,8 +28,25 @@ namespace JobTracker.Api.Auth;
 /// </summary>
 public static class SessionGate
 {
-    /// <summary>Everything the app owns today, in one prefix — including <c>/events</c>, which is the point.</summary>
-    private static readonly PathString ProtectedPrefix = new("/api/applications");
+    /// <summary>The data surface: one prefix, including <c>/events</c>, which is the point.</summary>
+    private static readonly PathString DataPrefix = new("/api/applications");
+
+    /// <summary>
+    /// The auth surface, minus the one entry point. <b>Added while executing <c>-054</c>, because <c>-055</c> shipped the
+    /// prefix below and no more:</b> spec §4.3's Auth column marks <c>POST /api/auth/logout</c> and
+    /// <c>GET /api/auth/session</c> as <i>authorized</i>, and <c>-055</c>'s own row says "every <i>data</i> route" — so the
+    /// gate satisfied its behaviour exactly while under-covering the contract it came from. A logout reachable anonymously
+    /// is a way to probe whether an endpoint exists, and it is the one gated route whose request an attacker can send with
+    /// nobody's cookie in it.
+    /// </summary>
+    private static readonly PathString AuthPrefix = new("/api/auth");
+
+    /// <summary>Spec §2.1's single exception: login is how a caller obtains the thing this gate demands.</summary>
+    private static readonly PathString LoginPath = new("/api/auth/login");
+
+    private static bool IsProtected(PathString path) =>
+        path.StartsWithSegments(DataPrefix)
+        || (path.StartsWithSegments(AuthPrefix) && !path.Equals(LoginPath, StringComparison.OrdinalIgnoreCase));
 
     public static IApplicationBuilder UseSessionGate(this IApplicationBuilder app) =>
         app.Use(async (http, next) =>
@@ -43,7 +60,7 @@ public static class SessionGate
                 return;
             }
 
-            if (!http.Request.Path.StartsWithSegments(ProtectedPrefix))
+            if (!IsProtected(http.Request.Path))
             {
                 await next();
                 return;
@@ -75,6 +92,6 @@ public static class SessionGate
             // `code` member cannot drift between the two ways of refusing. Rejected before the handler runs, so
             // `UseStatusCodePages` is never involved and the body is ours.
             http.Response.StatusCode = StatusCodes.Status200OK; // reset by IResult.ExecuteAsync below
-            await Problems.Unauthorized(http.Request.Path.Value ?? ProtectedPrefix.Value!).ExecuteAsync(http);
+            await Problems.Unauthorized(http.Request.Path.Value ?? DataPrefix.Value!).ExecuteAsync(http);
         });
 }
