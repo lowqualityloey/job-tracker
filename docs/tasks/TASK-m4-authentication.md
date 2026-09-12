@@ -84,6 +84,8 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   400 ms missing verify, the AC is **restated or dropped**, not quietly passed. M3's gap 10b retraction is the standing
   reason to prefer "this number is weak" over "this number is safe".
 
+  · **⚠️ Restated by grill Q8 (2026-09-12).** The **assertions** are the byte-identical bodies, the identical status code, and the dummy verify's presence proven structurally. The 5 ms/50-sample timing bound is **reported with `n`, min/median/max and warm-up, and asserts nothing** — no run has measured whether that bound separates a 400 ms signal from noise. AC count stays 15; only this AC's gate weakened, deliberately and on the record.
+
 - [ ] **AC-4** — **Password cost is measured and bounded, and the assertion is the test.**
   · `dotnet test --filter ~PasswordCost` → `Hash` p95 < 1000 ms, `Verify` p50 within 200–800 ms; iterations recorded in
   the envelope. **No number is asserted in this record before that run.**
