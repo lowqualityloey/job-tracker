@@ -161,7 +161,36 @@ and 20 blocks, and writing the missing one exposed a false claim about two other
 
 ## 6. Evidence and Completion Gate
 
-`Pending` — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had
+### Slice 0 — pre-M4 bundle baseline (executed 2026-09-12 05:25 UTC, at `41b32af`)
+
+**This slice exists because §2.8 of M3 assigned a baseline to Slice 3 and Slice 3 never took it**, which made the
+`< 2 kB` delta uncomputable until it was reconstructed from an old commit. The command, run on `main` with **nothing**
+of M4's code present:
+
+```
+rm -rf dist && VITE_API_BASE_URL="http://172.23.124.252:5080" npm run build && cat dist/assets/*.js | gzip -c | wc -c
+```
+
+| Configuration | JS gzipped | Delta vs flag-off |
+| :--- | ---: | ---: |
+| **flag-OFF** (`VITE_API_BASE_URL` unset) | **60,118 B** | — |
+| **flag-ON**, URL = `http://172.23.124.252:5080` (this machine's sandbox IP) | **61,368 B** | **+1,250 B** |
+| flag-ON, URL = `http://localhost:5080` | **61,359 B** | **+1,241 B** ← M3's §2.8 figure |
+
+**Finding, and it belongs in the record rather than being smoothed over: the baseline is configuration-dependent down to
+the length of the URL literal.** The API base is inlined by `import.meta.env` substitution, so a 14-character IP versus a
+9-character `localhost` moves the gzip sum by 9 bytes — and M3's `+1,241` was taken with the **`localhost`** spelling while
+today's natural harness build uses the IP. **The flag-off reproduction landed on M3's number exactly (60,118), which is
+what tells us the drift is in the URL and not in the code.** `-065` therefore compares against **61,368 B at the IP
+configuration**, and states which literal it used; a delta quoted without its URL is a number about a build nobody ships
+(the same trap the flag-off 0 kB delta was).
+
+**Also recorded:** `dist/` is gitignored (checked with `git check-ignore`), and the tree was verified clean
+(`dirty=0`) after the builds — a build artifact left in the worktree is how an unrelated file rides into a commit.
+
+---
+
+`Pending` for Slices 1–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had
 four checkbox slips where scripted edits hit prose and never the prefix); regenerate §3A of STATE **whole** at each
 boundary; read spec lines **without truncation** before asserting anything about them.
 
