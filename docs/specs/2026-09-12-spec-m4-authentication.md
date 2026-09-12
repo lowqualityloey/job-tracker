@@ -494,7 +494,7 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
 > owner-approved two-case restatement was what made that attribution possible, and executing it confirmed the datum
 > behind the split: login itself answers `204` with no token, so case 1 had to target a state-changing verb.
 > Two `◆` practice rows came out of the same slice — **`-074`** (the ephemeral key ring, above) and **-075** (two CDP
-> harnesses and three boot scripts now duplicate the same recipe, including two fixes applied twice today).
+> harnesses and boot scripts duplicate the same recipe (the pair that does is `run-063`/`run-064`; `run-043` shares none of it), including two fixes applied twice today).
 > **Ladder is now `-047`…`-069` + `-071` + `-074`/`-075` = 26 behaviours**, counted with
 > `grep -cE '^\| `…-0(4[7-9]|[5-7][0-9])`' docs/tests/2026-09-12-test-m4-authentication.md` → **26**. `-070` stays
 > unassigned (a phantom cited by two records, defined by none), and `-072`/`-073` are **reserved by STATE §3A's D-2

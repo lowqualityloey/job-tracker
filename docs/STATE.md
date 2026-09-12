@@ -116,8 +116,7 @@ ratified browser cases at 11/11 in real Chromium. **This is the first M4 row tha
   `grep -cE '^\| `…-0(4[7-9]|[5-7][0-9])`' docs/tests/2026-09-12-test-m4-authentication.md` → **26**, covering
   `-047`…`-069`, **`-070` left unassigned**, `-071`, and the two `◆` rows added by `-063`'s execution:
   **`-074`** (the ephemeral data-protection key ring, which is a deployment fault and not a test nuisance) and
-  **`-075`** (two CDP harnesses and three boot scripts now duplicate the same browser recipe, including two fixes
-  applied twice in one day). **`-072`/`-073` are reserved by D-2/D-3 below as proposals and are deliberately not
+  **`-075`** (two CDP harnesses and two boot scripts duplicate the same browser recipe — `run-043.sh`, measured, shares none of it: no TLS, no build step, so it is excluded rather than swept in for a tidier number). **`-072`/`-073` are reserved by D-2/D-3 below as proposals and are deliberately not
   rows** — the gap in the numbering is the evidence that they were not quietly filled, which is the `-070` lesson
   applied before it became a second phantom.
   **What `-070`'s evidence now is, stated because the old form of it rotted.** No register row defines it
