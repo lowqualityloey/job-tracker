@@ -80,41 +80,37 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #66** `feat/m4-065-bundle-delta` — two docs commits that the merge of #65 left behind, which is
-  itself the incident this bullet describes: **`4a70e9a` was pushed after #65 merged**, into a branch GitHub had already
-  deleted, and reported `* [new branch]` on a branch that existed an hour earlier. That phrase is this repository's
-  recorded tell (PR #60, and the rule "a merged PR is a closed door on its branch"), and it fired again today on a
-  commit I wrote *about* not losing work. Carried here: (a) the `-065` integrity ledger entry naming the fabricated SHA
-  that reached #65's published body, and (b) this bullet's reconciliation.
-  **PR #65 (`-065`, AC-14) is MERGED** — `e4d1d2f` at 21:54:49Z, verified both ways: `state:MERGED` with head `5ec41b5`
-  equal to the pushed HEAD, **and** in `main` itself the `TDD-EXEC-m4-authentication-065` marker, AC-14's tick, and
-  `tests/build/bundleDelta.sh` (139 lines). Local `main` fast-forwarded to `e4d1d2f`, tree clean. **Numbers re-derived
-  on the merged tree rather than carried from the projection**: ladder **27** rows · ACs **16 verified + 1 open** (the
-  open id read out, not inferred: **AC-3**) · EXEC records **24** distinct · commit-discipline rules **10**.
-  The measurement #65 stands on, restated so the record survives the branch: **flag-on 62,610 B against a baseline
-  rebuilt in the same run at 61,368 B — a delta of 1,242 B under the 3,072 B gate**, flag-off **+1,022 B** reported
-  beside it, the baseline reproduction **byte-exact (`+0 / +0`)**, and both trees verified to share a
-  `package.json`/`package-lock.json` before anything was built.
-  **PR #64 (`-063`, the antiforgery gate) is MERGED** — `893038f` at 21:29:05Z, verified both ways: `state:MERGED` with
-  head `f5687e3` equal to the local HEAD, **and** the `TDD-EXEC-m4-authentication-063` marker, `AntiforgeryGate.cs`
-  (167 lines), and AC-11's tick all present in `main` itself. Local `main` fast-forwarded to the merge commit; CI green
-  on `main`. **Its CI is worth reading as the counterexample to #63's**: `verify` 42 s / `verify-api` 2 m 22 s, and
-  *ran-or-skipped* was not in the conclusion — it was in the step list (step 5, *"Verify (build with warnings as errors →
-  test against a real PostgreSQL)"*, concluded `success`; the skip branch never ran) and in the log's real output
-  (`✓ API surface changed — running the .NET gate`, then `Passed: 186, Skipped: 0`). That detector string appears
-  **twice** in the log, the first time as cyan-escaped *echoed source*: reading a log and believing a log are different
-  acts. `-063`'s ladder: Red `cd72bbe` → Green `91f38be` → browser evidence `28056b6` → record `a694baa` → `-075`'s own
-  premise corrected `38a9e64` → dead import in the new harness `4b4fafd` → CI facts `f5687e3`.
-- **Why a second PR once existed off the same branch — read this as the rule, not the incident:** **PR #60 merged at
-  17:56:17Z (`7e13914`) while the measurement was still running**, and the branch was deleted with it. The next
-  `git push` reported **`* [new branch]`** and left `gh pr view 60 --json headRefOid` frozen at `ea4c91b`. Both signals were
-  checked rather than assumed, and `git merge-base --is-ancestor 71fcb3b origin/main` said **NO**: 251 lines carrying the
-  actual result were **outside `main`**. This is `AGENTS.md`'s PR #4 failure named in advance — *"the branch having a commit
-  is not the same as the PR carrying it"* — and the only thing that made it catchable is that the push said **new** branch
-  when nothing was new. **A merged PR is a closed door on its branch: reconcile `main` first, then branch again.**
-  (`-063` was cut from `97a356a`, a SHA already inside `main`, for exactly this reason. It is the sibling of the
-  stacked-PR finding below, not a repeat of it: reconciliation protects what was merged; a live base ref protects what is
-  still being opened.)
+- **In flight**: **none as this bullet is written** — `main` is `e421d5e` (`-074` merged 23:31:25Z, verified both ways)
+  and the PR carrying this projection was not opened yet, so its number is not asserted here: two commits and one PR body
+  today have already had to retract identifiers written before the things they name existed.
+  **PR #67 (`-074`, the shared key ring) is MERGED** — `e421d5e`, head `a014175` equal to the pushed HEAD, verified
+  against `main` itself rather than the PR: `KeyRingPersistenceTests.cs` (144 lines), `PostgresKeyRing.cs` (84),
+  `PostgresKeyRingConfiguration.cs` (33), the migration (38, reversible), `tests/build/restartKeyRingProbe.sh` (103), and
+  the `TDD-EXEC-m4-authentication-074` marker — **all five files and the record present in `main`**, CI green on `main`,
+  and the suite re-run *on the merged tree* at 189/189 (see the measured bullet below) rather than trusted from the PR.
+  **PR #66 (`-065`'s orphaned commits + §3A reconciliation) is MERGED** — `1713064` at 22:16:02Z. The incident it records
+  stands as the rule: `4a70e9a` was pushed *after* #65 merged into a branch GitHub had already deleted, and the push
+  answered `* [new branch]` for a branch that had existed an hour earlier. **A merged PR is a closed door on its branch.**
+  It fired again in this session only because the sentence describing it was already true, which is the point of the rule.
+  **Why that sentence exists at all — PR #60, read it as the rule, not the incident:** **#60 merged at 17:56:17Z
+  (`7e13914`) while its measurement was still running**, and the branch was deleted with the merge. The next `git push`
+  reported **`* [new branch]`** and left `gh pr view 60 --json headRefOid` frozen at `ea4c91b`; both signals were checked
+  rather than assumed, and `git merge-base --is-ancestor 71fcb3b origin/main` said **NO** — **251 lines carrying the actual
+  result were outside `main`**. `AGENTS.md`'s PR #4 failure, named in advance: *"the branch having a commit is not the same
+  as the PR carrying it"* — and the only thing that made it catchable is that the push said **new** when nothing was new.
+  #66 (`1713064`) was that rule's second application: it carried the `-065` orphan commits — including the ledger entry
+  naming the fabricated SHA that reached #65's published body — plus this bullet's reconciliation.
+  `-063`'s own commit ladder, for the audit trail: Red `cd72bbe` → Green `91f38be` → browser evidence `28056b6` → record
+  `a694baa` → `-075`'s premise corrected `38a9e64` → dead import in the new harness `4b4fafd` → CI facts `f5687e3`.
+  **PR #65 (`-065`, AC-14) is MERGED** — `e4d1d2f` at 21:54:49Z, and its measurement is the one this file keeps
+  restating because a bundle number is the easiest figure to quote from memory: flag-on **1,242 B** against a baseline
+  rebuilt in the same run at **61,368 B** (gate 3,072 B), flag-off **+1,022 B**, reproduction byte-exact.
+  **PR #64 (`-063`, the antiforgery gate) is MERGED** — `893038f` at 21:29:05Z; `AntiforgeryGate.cs` (167 lines at merge)
+  and the `TDD-EXEC-m4-authentication-063` marker both verified present in `main`. Its CI is the counterexample to #63's:
+  `verify-api` ran for real (2 m 22 s, step 5 `success`, `Passed: 186`) where #63's took 6 s on a correct docs-only skip,
+  and **the two look identical in their conclusions** — the distinction lives in the step list and in the log's real
+  output, where `✓ API surface changed — running the .NET gate` appears **twice**, once as cyan-escaped echoed source.
+
 - **Ladder**: **27 rows**, recounted from the file at this boundary —
   `grep -cE '^\| `…-0(4[7-9]|[5-7][0-9])`' docs/tests/2026-09-12-test-m4-authentication.md` → **26**, covering
   `-047`…`-069`, **`-070` left unassigned**, `-071`, and the two `◆` rows added by `-063`'s execution:
@@ -140,10 +136,10 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   run** rather than quoted: it reproduced Slice 0's 60,118 / 61,368 B to the byte, which is the only thing that makes the
   subtraction a comparison rather than an arithmetic accident. **No behaviour row is left unexecuted.** **`-067`'s Browser half stays unachievable rather than deferred**: under same-origin
   serving no preflight occurs, so AC-16's pair is proven only in `CorsCredentialsTests`. **`-066` is a ratified row
-  still owed its `TimeProvider` config**. What is left on the ladder is the `◆` finding set — `-074` (key ring), `-075` (harness
-  recipe), `-076` (the bundle gate is wired into nothing: `grep -c bundleDelta .github/workflows/ci.yml` → **0**) — plus
+  still owed its `TimeProvider` config**. **`-074` is executed and verified** (PR #67), so of the `◆` set only `-075` (harness
+  recipe) and `-076` (the bundle gate is wired into nothing: `grep -c bundleDelta .github/workflows/ci.yml` → **0**) — plus
   the four practice tasks carried from `-066`…`-069`, now countable rather than remembered:
-  `grep -c 'AGENTS.md step 9' docs/tasks/TASK-m4-authentication.md` → **4**, each under its own record (the
+  `grep -c '^- \*\*Practice task' docs/tasks/TASK-m4-authentication.md` → **4**, each under its own record (the
   `SessionPolicy` constants, empty-vs-absent `AllowedOrigins`, the linear-scan fan-out, the handler's untested
   declinations).
 - **Decisions the agent now owns** *(owner instruction, 2026-09-12 ≈19:30 UTC: "decide your own recommendation from now
@@ -162,7 +158,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   **`-072`** (reorder `launchSettings.json` so `https` is the default, and have a Development boot that serves the SPA on
   a non-TLS endpoint log the consequence rather than letting it be discovered at a login form).
   · **D-3, the deployed-topology tension: recommendation attached, implementation withheld.** `-064` could only
-  authenticate because page and API share an origin. On the two-origin shape in `docs/aws-deployment.md` the stream client
+  authenticate because page and API share an origin. On the two-origin shape in ~~`docs/aws-deployment.md`~~ **(that file does not exist — see the integrity ledger; the two-origin topology is an inference from `README.md`'s one-line AWS plan, not a documented decision, and `-073` should be read as conditional on a deployment nobody has chosen yet)** the stream client
   opens `new EventSource(url)` **without `withCredentials`** (`httpApplicationRepository.ts:211`), and `SameSite=Lax`
   — `DECISION-m4-auth-006`, **ratified** — would withhold the cookie from any credentialed cross-origin subresource
   anyway. So AC-16's credentialed CORS and AC-12's authenticated stream cannot both be load-bearing where the deployment
@@ -194,6 +190,16 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   (`grep -c bundleDelta .github/workflows/ci.yml` → **0**), which is a defect in the *gate*, not in the number. Adding a
   second build to every PR, with the URL literal pinned in the workflow, is a change to CI's contract and to everyone's
   feedback loop; it is worth doing and it is not worth smuggling into a row that already shipped a measurement.
+  · **D-9, `-074` declined the shipped package and hand-rolled the key store instead — flagged as the owner's call.**
+  `Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` does all of it, with revocation, in zero lines of mine;
+  **AC-15's ratified evidence counts the API's `PackageReference` entries as runtime dependencies**, so adding it moves a
+  number a *verified* acceptance criterion reports. That is not a row's edit to make silently, so the row wrote ~60 lines
+  and named what it gave up: no revocation (`IDeletableXmlRepository` is public and would allow it), so expired keys
+  accumulate — one row per ~90-day key lifetime, and expiry itself is unaffected because the framework reads dates from
+  the key XML, not from a column. **The swap is cheap if the owner prefers the package**: the table shape matches, so the
+  migration and both tests survive it. Two side-findings: `dotnet-ef` had to be installed to generate the migration (a
+  tool, not a dependency, so AC-15 is untouched either way), and AC-15's own figure is unre-derivable — measured **4**
+  `PackageReference`s in the API project, **6** in the test project, its evidence says **5**.
 - **AC ledger**: **16 verified + 1 open = 17**, recounted from the checkbox lines at this boundary
   (`grep -c '^- \[x\] \*\*AC-'` → **16**, `'^- \[ \] \*\*AC-'` → **1**). **The one open AC is AC-3**, and it is open
   because of an owner decision — restrike or restate — not because of missing work or a missing harness.
@@ -207,7 +213,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   [`checkpoint-001` §2](../tasks/TASK-m4-authentication.checkpoint-001.md).
 - **Merged this session**: **#55** `ee994f5` (`-066`) · **#56** `538c77e` (`-067`) · **#57** `fea085c` (`-068`) ·
   **#58** `47852a4` (`-069`) · **#59** `f2b8a3b` · **#60** `7e13914` · **#61** `1819bbb` · **#62** `21f1f45` (`-071`) ·
-  **#63** `9d4a2f7` (`-064`) · **#64** `893038f` (`-063`) · **#65** `e4d1d2f` (`-065`). Each merge verified twice before anything was built on it: `gh pr view --json
+  **#63** `9d4a2f7` (`-064`) · **#64** `893038f` (`-063`) · **#65** `e4d1d2f` (`-065`) · **#66** `1713064` (`-065`'s orphans) · **#67** `e421d5e` (`-074`). Each merge verified twice before anything was built on it: `gh pr view --json
   state,mergedAt,mergeCommit` **and** the `TDD-EXEC-m4-authentication-0NN` marker present in `main`.
 - **M3 residue still live**: gap 12 (`{"id":"not-a-guid"}` → 500) is **closed** by `-057`; `ASSUMPTION-m3-backend-api-002`
   (single instance) holds and **M5 must revisit the in-process bus** — the fix is PG `NOTIFY`, not Redis (grill Q16), and
@@ -239,7 +245,20 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   the agent writing this line**: `dotnet test 2>&1 | tail -40`, which reported **exit 0 on a run that had failed** (AGENTS.md's
   `pipefail` rule, broken while executing the handoff that states it), and an invented `ConnectionStrings__Default` because
   H4 elides the value — harmless only because Testcontainers builds its own database. Root cause of every one: **writing
-  from intent instead of measurement.** **One more, from the `-065` boundary, and it is the same species again:** PR #65's
+  from intent instead of measurement.** **Two more, both about absence-checks and citations, from the `-074`/`-075` span.**
+  **(a) `docs/aws-deployment.md` has never existed in this repository** — `git log --all --diff-filter=A --
+  docs/aws-deployment.md` returns nothing, no file in `docs/` names ECS, Fargate, Beanstalk or App Runner, and README's
+  entire AWS plan is six words — yet **six citations across four documents attribute content to it** (`STATE.md` 1, spec 1,
+  `TASK-m4-authentication.md` 2, `TASK-m3-backend-api.md` 2), including DECISION-m4-auth-007's two-origin worry and D-3 in
+  this block. The reasoning may be sound; the *source* is not there, which is what makes it a phantom rather than a
+  paraphrase. Corrected in the spec's copy at the sentence that cites it; D-3 below is corrected in place.
+  **(b) An absence-check I published and then falsified by quoting it.** `-063`'s file cited
+  `TDD-PRACTICE-m4-authentication-074`, a row ID from a series that exists nowhere (`git grep -c TDD-PRACTICE origin/main
+  -- docs` → no files); `-065`'s record cited `grep -c 'AGENTS.md step 9'` → **4**, and that command now returns **5**,
+  because the sentence recording the count contains the string being counted. The stable form
+  `grep -c '^- \*\*Practice task'` → **4** holds identically at three revisions. Third instance today, after `-070`'s
+  `scoped.mutation` disproof and the `TDD-PRACTICE` grep itself: **a working-tree grep used as evidence about a document
+  is destroyed by the act of documenting** — so absence claims name a revision, or they do not claim anything. **One more, from the `-065` boundary, and it is the same species again:** PR #65's
   body was published with a rollback list containing **`8e18377`, a commit that does not exist**. The mechanism matters more
   than the typo: a scripted edit named a SHA for a commit that the *same* command chain was about to create; that
   `git commit` then failed on an assert whose anchor I had copied from memory instead of from the file (a two-space indent
@@ -248,6 +267,18 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   `git log --format=%h main..HEAD` — **which is the sole reason this entry exists instead of the phantom shipping in the
   merge**. A SHA is read, never predicted; rollback instructions should be generated from `git log`, and this PR's list now
   is. 
+- **Measured at the `-074` boundary, 2026-09-13 (all figures from the merged tree `e421d5e`)**: API suite
+  **189 / 0 failed / 0 skipped**, exit 0, 1 m 18 s — re-run *after* the merge rather than carried from the PR, and
+  `186 + 3 = 189` checked against the focused run · the restart probe, now a committed script, prints `201` → restart →
+  **`201`** (was `403`), session read `200`, control `201`, and **key rows 1 / 1 across the restart** — that count is the
+  only observation distinguishing "read the stored key" from "minted a new one and the green means nothing" · ladder
+  **27** rows with `-074` executed, leaving `-075`/`-076` and the four practice tasks (`grep -c '^- \*\*Practice task'`
+  → **4**, stable across three revisions, unlike the `grep -c 'AGENTS.md step 9'` form that reads **5** because a
+  sentence quotes it) · EXEC records **25** · ACs **16 verified + 1 open**, the open id read out: **AC-3** — `-074`
+  verifies none · API `PackageReference`s **4** in the project and **6** in the test project, **neither is the "5" AC-15's
+  evidence reports** · runtime deps **3**, dev deps **19**, **no new package added** (the `dotnet-ef` tool was installed;
+  a tool is not a runtime dependency, and that distinction is what let this row respect AC-15 without stalling) ·
+  CI on #67 green on its final head (`verify` 49 s, `verify-api` 2 m 25 s with the test step run, not skipped).
 - **Measured at the `-065` boundary, 2026-09-13 01:20 UTC** (every figure produced by this run, none quoted from an
   earlier one): bundle **61,140 B** flag-off and **62,610 B** flag-on at the head, against **60,118 B** / **61,368 B**
   rebuilt from `41b32af` in the same run — the reproduction is **byte-exact**, `+0 / +0`, and that is the fact that
@@ -331,18 +362,21 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   must stay a 500; a non-400 `BadHttpRequestException` must not be relabelled as field validation). **Probe B deleted the
   guard and the suite stayed 169/0** — so the claim is recorded as reasoning, and it is `-069`'s practice task. Four
   practice tasks are owed (`-066`…`-069`), none started, all listed in the task record.
-- **Exactly one next action**: **`-074` — make the data-protection key ring outlive the process that filled it.** The
-  ordering is mine, per the standing instruction, and the reason is that `-074` is the only remaining row describing a
-  **fault a user would hit**: as things stand a session may be written to only by the instance that issued it, so a
-  restart or a second instance turns a working log-in into a wall of `403`s. `-075` (recipe duplication) and `-076`
-  (bundle gate unwired) are real but only cost time; the four practice tasks cost nothing yet. `-066`…`-069`'s practice
-  tasks are listed in §3A's own bullet and countable at `grep -c 'AGENTS.md step 9' docs/tasks/TASK-m4-authentication.md`
-  → **4**.
-  **The ladder has no unexecuted behaviour rows**: `-063` (AC-11, PR #64), `-064` (AC-12, PR #63) and `-065` (AC-14,
-  PR #65) are all verified, leaving **AC-3** as the only open acceptance criterion — and it waits on the owner's
-  restrike-or-restate decision, not on work, harnesses, or Q4. **M4's execution queue is therefore empty in one sense
-  and full in another**, which is worth saying plainly rather than letting "27 rows, 24 executed" read as progress
-  toward a finish line nobody drew: the remaining rows are the ones this milestone produced *about itself*.
+- **Exactly one next action**: **`-076` — wire AC-14's bundle gate into something that runs.** The ordering is mine,
+  per the standing instruction, and it changed with `-074`: the previous occupant of this line argued for `-074` because
+  *"as things stand a session may be written to only by the instance that issued it"* — true when written, false now,
+  which is exactly why a next-action bullet must be rewritten at the boundary rather than inherited. `-076` is first
+  because it is the only remaining row that **protects a number this milestone already claims**: `-065` measured 1,242 B
+  under a 3,072 B gate, `grep -c bundleDelta .github/workflows/ci.yml` → **0**, and nothing re-checks it, so a dependency
+  bump could breach a verified AC with every job green. `-075` (two CDP harnesses, two boot scripts) costs time rather
+  than truth, and proving its extraction means re-running two browser rows — so it goes second, deliberately, and not
+  because it is easy to postpone. The four practice tasks cost nothing yet.
+  **Ladder state: no behaviour row is unexecuted.** `-063` (AC-11, #64), `-064` (AC-12, #63), `-065` (AC-14, #65) and
+  `-074` (no AC, #67) are done, leaving **AC-3** as the only open acceptance criterion — waiting on the owner's
+  restrike-or-restate decision, not on work, harnesses, or a Q4 that was answered on 2026-09-12. **M4's queue is empty in
+  one sense and not in another:** what remains (`-075`, `-076`, four practice tasks, AC-3's decision, and the
+  `aws-deployment.md` citation correction recorded below) is this milestone producing work about itself. Said plainly
+  rather than letting "27 rows, 25 executed" read as a finish line nobody drew.
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 
