@@ -997,6 +997,54 @@ question, not four.
 **Next:** `-069` (ratify and fix: a wrong-typed member such as `companyName: 42` currently dies in the binder as a `500` with
 no `code`, where AC-8's contract says `400` + `code: "validation"`), unless Q4 lands first.
 
+**`TDD-EXEC-m4-authentication-069`** · `BEHAVIOR-069` (extends **AC-8**'s contract; verifies no AC of its own) · Red `b7d0f6c` → Green `5655800` · p0 · **ratified into the ladder at execution time (third §6 amendment)**
+- **Where it came from:** `-057`'s "⚠️ SIBLINGS FOUND BY PROBING, NOT FIXED — proposed `-069`", left as a proposal because
+  "a sweep across the contract is the human's call to rate, not a change that should ride inside this commit."
+- **Red:** `--filter ~WrongTypeBindingTests` → **`Failed: 8, Passed: 1`** — the single pass is the live control (a correctly
+  typed body still creates, `201`), which is what makes the other eight a measurement rather than a broken harness.
+  **Green:** focused **9/9** (6 s); full API **`Failed: 0, Passed: 169, Skipped: 0`**, 0 errors / 0 warnings, 1 m 8 s.
+- **The cause, probed against this repository's own dev server rather than reasoned about.** The captured chain
+  (`BadHttpRequestException` → `JsonException` → `InvalidOperationException: Cannot get the value of a token type 'Number' as a
+  string`, logged by `RequestDelegateFactory.Log.InvalidJsonRequestBody`) shows the framework assigning **400** and this app's
+  error pipeline overriding that with a generic 500. So the increment is attention, not cleverness.
+- **Why `code` and not just the status:** DECISION-m3-backend-api-004 requires a discriminator, `-060` built the client's
+  table on it, and `-062`'s adapter files an unrecognised document as `corrupt-data` — so the browser was being told "the
+  server sent something we cannot parse" while the server's log said "invalid JSON request body". Two true statements,
+  opposite directions. The last case asserts the emitted code against `contracts/problem-codes.json` rather than a literal
+  here, so a fix that invented a fifth code (`binding-error`) fails instead of shipping a discriminator the client cannot map.
+- **`Problems.InvalidRequestBody` shares the code and type URI with `Problems.Validation`** rather than repeating them: the
+  client's answer is identical (show it on the field, do not retry, do not sign out) and two literals in two files is how
+  contract members drift apart.
+- **⚠️ `JsonException.Path` does not match its own documentation.** Documented as `$.companyName`; for a member failure on
+  the **root** object it arrives as `.jobTitle` with no `$` — so the first implementation emitted `#.jobTitle` on the wire,
+  and five cases failed on it. `PointerFromJsonPath` parses segments from either form, because `toFieldErrors` matches on the
+  validator's `#/field` shape and a pointer the client cannot resolve to a field is a message that goes nowhere.
+- **⚠️ A CLAIM THIS ROW COULD NOT SUPPORT, AND PROBE B PROVED IT.** The Green commit says the handler's two refusals are
+  "both load-bearing". **Probe B removed the guard — `exception as BadHttpRequestException ?? new(...)` — and the full suite
+  stayed `Passed: 169, Failed: 0`.** The refusals may be correct reasoning (a real defect must stay a 500 with a traceId;
+  payload-too-large must not be relabelled as field validation) but **no test covers either one**, and that is now recorded
+  where the claim was made rather than quietly kept. Probe A, on the part that *is* covered: replacing the derived pointer
+  with a constant → `Failed: 5, Passed: 4`, caught by all four member cases plus the update case.
+  - Probe A's first attempt was **void**: mutating the condition to `if (false)` broke compilation, so no measurement
+    happened — the same failure family as `-068`'s `$2`/`$1` helper. It reported "caught by: 0" about an experiment that
+    never ran. A probe that cannot tell you it did not run is not a probe.
+- **Two test bugs of mine, both found by running them:** an unnamed `AddWithValue` never binds to `@id` ("operator does not
+  exist: @ uuid"), and one case "wrong-typed" `notes` with a string — `notes` *is* a string column, so the server was right to
+  accept it and the case failed for the wrong reason.
+- **Seam lesson, in the same family as `-066`:** the first attempt customised `ProblemDetailsOptions`, and neither
+  `MapProblems` nor `OnCreatingProblemDetails` exists on that type (the compiler said so twice; the reference pack named
+  `CustomizeProblemDetails`). `IExceptionHandler` is the better seam because it is handed the **exception** — a problem-details
+  hook only sees a document already flattened to "an error occurred". Put the seam where the fact still exists.
+- **Practice task (AGENTS.md step 9) — closing what probe B exposed:** give the handler's declinations their own tests.
+  Cheapest honest shape, one Unit case per refusal, is calling `TryHandleAsync` directly with a `DefaultHttpContext` and (a) an
+  `InvalidOperationException` → must return `false` and write no body, (b) a `BadHttpRequestException` with `413` → must return
+  `false`. Both are named as implementation-detail tests, which is why they were not written blind here: the row's seam is
+  Integration, and the alternative — a route that fails on purpose — is test-only code in production. Pick one and say why.
+
+**Next:** `-068`/`-069` were the last two unratified probe proposals, so the decision-free server-side queue is empty;
+`-063`/`-064`/`-065` and the Browser halves of `-067`/`-068` all wait on the same **Q4 harness-origin** answer.
+
+
 
 
 

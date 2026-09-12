@@ -320,6 +320,14 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
 > stream. `-056`'s `404` still stops them reading the row, and that is the whole difference between "you cannot fetch it" and
 > "you were never told it exists". Appended with a stable ID rather than renumbered, for the reason the amendment above
 > gives. **Ladder is now `-047`…`-068` = 22 behaviours**, counted by the same command that corrected the last claim.
+> **§6 amendment — execution-time, 2026-09-12 (`-069`).** The second `◆` row, from the same `-057` probing note, ratified and
+> delivered the same way. AC-8 closed one member — a malformed `id` on the route — and the note recorded that "wrong-typed
+> *values* in the other members still die in the binder… `companyName: 42` → **500, no `code`**". The measurement that shaped
+> the fix: `RequestDelegateFactory` logs the failure as **`InvalidJsonRequestBody`** and wraps it in a
+> `BadHttpRequestException` **whose own `StatusCode` is 400**, so the correct answer exists in-process two frames before the
+> response is written and the default exception mapping discards it. That reframes the row: this is not "handle a framework
+> limitation", it is "stop throwing away what the framework worked out". **Ladder is now `-047`…`-069` = 23 behaviours**,
+> counted the same way.
 
 ## 7. Sign-off & Grilling Checklist
 
