@@ -219,6 +219,30 @@ configuration**, and states which literal it used; a delta quoted without its UR
   `ArgumentNullException` at this seam**; that becomes a 400 at the credential DTO's validator in Slice 2, and is written
   here so the ladder doesn't lose it to a passing suite.
 
+**`TDD-EXEC-m4-authentication-048`** · `BEHAVIOR-048` · Red `19ba5f3` → corrected `48a4006` → Green *(this commit)* · p1 · **Slice 1**
+- **Red, as it finally failed:** `Failed: 1, Passed: 1, Total: 2` — `Our_hashes_do_not_declare_the_framework_default_cost`,
+  `Expected: Not 100000 / Actual: 100000`. **Green:** focused **2/2**, full **`Failed: 0, Passed: 73, Skipped: 0`**,
+  0 warnings, whole output read (`bin/`+`obj/` deleted first).
+- **This behaviour took three commits because the first Red asserted a framework behaviour that does not exist.** It asked a
+  default-configured `PasswordHasher` to verify our hash and expected `SuccessRehashNeeded` on a count mismatch. Probed:
+  `declared350=350000 b0=1 defaultVerifier=Success at350Verifier=Success` — **the verifier takes the iteration count from
+  the envelope, so a cost difference never raises the rehash signal in this format.** The observable had been invented from
+  a belief about the framework rather than a look at it: the precise habit this record's integrity ledger is made of, caught
+  by a 30-second measurement run instead of by a production incident.
+- **A correction commit, not an amended Red.** `19ba5f3` stays in history with its false premise, because "the Red was wrong
+  and here is the measurement that said so" is evidence and a silent rewrite would have been a cover-up of exactly the kind
+  gap 10b taught this repo to name out loud.
+- **The property forced a format coupling, and the guard buys it back.** -048's claim is not observable through the public
+  API at all, so the test decodes `BinaryPrimitives.ReadUInt32BigEndian(envelope[5..9])` — with `Assert.Equal(1, envelope[0])`
+  **before** it, so a layout change fails loudly instead of reading iterations out of the salt and passing on nonsense.
+- **Two numbers, both measured today:** Identity's inherited default is **100,000** on this machine (the value the test
+  asserts *against*), and one `Service.Hash` costs **~200 ms** at the newly declared **350,000** (focused run: 302 ms total
+  for 2 tests). `-049`'s cost band therefore has real headroom and a number it can actually falsify.
+- **Knock-on correction, in its own commit:** `-047`'s remarks justified absorbing `SuccessRehashNeeded` with a lockout
+  scenario that measurement says cannot occur via iteration count. The absorption stays (the signal is real for compat
+  formats, PRF and key-size changes) but the *stated reason* is replaced — **a comment that invents a threat to justify a
+  judgement is worse than the judgement**, because the next reader will not re-test the threat, only trust the comment.
+
 ---
 
 `Pending` for Slices 1 (rest)–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had

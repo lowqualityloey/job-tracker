@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 
 namespace JobTracker.Api.Auth;
 
@@ -18,7 +19,26 @@ namespace JobTracker.Api.Auth;
 /// </summary>
 public sealed class PasswordService : IPasswordService
 {
-    private readonly PasswordHasher<AppUser> _hasher = new();
+    /// <summary>
+    /// The iteration count every hash this app writes is made at. <c>BEHAVIOR-048</c>.
+    ///
+    /// <b>Explicit, and that is the whole behaviour.</b> Inheriting <c>PasswordHasher</c>'s default — <b>100,000, measured
+    /// on this machine</b>, not recalled — would mean every stored hash encodes a cost chosen by whichever framework
+    /// release was current when the account was created. Naming it in one place makes the next increase a change with an
+    /// audit trail; discovering it in release notes does not.
+    ///
+    /// <b>The number is provisional and says so.</b> Nothing here has measured it. <c>BEHAVIOR-049</c> asserts the
+    /// Hash/Verify cost band, and <i>that</i> measurement justifies or moves this constant — an unmeasured threshold is the
+    /// species of mistake M3 made twice (§2.8's target unrun for 126 commits; a 5 ms enumeration bound that may have been
+    /// noise). The tension is standing: a higher count is a stronger hash and a slower login, and one of the two gives.
+    ///
+    /// Note that raising this never invalidates an existing hash: <c>PasswordHasher</c> derives from the count declared in
+    /// the envelope — the fact that falsified the first draft of <c>-048</c>'s test.
+    /// </summary>
+    public const int IterationCount = 350_000;
+
+    private readonly PasswordHasher<AppUser> _hasher =
+        new(Options.Create(new PasswordHasherOptions { IterationCount = IterationCount }));
 
     public string Hash(string password) => _hasher.HashPassword(new AppUser(), password);
 
