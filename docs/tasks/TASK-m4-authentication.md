@@ -190,7 +190,38 @@ configuration**, and states which literal it used; a delta quoted without its UR
 
 ---
 
-`Pending` for Slices 1–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had
+**`TDD-EXEC-m4-authentication-047`** · `BEHAVIOR-047` · Red `0d28da4` → Green *(this commit)* · p0 · **Slice 1**
+- **Red, quoted from the run:** `dotnet test --filter "FullyQualifiedName~PasswordServiceTests"` →
+  **`Failed: 5, Passed: 0, Skipped: 0`**, every failure `System.NotSupportedException : BEHAVIOR-047 Red: no
+  implementation yet.` `bin/` and `obj/` deleted first, so the build was clean rather than incremental (AGENTS.md rule 8),
+  and the whole output read: **0 warnings, 0 errors.**
+- **Green:** `dotnet test --filter ~PasswordServiceTests` → **6/6**; full suite → **`Failed: 0, Passed: 71, Skipped: 0`**
+  — the 65 M3 behaviours plus these 6, no skips, so AC-13 holds at this boundary.
+- **Ladder-hygiene deviation, disclosed rather than manufactured.** The tamper test was *wrong* and a sixth test was added
+  during Green, so neither has its own Red commit. The defect: flipping the **last** character of Identity's hash replaces
+  base64 **padding**, producing a malformed string rather than a tampered credential — and `PasswordHasher` reacts to that
+  by **throwing `FormatException`** instead of returning `Failed`. Both cases are now separate tests because they broke for
+  different reasons. The Red evidence for the new one is that logged throw, in a tree differing from Green only by the
+  not-yet-written `catch`. **A manufactured intermediate commit to satisfy the ritual would have been worse than naming
+  this**: `-043`'s record set the precedent that an honest "no Red here, and why" beats a staged failure.
+- **⚠️ Gap 12's sibling, found by a unit test before any endpoint existed.** `Verify` on a corrupt *stored* value threw
+  toward a 500 — same shape as the binder throwing on an unparseable `Guid` client id, one layer down. Fixed narrowly:
+  `catch (FormatException)`, **not** `catch (Exception)` — converting a real bug into a wrong-password answer is the one
+  outcome a login path must never produce silently. **Recorded as the practice task's own sweep paying off immediately.**
+- **One decision with no test yet, named instead of hidden:** `SuccessRehashNeeded` counts as verified. Treat it as
+  failure and `-048` — whose job is raising the iteration count above Identity's inherited 100,000 — **silently locks out
+  every existing account the moment it goes green.** `-048` must therefore assert both the configured count *and* that a
+  lower-count hash still verifies while needing rehash. The interface was also split into its own file after a Green
+  rewrite deleted `IPasswordService` while replacing the implementation sharing its file — `CS0246` pointed at the
+  declaration site, not the vanished file.
+- **Still unreached by any caller:** the service is not registered in `Program.cs` — deliberately, because `-050`'s boot
+  guard has to be the thing that makes the app refuse to start. **A `null` password still throws
+  `ArgumentNullException` at this seam**; that becomes a 400 at the credential DTO's validator in Slice 2, and is written
+  here so the ladder doesn't lose it to a passing suite.
+
+---
+
+`Pending` for Slices 1 (rest)–5 — filled at execution. Rules carried forward: print the AC ID lists and assert `checked + open == 17` (M3 had
 four checkbox slips where scripted edits hit prose and never the prefix); regenerate §3A of STATE **whole** at each
 boundary; read spec lines **without truncation** before asserting anything about them.
 

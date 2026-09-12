@@ -40,14 +40,29 @@ public sealed class PasswordServiceTests
     {
         var stored = Service.Hash("correct horse battery staple");
 
-        // Flip the final character rather than truncating: a truncated base64 string can fail for a *decoding* reason and
-        // tell us nothing about the comparison. Changing one character keeps the envelope well-formed and moves only the
-        // derived subkey, so a `true` here could only mean the comparison is wrong.
-        var last = stored[^1] == 'A' ? 'B' : 'A';
-        var tampered = stored[..^1] + last;
+        // Flip a character in the MIDDLE. The first version of this test flipped the last character, and Identity's hasher
+        // returns padded base64 — so replacing a `=` with `A` moves the padding into the middle of the string, which is not
+        // a tampered credential at all but a *malformed* one, and `PasswordHasher` reacts to that by throwing
+        // `FormatException` rather than reporting `Failed`. Both cases are real and they are now separate tests below and
+        // here, because they broke for different reasons and each proves something the other cannot.
+        var i = stored.Length / 2;
+        var tampered = stored[..i] + (stored[i] == 'A' ? 'B' : 'A') + stored[(i + 1)..];
 
         Assert.NotEqual(stored, tampered);
         Assert.False(Service.Verify(tampered, "correct horse battery staple"));
+    }
+
+    [Fact]
+    public void A_malformed_stored_hash_is_rejected_rather_than_throwing()
+    {
+        // **This is gap 12's sibling, found by M4's first unit test and before any endpoint exists.** Gap 12 was a request
+        // the binder could not deserialize throwing its way to a 500 instead of answering 400. Here the same shape is one
+        // layer down: `PasswordHasher.VerifyHashedPassword` decodes base64 itself and lets `FormatException` escape.
+        // Once `POST /api/auth/login` exists, a corrupt value in the `password_hash` column would surface as a 500 on a
+        // login attempt — an unhandled exception whose only cause is bad *stored* data, which is precisely the class the
+        // "0 unhandled exceptions" target was written to catch.
+        Assert.False(Service.Verify("not base64 at all!!", "correct horse battery staple"));
+        Assert.False(Service.Verify("====", "correct horse battery staple"));
     }
 
     [Fact]
