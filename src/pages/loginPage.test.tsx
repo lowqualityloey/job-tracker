@@ -158,19 +158,25 @@ describe('login screen — the four states the app owes the user', () => {
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledWith('/'))
   })
 
-  it('an ?next pointing off this origin is refused — this form does not hand you to a stranger', async () => {
+  it('an absolute ?next is refused — this form does not hand you to a stranger', async () => {
     fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
     const onAuthenticated = renderLogin('/login?next=https%3A%2F%2Fevil.test%2Fsteal', repo())
 
     await fillAndSubmit()
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalledWith('/'))
     expect(onAuthenticated).not.toHaveBeenCalledWith('https://evil.test/steal')
+  })
 
-    // Protocol-relative is the same attack wearing a leading slash, so it gets its own case.
-    const second = renderLogin('/login?next=%2F%2Fevil.test%2Fsteal', repo())
+  it('a protocol-relative ?next is refused too — the same attack wearing a leading slash', async () => {
+    // Its own test rather than a second render() in the one above: two screens left in the same document is how this file
+    // first failed ("found multiple elements with the role button and name /sign in/i"), and that is the kind of red a
+    // careless hand "fixes" by loosening the query — the assertion was right, the fixture was wrong.
+    fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
+    const onAuthenticated = renderLogin('/login?next=%2F%2Fevil.test%2Fsteal', repo())
+
     await fillAndSubmit()
-    await waitFor(() => expect(second).toHaveBeenCalledWith('/'))
-    expect(second).not.toHaveBeenCalledWith('//evil.test/steal')
+    await waitFor(() => expect(onAuthenticated).toHaveBeenCalledWith('/'))
+    expect(onAuthenticated).not.toHaveBeenCalledWith('//evil.test/steal')
   })
 
   it('the request is a login request: POST, JSON, credentials included, both fields', async () => {
@@ -184,7 +190,9 @@ describe('login screen — the four states the app owes the user', () => {
     // 'include', not the default: without it the __Host- session cookie is not stored on a cross-origin deployment, and
     // AC-16's exact-origin CORS is the half that makes the browser allow it at all.
     expect(init.credentials).toBe('include')
-    expect(JSON.parse(String(init.body))).toEqual({ email: 'you@example.test', password: 'hunter2' })
+    // `as string`, not String(...): the adapter's body is JSON.stringify's output, so it is a string by construction, and
+    // `no-base-to-string` was right to refuse a cast that would have printed [object Object] if that ever stopped being true.
+    expect(JSON.parse(init.body as string)).toEqual({ email: 'you@example.test', password: 'hunter2' })
   })
 })
 

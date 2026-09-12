@@ -42,6 +42,24 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
   const [error, setError] = useState<RepositoryError | null>(null)
 
   /**
+   * DECISION-m4-auth-005, client half: a 401 from ANY seam -- first read, re-read, or a write this tab just
+   * attempted -- drops the snapshot along with the session it belonged to. Not a cache to keep: rows loaded under
+   * someone's credentials, still on screen after their session ended, are a leak dressed up as politeness. Only the
+   * session state goes; the in-progress form draft deliberately does not, which is what "draft-free" means in the
+   * decision's own wording.
+   */
+  const sessionEnded = useCallback((error: RepositoryError): boolean => {
+    if (error.code !== 'unauthorized') {
+      return false
+    }
+
+    setApplications([])
+    setError(error)
+    setStatus('error')
+    return true
+  }, [])
+
+  /**
    * One place turns a `list()` result into state, so the first read of the tab and every read that
    * follows an external change cannot drift apart.
    */
@@ -55,9 +73,11 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
 
     // A failed re-read flips `status`, and every page branches on `status` before it touches the
     // array, so the rows already in state are never offered as if they were still trustworthy.
-    setError(result.error)
-    setStatus('error')
-  }, [])
+    if (!sessionEnded(result.error)) {
+      setError(result.error)
+      setStatus('error')
+    }
+  }, [sessionEnded])
 
   // A ref, not the effect's closure flag, because `reload` is now called from three places: the
   // first read, the external-change subscription, and a write the store refused. Each of them
@@ -108,6 +128,13 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
       }
 
       const result = await repository.create(input)
+      // A write is usually how a tab learns the session ended: the read that filled this screen happened while it
+      // was alive. Without this the 401 stops at the page's toast and the app keeps showing data whose session is
+      // gone -- the half of the decision -060 could not act on, because it had no variant to act on.
+      if (!result.ok) {
+        sessionEnded(result.error)
+      }
+
 
       if (result.ok) {
         setApplications((current) => [...current, result.value])
@@ -115,7 +142,7 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
 
       return result
     },
-    [repository, refusal],
+    [repository, refusal, sessionEnded],
   )
 
   const updateApplication = useCallback(
@@ -125,6 +152,13 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
       }
 
       const result = await repository.update(id, patch)
+      // A write is usually how a tab learns the session ended: the read that filled this screen happened while it
+      // was alive. Without this the 401 stops at the page's toast and the app keeps showing data whose session is
+      // gone -- the half of the decision -060 could not act on, because it had no variant to act on.
+      if (!result.ok) {
+        sessionEnded(result.error)
+      }
+
 
       if (result.ok) {
         setApplications((current) => current.map((record) => (record.id === id ? result.value : record)))
@@ -140,7 +174,7 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
 
       return result
     },
-    [repository, reload, refusal],
+    [repository, reload, refusal, sessionEnded],
   )
 
   const deleteApplication = useCallback(
@@ -150,6 +184,13 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
       }
 
       const result = await repository.remove(id)
+      // A write is usually how a tab learns the session ended: the read that filled this screen happened while it
+      // was alive. Without this the 401 stops at the page's toast and the app keeps showing data whose session is
+      // gone -- the half of the decision -060 could not act on, because it had no variant to act on.
+      if (!result.ok) {
+        sessionEnded(result.error)
+      }
+
 
       if (result.ok) {
         // The snapshot only drops a record once the store has agreed to the removal.
@@ -163,7 +204,7 @@ export function ApplicationsProvider({ repository, storageAvailable = true, chil
 
       return result
     },
-    [repository, reload, refusal],
+    [repository, reload, refusal, sessionEnded],
   )
 
   const api = useMemo<ApplicationsApi>(

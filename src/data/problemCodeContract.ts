@@ -19,12 +19,13 @@ import type { RepositoryError } from '../domain/applicationRepository'
  * same file is asserted against the API's own factories (enumerated by reflection in `ProblemCodeContractTests`). A new code
  * therefore fails a test on the side that added it — which is the only moment the fix is cheap.
  *
- * ## `unauthorized` maps to `corrupt-data`, provisionally
+ * ## `unauthorized` — approved, and what the approval bought
  *
- * DECISION-m4-auth-005 asks the owner to approve a **ninth** `RepositoryError` variant: `forbidden` would claim
- * "authenticated but not allowed", and `unavailable` would claim "server unreachable, retry" — a retry loop against a 401 is
- * a lockout generator. Widening M2a's frozen union needs an explicit yes, which `DECISION-006` got and this has not
- * demanded yet. The row exists so that the yes becomes one line here plus the provider behaviour in `-061`.
+ * DECISION-m4-auth-005 asked the owner for a **ninth** `RepositoryError` variant, because `forbidden` would claim
+ * "authenticated but not allowed" and `unavailable` would claim "server unreachable, retry" — and a retry loop against
+ * a 401 is a lockout generator. Approved 2026-09-12. Until that yes this row returned `corrupt-data` and a test said so
+ * out loud; when the approval arrived the test failed, which is the reason to write a provisional value down rather than
+ * leave a code in a `default` branch where nobody is watching it.
  */
 export const SERVER_PROBLEM_CODES = ['validation', 'not-found', 'conflict', 'unauthorized'] as const
 
@@ -56,9 +57,9 @@ export const PROBLEM_CODE_TABLE: Record<ServerProblemCode, ProblemCodeRow> = {
 
   conflict: (context) => (context.id === null ? corruptData : { code: 'conflict', id: context.id }),
 
-  /** PROVISIONAL — see DECISION-m4-auth-005 above. Same value as the fallback, but *named*, so the change is one line and
-   *  `problemCodeContract.test.ts` is the test that fails when the owner's approval arrives. */
-  unauthorized: () => corruptData,
+  /** The row `-060` was really for. Approving DECISION-m4-auth-005 broke `problemCodeContract.test.ts` exactly as
+   *  `-060` intended: it had pinned this value to `corrupt-data` so the widening could not arrive unnoticed. */
+  unauthorized: () => ({ code: 'unauthorized' }),
 }
 
 /**
