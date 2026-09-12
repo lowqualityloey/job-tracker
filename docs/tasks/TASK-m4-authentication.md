@@ -83,11 +83,11 @@ below is asserted from the file, and the tally is checked as `checked + open == 
 
   · **⚠️ Restated by grill Q8 (2026-09-12).** The **assertions** are the byte-identical bodies, the identical status code, and the dummy verify's presence proven structurally. The 5 ms/50-sample timing bound is **reported with `n`, min/median/max and warm-up, and asserts nothing** — no run has measured whether that bound separates a 400 ms signal from noise. AC count stays 15; only this AC's gate weakened, deliberately and on the record.
 
-- [x] **AC-4** — **Password cost is measured and bounded, and the assertion is the test.**  *(verified 2026-09-12 by `BEHAVIOR-048`+`-049`; percentiles from the dedicated bench — the committed in-suite guard is deliberately coarser, see §6)*
+- [x] **AC-4** — **Password cost is measured and bounded, and the assertion is the test.**  *(verified 2026-09-12 by `BEHAVIOR-048`+`-049`; percentiles from the dedicated bench — the committed in-suite guard is a **contention-immune ratio** after its absolute band flaked, see §6's amendment)*
   · `dotnet test --filter ~PasswordCost` → `Hash` p95 < 1000 ms, `Verify` p50 within 200–800 ms; iterations recorded in
   the envelope. **No number is asserted in this record before that run.**
 
-- [ ] **AC-5** — **The session id is regenerated at login** — a pre-login cookie is invalid after, and the test proves it
+- [x] **AC-5** — **The session id is regenerated at login**  *(verified 2026-09-12 by `-052`: replayed pre-login cookie gets `401`, new one `200`, DB shows revoked=1/live=1)* — a pre-login cookie is invalid after, and the test proves it
   by re-using the old value. *(Fixation is otherwise a comment, not a behaviour.)*
 
 - [ ] **AC-6** — **Logout revokes server-side.** `sessions.revoked_at` set, verified by `psql`; the old cookie then gets
@@ -273,6 +273,16 @@ configuration**, and states which literal it used; a delta quoted without its UR
   Measured floor 247.6 ms; 150 ms is far below it and still catches a 10× slip (~25 ms).
 - **AC-4 checked on this evidence — and the check is annotated, not bare**: percentile figures come from the bench, the
   committed guard asserts a coarser envelope. Recorded so nobody later reads 3000 ms as the ratified target.
+- **⚠️ Post-execution amendment (same day, discovered while executing `-052`): the absolute band flaked for real, and the
+  ceiling was NOT moved.** Full-suite run: `Assert.InRange() Failure: Range: (200 - 800) Actual: 1012.4146` — the same test
+  passes in 302 ms alone. PR #40 had promised the alternative in writing ("the correct response is not to raise the ceiling
+  again — it's to conclude latency cannot be asserted in a parallel suite at all"), so the assertion became a **ratio
+  against a reference `PasswordHasher` at the same declared iteration count, timed adjacently** (within 2×; contention
+  multiplies both and cancels). A demo-iteration swap still fails it at ratio ≈ 0.003; "the whole machine got slower" no
+  longer does, which was never a product defect. A second fact pins that both sides are the same cost function — a
+  reference hasher verifies our envelope as `Success`, impossible unless `-048`'s count is the one written.
+  **The coarse 150–3000 ms envelope described above is superseded**; the absolute percentiles live in this bench and in
+  spec §2.3's annotation, not in CI. Evidence: `Failed: 0, Passed: 103, Skipped: 0` on **two consecutive full runs.**
 - **Two process notes.** (1) `Assert.InRange(collection, lo, hi)` does not exist — `Assert.InRange<T>(T,T,T)` — so the first
   run died with **CS0411**; the compiler caught a test that would have asserted nothing. (2) My "run it twice more" loop
   printed nothing for both repeats: the grep pattern used single spaces against padded output. **Same rule-8 mistake, caught
@@ -415,6 +425,35 @@ configuration**, and states which literal it used; a delta quoted without its UR
   **401 until `-061`'s login screen ships**. That is the intended order — the gate cannot be verified before there is a
   credential path — but `npm run dev` against this API is a broken app today, and the fixture authenticates so tests don't
   show it.
+
+**`TDD-EXEC-m4-authentication-052`** · `BEHAVIOR-052` · Red `4da189e` → Green *(this commit)* · p0 · **Slice 2**
+- **Red:** `Failed: 3, Passed: 2` — old cookie answered `OK` where `Unauthorized` was required, and the DB showed
+  `revoked=0 live=2`. **The two that passed are the point:** `-051` already issues a fresh `Guid` per login, and *that is
+  precisely the property session fixation survives*. Rotating a value nobody invalidates is theatre, and this Red is the
+  difference between the two.
+- **Green:** focused **5/5**, full **`Failed: 0, Passed: 103, Skipped: 0`** on **two consecutive runs**, 0 warnings.
+  Rotation is nine lines in the login handler: the session id the client *arrived* with gets `revoked_at` set, filtered on
+  `RevokedAt == null`, then a new row is inserted — same request, same unit of work.
+- **Why at the credential boundary and not in the gate:** fixation is defeated only if the superseded id dies in the same
+  breath that its replacement is created. Revoked in the gate, a stolen id survives until someone's next request happens to
+  be a read; revoked at logout, it survives forever.
+- **Revoked rather than deleted**, so the audit question stays answerable: *when did this session stop working, and was
+  that logout, expiry, or a second login?* Asserted as three counts (`total=2`, `revoked=1`, `live=1`) precisely because
+  the cheap wrong implementations differ and both are wrong — leave it valid (this Red) or drop the row (unauditable).
+- **Positive control included:** `the rotated session is still accepted where the old one is refused`. Without an `OK` for
+  the new cookie in the same request shape, "old cookie gets 401" is equally satisfied by a server that has stopped
+  accepting anything. Same endpoint, one header character different, opposite verdicts.
+- **Cookie replayed by hand, no `CookieContainer`** — whether a held cookie is honoured after re-login *is* the policy under
+  test, and a jar would decide it silently on the client's behalf.
+- **`-049`'s guard broke while this behaviour was being verified**, and its own commit is separate: see the amendment above.
+  Summary — median 1012.4 ms against an 800 ms band under a now-102-test suite; the ceiling was not raised, the assertion
+  became a ratio.
+- **Two of my own mistakes, both in the test rather than the product:** `count(*)::int FILTER (WHERE …)` is invalid SQL
+  (`42601`) — `FILTER` precedes the cast, so the counts are `(count(*) FILTER (…))::int`; and `UseEnvironment` is an
+  extension method in `Microsoft.AspNetCore.Hosting`, which fully qualifying the parameter's type did not bring into scope
+  (CS1061). Also `WebApplicationFactory` needed `Mvc.Testing`.
+- **`AC-5` checked.** Its wording was the test design, not a suggestion: *"a pre-login cookie is invalid after, and the test
+  proves it by re-using the old value."*
 
 ---
 

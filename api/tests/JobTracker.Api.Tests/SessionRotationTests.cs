@@ -135,9 +135,9 @@ public sealed class SessionRotationTests(PostgresFixture postgres)
         await conn.OpenAsync();
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT count(*)::int FILTER (WHERE revoked_at IS NULL)     AS live,
-                   count(*)::int FILTER (WHERE revoked_at IS NOT NULL) AS revoked,
-                   count(*)::int                                       AS total
+            SELECT (count(*) FILTER (WHERE revoked_at IS NULL))::int     AS live,
+                   (count(*) FILTER (WHERE revoked_at IS NOT NULL))::int AS revoked,
+                   count(*)::int                                         AS total
             FROM sessions
             WHERE id IN ($1::uuid, $2::uuid)
             """;
