@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 
 namespace JobTracker.Api.Auth;
 
@@ -18,7 +19,26 @@ namespace JobTracker.Api.Auth;
 /// </summary>
 public sealed class PasswordService : IPasswordService
 {
-    private readonly PasswordHasher<AppUser> _hasher = new();
+    /// <summary>
+    /// The iteration count every hash this app writes is made at. <c>BEHAVIOR-048</c>.
+    ///
+    /// <b>Explicit, and that is the whole behaviour.</b> Inheriting <c>PasswordHasher</c>'s default — <b>100,000, measured
+    /// on this machine</b>, not recalled — would mean every stored hash encodes a cost chosen by whichever framework
+    /// release was current when the account was created. Naming it in one place makes the next increase a change with an
+    /// audit trail; discovering it in release notes does not.
+    ///
+    /// <b>The number is provisional and says so.</b> Nothing here has measured it. <c>BEHAVIOR-049</c> asserts the
+    /// Hash/Verify cost band, and <i>that</i> measurement justifies or moves this constant — an unmeasured threshold is the
+    /// species of mistake M3 made twice (§2.8's target unrun for 126 commits; a 5 ms enumeration bound that may have been
+    /// noise). The tension is standing: a higher count is a stronger hash and a slower login, and one of the two gives.
+    ///
+    /// Note that raising this never invalidates an existing hash: <c>PasswordHasher</c> derives from the count declared in
+    /// the envelope — the fact that falsified the first draft of <c>-048</c>'s test.
+    /// </summary>
+    public const int IterationCount = 350_000;
+
+    private readonly PasswordHasher<AppUser> _hasher =
+        new(Options.Create(new PasswordHasherOptions { IterationCount = IterationCount }));
 
     public string Hash(string password) => _hasher.HashPassword(new AppUser(), password);
 
@@ -27,13 +47,17 @@ public sealed class PasswordService : IPasswordService
     /// <c>BEHAVIOR-047</c> proves — so it is named here as an obligation on <c>BEHAVIOR-048</c> rather than left as a
     /// silent judgement call.
     ///
-    /// The reasoning is the lockout shape: <c>VerifyHashedPassword</c> returns <c>SuccessRehashNeeded</c> when the stored
-    /// envelope is well-formed but predates the current cost settings. Treat that as a failure and <c>-048</c> — whose
-    /// whole job is raising the iteration count above Identity's inherited 100,000 default — **silently locks out every
-    /// existing account the moment it goes green.** A password that is correct enough to need rehashing is correct.
+    /// <c>SuccessRehashNeeded</c> means "correct password, envelope predates our current settings", and a correct
+    /// password that is merely old is still correct -- so it verifies.
     ///
-    /// `-048` must therefore assert two things, and only the first is guaranteed to fail today: the envelope's iteration
-    /// count equals a configured value, **and** a hash made at a lower count verifies `true` while needing rehash.
+    /// <b>Correction, written rather than quietly fixed:</b> this passage originally justified the choice with a
+    /// lockout scenario ("raising the iteration count in -048 silently locks out every existing account"). -048's
+    /// probe measured that it does not happen: verification derives the subkey from the count <i>declared in the
+    /// envelope</i>, so an iteration change yields <c>Success</c> and the rehash signal never fires. The judgement
+    /// stands -- the signal is real for compatibility formats, PRF changes and key-size changes -- but its stated
+    /// reason was invented. <b>A comment that fabricates a threat to justify a decision is worse than the decision:</b>
+    /// nobody re-tests the threat, everyone trusts the sentence, and the next reader defends the code from a scenario
+    /// that cannot occur.
     /// </remarks>
     public bool Verify(string storedHash, string candidate)
     {
