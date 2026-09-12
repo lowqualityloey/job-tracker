@@ -495,8 +495,18 @@ accepted** · `-064` `httpCrossTab.mjs` **7/7 while authenticated** (the real-br
 > behind the split: login itself answers `204` with no token, so case 1 had to target a state-changing verb.
 > Two `◆` practice rows came out of the same slice — **`-074`** (the ephemeral key ring, above) and **-075** (two CDP
 > harnesses and boot scripts duplicate the same recipe (the pair that does is `run-063`/`run-064`; `run-043` shares none of it), including two fixes applied twice today).
-> **Ladder is now `-047`…`-069` + `-071` + `-074`/`-075` = 26 behaviours**, counted with
-> `grep -cE '^\| `…-0(4[7-9]|[5-7][0-9])`' docs/tests/2026-09-12-test-m4-authentication.md` → **26**. `-070` stays
+> **Ladder is now `-047`…`-069` + `-071` + `-074`/`-075`/`-076` = 27 behaviours**, counted with
+
+> **§6 amendment — execution-time, 2026-09-13 (`-065` delivered; `-076` added).** AC-14 is verified: the flag-on delta is
+> **1,242 B against Slice 0's 3,072 B gate**, with the baseline **rebuilt in the same run** at `41b32af` and reproducing
+> 60,118 / 61,368 B **to the byte**. Two facts correct the AC's own wording, and both are kept visible because they change
+> what the number means: **`/login` is not a chunk** (`App.tsx` imports `LoginPage` statically), so "the login route's
+> bundle delta" is a whole-JS measure; and **flag-off is not free** — the adapter tree-shakes but the auth UI does not, so
+> the flag-off delta is 1,022 B rather than the "flattering 0 kB" this spec warned about, and M4's cost splits into 1,022 B
+> always-present and 220 B flag-dependent. One `◆` row came out of the slice: **`-076`**, because
+> `grep -c bundleDelta .github/workflows/ci.yml` → **0** — a gate that nothing re-runs is a measurement with an expiry
+> date, not a guard. The row is listed and left unstarted.
+> `grep -cE '^\| `…-0(4[7-9]|[5-7][0-9])`' docs/tests/2026-09-12-test-m4-authentication.md` → **27**. `-070` stays
 > unassigned (a phantom cited by two records, defined by none), and `-072`/`-073` are **reserved by STATE §3A's D-2
 > and D-3 as proposals, not rows** — the gap in the numbering is the proof they were not quietly filled.
 > first claim in this series.
