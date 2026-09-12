@@ -196,7 +196,9 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   it is the same shape as ever: **a question, not a commit**, and it now carries a second one with it, **whether `-063`/AC-11
   gets restated as two cases** (same-site write without `X-CSRF-Token` → the header check bites; cross-site → no cookie →
   `401`), since a cross-site `Lax` probe cannot reach the antiforgery check the row exists to prove. **Then** implement (a′)
-  and run **`-064`**; `-065` is unblocked either way. **The four owed practice tasks (`-066`…`-069`) stay unstarted until
+  and run **`-064`**. **`-065` is not gated on the answer — but it must *name a configuration*, and the answer decides which
+  URL literal it names**: running it first risks a re-run for the **figure**, not the **verdict**, because Slice 0 measured
+  `localhost` versus a 14-character IP moving the gzip sum by **9 B** against a row threshold of **3 kB**. **The four owed practice tasks (`-066`…`-069`) stay unstarted until
   invited**, and the decision-free *server-side* queue is still empty after `-069`: everything newly unlocked is Browser or
   Build.
   *(PR #59 — the commit carrying the previous corrections — is **merged**, `f2b8a3b`, 17:24 UTC, verified both ways; the
