@@ -111,6 +111,37 @@ public static class AuthCatalog
             return Results.NoContent();
         });
 
+        // BEHAVIOR-054 / AC-6 / spec 4.3 -- logout. 204 + a clearing Set-Cookie + sessions.revoked_at, and the gate in
+        // SessionGate is what makes it "authorized"; this handler never asks whether the caller is logged in, because a
+        // handler that re-implements the gate is a second gate to keep in sync.
+        //
+        // The server-side row is the control. The cookie header below is courtesy: without it a client keeps replaying an
+        // id that is already dead, which is harmless to the caller but noise in every log. AC-6's own wording is the
+        // ordering: "clearing the browser cookie is not the control", so the test for THIS behaviour reads the database
+        // and treats the header as secondary.
+        endpoints.MapPost("/api/auth/logout", async (JobTrackerDb db, HttpContext http) =>
+        {
+            // Scoped to the presented session id, not to the user. `WHERE user_id = @me` would pass every other test in
+            // -054 and turns a stolen cookie into a per-account denial-of-service handle; "log out everywhere" is a
+            // different feature, listed as out of scope in spec 4.3's neighbours, and it would need its own behaviour row.
+            // Revoked, never deleted, and filtered on RevokedAt IS NULL for the same reason -052's rotation filters on it:
+            // revoked_at records the moment a session stopped being valid, and a repeat call must not rewrite history.
+            var presented = http.Request.Cookies[SessionCookieName];
+            if (!string.IsNullOrWhiteSpace(presented) && Guid.TryParse(presented, out var sessionId))
+            {
+                await db.Sessions
+                    .Where(s => s.Id == sessionId && s.RevokedAt == null)
+                    .ExecuteUpdateAsync(set => set.SetProperty(s => s.RevokedAt, DateTime.UtcNow));
+            }
+
+            // __Host- can only be replaced by a header carrying the same constraints -- no Domain, Path=/, Secure -- so a
+            // clearing cookie that omits any of them leaves the dead id in the jar. Asserted in -054's test rather than
+            // trusted from the spec.
+            http.Response.Headers.Append("Set-Cookie",
+                $"{SessionCookieName}=; Max-Age=0; Secure; HttpOnly; SameSite=Lax; Path=/");
+            return Results.NoContent();
+        });
+
         return endpoints;
     }
 

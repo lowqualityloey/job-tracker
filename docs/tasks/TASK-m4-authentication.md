@@ -91,7 +91,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
 - [x] **AC-5** — **The session id is regenerated at login**  *(verified 2026-09-12 by `-052`: replayed pre-login cookie gets `401`, new one `200`, DB shows revoked=1/live=1)* — a pre-login cookie is invalid after, and the test proves it
   by re-using the old value. *(Fixation is otherwise a comment, not a behaviour.)*
 
-- [ ] **AC-6** — **Logout revokes server-side.** `sessions.revoked_at` set, verified by `psql`; the old cookie then gets
+- [x] **AC-6** — **Logout revokes server-side.**  *(verified 2026-09-12 by `-054`: `revoked_at` read from a real PostgreSQL with hand-written SQL, cookie dead on the wire `200→204→401`, scoping proven against a second live session; `psql` client absent on this machine — see §6's deviation note)* `sessions.revoked_at` set, verified by `psql`; the old cookie then gets
   `401`. Clearing the browser cookie is not the control.
 
 - [ ] **AC-7** — **Ownership: user B cannot see or touch A's rows, and gets `404` — never `403`.**
@@ -498,6 +498,45 @@ configuration**, and states which literal it used; a delta quoted without its UR
   the difference between proving absence and proving nothing), and a leftover `wrongCalls[1 - 1]`.
 - **Practice-task result pending from the human** (browser cookie jar over plain HTTP) is **not** a dependency of this
   behaviour; it gates `-063`/`-064`.
+
+**`TDD-EXEC-m4-authentication-054`** · `BEHAVIOR-054` · Red `c602750` → Green *(this commit)* · p0 · **Slice 2**
+- **Red:** `Failed: 6, Passed: 0` — four `Expected: NoContent/Unauthorized, Actual: NotFound` (no logout route exists), and
+  `Revocation_is_scoped…` reported `Actual: OK` where `Unauthorized` was required, because nothing could revoke anything.
+- **Green:** focused **6/6**; full **`Failed: 0, Passed: 114, Skipped: 0`** (32 s), 0 warnings.
+- **AC-6's own gate, on the wire** (live Kestrel, port ownership verified before and after):
+  `GET /api/applications` **200** → `POST /api/auth/logout` **204** → same cookie **401** →
+  `POST /api/auth/logout` anonymously **401** → `GET /api/auth/session` **401**.
+- **⚠️ `-055`'s gate under-covered the spec, and this increment fixes it.** Spec §4.3's *Auth* column marks
+  `POST /api/auth/logout` **and** `GET /api/auth/session` as *authorized*, but `-055` protected only the
+  `/api/applications` prefix — because `-055`'s own row says "every **data** route", and it satisfied that row exactly.
+  **A behaviour can be delivered as written and still be short of the contract it came from.** The gate is now
+  `IsProtected(path)`: data prefix, **or** the auth prefix minus `/api/auth/login`. The last line of the wire check above is
+  the payoff: `GET /api/auth/session` answers `401` even though **no such endpoint exists yet** — the prefix rule covers the
+  contract row a behaviour row nobody has written.
+- **Why logout must not be anonymous-reachable, beyond the spec column:** an endpoint that answers `404` to one caller and
+  `401` to another is itself a discriminator, and logout is the *one* gated route whose request an attacker can send carrying
+  nobody's cookie.
+- **Revocation is scoped to the presented session id — asserted twice over, on both ends.** `UPDATE sessions SET revoked_at =
+  now() WHERE user_id = @me` passes every other test in this file (row revoked ✓ cookie dead ✓ 204 ✓) and is a stolen-cookie
+  denial-of-service handle against a whole account, plus it collapses "log out here" into "log out everywhere", which spec
+  lists as out of scope. So `Revocation_is_scoped_to_the_session_that_was_presented` uses **two independent clients** — not
+  two logins from one, because `-052`'s rotation would correctly kill the first — and asserts both verdicts both ways.
+- **`revoked_at` is not rewritten by a repeat logout** (`RevokedAt IS NULL` in the filter), the same policy `-052` chose for
+  rotation: the column records when a session *stopped being valid*. Asserted by comparing `extract(epoch from revoked_at)`
+  before and after a second call, so the check is to PostgreSQL's own microsecond precision with no .NET rounding in the
+  middle.
+- **Deviation from AC-6's literal wording, stated rather than glossed:** AC-6 says *verified by `psql`* and **this machine has
+  no `psql` client** (`command -v psql` → absent). The revocation assertions read a real PostgreSQL 18.6 through Npgsql with
+  hand-written SQL — the same database, the same query text, `psql` being a client and not a mechanism. AC-6 is checked on
+  that reading; if the literal client is required, `apt install postgresql-client` and the exact statement is in
+  `LogoutEndpointTests.ReadSession`.
+- **The clearing `Set-Cookie` is asserted, and it is *courtesy*, not control** — AC-6: "clearing the browser cookie is not
+  the control." Asserted because `__Host-` cookies can only be replaced by a header carrying the same constraints (no
+  `Domain`, `Path=/`, `Secure`), so a malformed clearing header leaves the dead id in the jar. **Honest limit on the wire
+  evidence: I piped `head -3`, so the 204's headers were truncated before `Set-Cookie` — the expiry attribute set is proven
+  in-process, not on the wire.** Reporting a truncated assertion as a verified one is how `-051`'s gate measured a stranger.
+- **`-066` now has three callers of one clock question** (`-050`'s `expires_at`, `-055`'s gate check, `-054`'s
+  revoke-on-write) and still owns the `TimeProvider` seam.
 
 ---
 
