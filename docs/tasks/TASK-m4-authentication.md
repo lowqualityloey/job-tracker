@@ -118,7 +118,7 @@ below is asserted from the file, and the tally is checked as `checked + open == 
   · `docker exec … node /srv/httpCrossTab.mjs` → **7/7 with cookies**, no test-only shims.
   · **jsdom cannot attempt this** (no `EventSource`, no origin policy) — which is *why* it is an AC and not a nice-to-have.
 
-- [ ] **AC-13** — **All 65 M3 API tests pass under auth with `Skipped: 0`.**
+- [x] **AC-13** — **All 65 M3 API tests pass under auth with `Skipped: 0`.**  *(verified 2026-09-12 by `-058`: the 65 is now an executable manifest — 28 methods, 65 expanded cases, composition recorded — and proven to bite by three mutation probes; `Skipped: 0` is a standing assertion, not an observation)*
   · `dotnet test` → `Passed: 65, Failed: 0, Skipped: 0`. **Read `Skipped` as well as `Failed`** (M3 lost an hour to a
   filter matching only part of a `describe`).
 
@@ -634,6 +634,46 @@ configuration**, and states which literal it used; a delta quoted without its UR
   control — the cookie was empty because the server hadn't finished booting when the login ran, and a probe that never had a
   session measures nothing while still printing a tidy table. The re-run waits on `Now listening`, prints the login status
   and the cookie, and **refuses to print the table** if the cookie is absent.
+
+**`TDD-EXEC-m4-authentication-058`** · `BEHAVIOR-058` (+ AC-13) · `a996d74` · p0 · **Slice 3**
+- **Not a Red/Green row, and the substitute is the evidence that matters.** AC-13 asserts a property that already holds — the
+  harness has authenticated through `POST /api/auth/login` since `-050`/`-055`, and every run since has reported
+  `Skipped: 0`. Writing a "failing test" against a bug that does not exist would be theatre, so this increment was falsified by
+  **mutation instead**: break the tree three ways, confirm the guard bites, revert, confirm green. Measured:
+
+  | mutation | guard that failed | message |
+  | :--- | :--- | :--- |
+  | `Skip = "…"` on one M3 test | `Nothing_in_the_API_test_assembly_is_skipped_or_disabled` | `1 test(s) carry a Skip reason…` |
+  | rename one M3 method | manifest test | `AC-13 regression net: 1 M3 test method(s) are gone… A_rejected_write_publishes_nothing` |
+  | drop one `[InlineData]` row | case-count test | **`AC-13 counts 65 M3 assertions; the assembly now yields 64`** |
+
+  Each probe was reverted with `git checkout --` and the net re-run to 4/4. **A regression net nobody has proven catches
+  anything is a comment with an `Assert` in it.**
+- **AC-13's "65" resolves exactly — but only once you know its composition.** From `dotnet test --list-tests` (the runner is
+  the only thing that knows how data rows expand; my first attempt counted attributes with a regex and reported
+  `ValidationContractTests` as **0** tests while the runner listed 36):
+
+  `ValidationContractTests` 1 method/**36** · `ApplicationsCommandTests` 6/**7** · `ApplicationsQueryTests` 5/**6** ·
+  `CorsContractTests` 5/**5** · `EventStreamTests` 4/**4** · `PostgresHarnessTests` 4/**4** · `ApplicationConstraintTests` 3/**3**
+  = **28 methods, 65 cases**. `CorsContractTests` is M3's (`BEHAVIOR-m3-backend-api-042`) and `PostgresHarnessTests` is M3's
+  harness asserting its own container; drop either and the total is 60 or 56, so the *headline* number is less informative
+  than the breakdown — which is why the manifest is class-and-method, not an integer.
+- **Cases, not methods, because method-level equality has exactly the hole this row exists for.** Deleting one row from a
+  36-row table removes 35 assertions while every method name stays put. `CaseCount` therefore reads the data attributes — one
+  per `InlineData`, a `MemberData` member enumerated on its declaring type — and asserts the total is 65.
+- **Two framework findings that taught more than a green run would have.** `TestServer`'s `ClientHandler` throws
+  `NotSupportedException` on `HttpClient.Send` — *"risk of threadpool exhaustion when running multiple tests in parallel"* —
+  so the first draft died on its own synchronous convenience, not on the product. And `MemberDataAttribute.Type` /
+  `ClassDataAttribute.ClassType` are **not public** in this xUnit version, so a case counter cannot resolve a member declared
+  elsewhere; M3 never does that, and where the counter cannot measure it, it now **throws** rather than returning `1`.
+  A counter that undercounts would make AC-13 look wrong in the safe direction — the worst possible failure mode for a net.
+- **Stated limit, not implied coverage:** assertion *weakening* (`Assert.Equal(404, x)` → `Assert.True(status < 500)`) keeps
+  every name and every count and passes all four guards; that is a review problem. What the fourth guard does close is
+  **vacuous passing** — it drives `GET`/`POST`/`PUT`/`DELETE` with no cookie (`401` + `code: unauthorized`) and with the
+  fixture's login-derived session (`200`), so if the harness ever went back to injecting a session row by SQL, AC-13 cannot
+  read green while lying about what "under auth" meant.
+- **Suite:** focused **4/4**, full **`Failed: 0, Passed: 137, Skipped: 0`**, 0 warnings. AC-13 checked →
+  **10 verified + 7 open = 17**, asserted.
 
 ---
 
