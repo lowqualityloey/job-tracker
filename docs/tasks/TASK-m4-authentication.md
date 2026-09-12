@@ -63,7 +63,7 @@
 on the strength of intent. *(M3's AC-11 and AC-14 both had prose claiming closure over an unticked box; every status
 below is asserted from the file, and the tally is checked as `checked + open == 17`.)*
 
-- [ ] **AC-1** — **Every data route rejects anonymity, the stream included.**
+- [x] **AC-1** — **Every data route rejects anonymity, the stream included.**  *(verified 2026-09-12 by `-055`: the six-method theory **and** AC-1's own curl gate on a live server, preflight excluded by design; see §6)*
   · `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5080/api/applications` → `401`; **same for
   `/api/applications/events`, `…/{id}`, and for `POST`/`PUT`/`DELETE`.**
   · *Why the stream is named:* an attribute typo on one endpoint is invisible to every other test.
@@ -155,6 +155,13 @@ below is asserted from the file, and the tally is checked as `checked + open == 
 
 **Slice 0 = no behaviour ID** (Configuration/Documentation: its evidence is the recorded baseline bytes, filed under §6, not a behaviour) · **`-047`…`-050`** Slice 1 · **`-051`…`-054`** Slice 2 · **`-055`…`-059`** Slice 3 · **`-060`…`-062`** Slice 4 · **`-063`…`-065`** Slice 5 · plus **`-066`** (Slice 2) and **`-067`** (Slice 3), **appended** by the §6 amendment = **21 behaviours** (`-047`…`-067`), continuing after M3's `-046`.
 · *Count command, run:* `awk '/^## 6\./,/^## 7\./' docs/specs/2026-09-12-spec-m4-authentication.md | grep -oE '\`-0[0-9]{2}\`' | tr -d '\`' | sort -u | wc -l` → **21**, range `-047` / `-067`. **The count moved 19 → 21 by a documented spec amendment (`-066`, `-067`), not by this record drifting** — that distinction is why the derivation is printed: an unexplained count is a bug report waiting to be filed against the document. **The command itself was corrected once**: a `-0[0-9]{2}` scan double-counts M3's `-037` reference in §6 prose and reports 22. **The count is derived from the spec's own lines, not from this paragraph's intention.**
+
+> **Amendment 2026-09-12 — executed out of ID order, and the IDs are left as written so the reorder stays visible.**
+> `-055` (the authentication gate) was executed before `-052` and `-054`, because both of those rows state their proof as
+> *"replaying the old cookie gets `401`"* — and before `-055`, **a replayed cookie and no cookie produce the same `200`**,
+> so both p0 behaviours could only have asserted something weaker than their own rows demand. Discovered at `-052`'s
+> execution step, not in review. **The rows themselves are unchanged**: the numbering is the plan's history, and silently
+> renumbering to hide a dependency error would destroy the evidence that the plan had one.
 
 Each gets a `TDD-EXEC-m4-authentication-NNN` block **written in the turn that earns it**; M3 finished with 21 behaviours
 and 20 blocks, and writing the missing one exposed a false claim about two others. **The count is asserted, not recalled.**
@@ -369,6 +376,45 @@ configuration**, and states which literal it used; a delta quoted without its UR
   `required` non-nullable members, `{}` dies in the JSON binder and the framework answers with a problem document that
   carries **no `code`** — an envelope that looks machine-readable but isn't. Missing values are now a validation finding
   this handler controls, which is also why the empty-body test is here and not parked with `-053`.
+
+**`TDD-EXEC-m4-authentication-055`** · `BEHAVIOR-055` *(executed out of order — see §5's amendment)* · Red `6a9af32` → Green *(this commit)* · p0 · **Slice 2's keystone**
+- **Red:** `Failed: 9, Passed: 0` — `Expected: Unauthorized` on all six methods plus the stream. **AC-1 was simply false
+  before this commit, and nothing in the suite had ever said so** — M3's 65 tests all asserted an unprotected surface.
+- **Green:** focused **9/9**, full **`Failed: 0, Passed: 97, Skipped: 0`** (18 s), 0 warnings. **M3's 65 tests pass under
+  the gate with `Skipped: 0`, which is `-058`'s claim observed early** — `-058` still gets its own behaviour, because
+  "it happened to pass today" is not the same as "a test asserts it".
+- **AC-1's own gate, run as written** (`curl … -w '%{http_code}'` against a live server, port ownership verified before
+  and after — see `-051`'s record for why that is no longer assumed):
+  `GET /api/applications` → **401** · `GET …/{id}` → **401** · `GET …/events` → **401** · `POST` → **401** · `PUT` → **401** ·
+  `DELETE` → **401** · `POST /api/auth/login` → **204** · `OPTIONS` preflight with `Origin:` → **204**.
+- **Why a path rule rather than `RequireAuthorization()` per endpoint** (three reasons, in `SessionGate`'s remarks): the
+  stream is exactly the route a per-endpoint declaration misses (`-046`'s history); `RequireAuthorization()` **throws at
+  startup** without a registered authentication scheme, which would drag in the Identity handler plumbing `DECISION-002`
+  rejected; and "is this route public?" is answerable from one file instead of N call sites that each claim to have opted
+  in. **Cost stated, not hidden:** a prefix rule also catches a hypothetical `/api/applications-public`, so the match is
+  `StartsWithSegments` (segment-wise, case-insensitive like routing) rather than `string.StartsWith`.
+- **Preflight must not be gated.** A browser cannot attach cookies to an `OPTIONS`, so gating it breaks every cross-origin
+  write with a 401 a client reads as "server down". `UseSessionGate` is installed **after** `UseCors` — real preflights
+  short-circuit there — plus an explicit `IsOptions` pass-through for requests with no `Origin`. Asserted above.
+- **`Guid.TryParse` before the database**, because the cookie value is attacker-controlled text on every request; feeding
+  it to Npgsql unparsed is how a gate becomes a 500 generator — gap 12's class at the widest input surface M4 has. Asserted
+  as `A_garbage_session_value_is_401_rather_than_500`.
+- **The stream assertion is deliberately awkward**: `GetAsync(..., ResponseHeadersRead)` plus `DoesNotContain
+  "text/event-stream"`, because SSE commits headers eagerly — a gate applied after the first write yields **200 + a
+  stream that then goes quiet**, which a bare status check can read as success.
+- **`UtcNow` here, `TimeProvider` deferred honestly.** `-066` is the behaviour that needs an injectable clock and it is the
+  one that will decide whether the seam is acceptable in production; standing up a seam now and leaving one caller unswept
+  is the half-done version of the same idea. Recorded as the known debt it is.
+- **Three of my own tool mistakes, all caught before they shipped**, and worth listing because they are the mundane kind:
+  a Python heredoc with mismatched quote delimiters aborted with **none** of its edits applied (the `&& echo WIRED` guard
+  is the only reason that didn't become a commit whose message described changes it didn't contain — see rule 9's entry);
+  chained `.UseSetting(...)` calls appended **after** the terminating `;`, producing CS1519/CS1001/CS1031; and a
+  `CreateIndependentHost()` that became `Task<HttpClient>` at one call site needing `await`. Also: the branch I was on was
+  named `-052` while delivering `-055`, so it was renamed **before** the first commit rather than explained after.
+- **Consequence for local development, stated so nobody discovers it by surprise:** the frontend's data views are now
+  **401 until `-061`'s login screen ships**. That is the intended order — the gate cannot be verified before there is a
+  credential path — but `npm run dev` against this API is a broken app today, and the fixture authenticates so tests don't
+  show it.
 
 ---
 

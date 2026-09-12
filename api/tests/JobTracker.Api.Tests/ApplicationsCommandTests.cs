@@ -306,7 +306,7 @@ public sealed class ApplicationsCommandTests(ApplicationsApiFixture fixture) : I
         Assert.Equal("Massive Dynamic", body.RootElement.GetProperty("companyName").GetString());
 
         // The assertion the behaviour is actually named for — a *different process-equivalent* host must see it.
-        using var secondHost = fixture.CreateIndependentHost();
+        using var secondHost = await fixture.CreateIndependentHost();
         using var seen = JsonDocument.Parse(await secondHost.GetStringAsync($"/api/applications/{id}"));
         Assert.Equal("Massive Dynamic", seen.RootElement.GetProperty("companyName").GetString());
         Assert.Equal("Applied", seen.RootElement.GetProperty("status").GetString());
