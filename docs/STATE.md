@@ -82,9 +82,10 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
 - **In flight**: **PR #65** `feat/m4-065-bundle-delta` — **`-065`: AC-14 verified**, the login-route bundle delta
   measured against a **rebuilt** Slice 0 baseline: **1,242 B under a 3,072 B gate**, flag-off **1,022 B** printed beside
-  it, and both baseline figures reproduced **to the byte**. Harness `ddaf7f2`, its own quoting defect fixed in
-  `b489f18`, all numbers taken at `b489f18` on a clean tree — the harness aborts on a dirty one, because its output is
-  pasted into a record that cites a SHA. No product code moves, so `verify-api` skipping on this PR is **correct rather
+  it, and both baseline figures reproduced **to the byte**. Commit ladder: **harness `ddaf7f2` → its own `printf`
+  defect fixed `b489f18` → record `82cd12f` → the AGENTS rule that failure earned `2b1201b`**. Every number was taken at
+  `b489f18` on a clean tree — the harness aborts on a dirty one, because its output is pasted into a record that cites a
+  SHA, and `b489f18` is the last commit that touches anything a build reads. No product code moves, so `verify-api` skipping on this PR is **correct rather
   than a gap**, and the way to tell the two apart is recorded below, because #64 needed it.
   **PR #64 (`-063`, the antiforgery gate) is MERGED** — `893038f` at 21:29:05Z, verified both ways: `state:MERGED` with
   head `f5687e3` equal to the local HEAD, **and** the `TDD-EXEC-m4-authentication-063` marker, `AntiforgeryGate.cs`
