@@ -80,16 +80,18 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - **Active Task**: [`TASK-m4-authentication`](../tasks/TASK-m4-authentication.md) — execution **`in_progress`**, pointer held
   here. Level 2, `pk:auth`. Spec approved by the merge of PR #34 (`fa4ed7d`), **not** by ticked boxes: six of spec §7's eight
   checkboxes are owner-only and still open, and `DECISION-001`'s paperwork box is the owner's.
-- **In flight**: **PR #62** `feat/m4-071-spa-hosting` (`Red 964fdc6 → Green 77ab86d → record 1ef21c7`, head verified
-  against `git rev-parse HEAD` at 19:27 UTC) — **the first product
-  code of Slice 5**: the API serves the built front end from its own origin under `DECISION-m4-auth-007 (a′)`. This one
-  **does move `api/` files, so `verify-api` runs rather than skipping** — the 179/0 evidence below is local, and CI's is the
-  independent copy. **PR #61 is MERGED** (`1819bbb`, 18:47:03Z, verified both ways), which is what reconciled `main` before
-  this branch was cut — the rule from the incident recorded just below, applied in the other direction: **this branch is
-  based on `1819bbb`, read at the time it was created, not from memory.**
-  ~~**PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b`~~ — the **real-app measurement** that closed the spike's last
-  hedge. Docs + probe sources only; `verify` exit 0 / 221 tests / 23 files / lint clean locally; `verify-api`
-  skipped on the docs-only detector, which was **correct there rather than a gap** — no `api/` file moved.
+- **In flight**: **PR #63** `test/m4-064-authenticated-crosstab` (`7f0b0ff` harness + driver → `6833a3c` record) —
+  **`-064`: cross-tab SSE verified in real Chromium while authenticated, which moves AC-12 to verified.** No `api/` file
+  moves, so CI's `verify-api` skip is **correct here rather than a gap**; the row's evidence is the browser run and its
+  negative control, both quoted in the PR. Head checked against `git rev-parse HEAD`, and the range against
+  `git rev-list --count main..HEAD` = 2.
+  **PR #62 (`-071`, the API serving the front end from its own origin) is MERGED** — `21f1f45` at 19:50:13Z, verified both
+  ways, **CI green on `verify` and `verify-api`** — so `main` is now the tree `-064` measured, which is what makes its
+  browser evidence usable rather than provisional. It was **the first product code of Slice 5**, under
+  `DECISION-m4-auth-007 (a′)`, cut from `1819bbb` read at the time rather than from memory.
+  ~~**PR #61** `spike/m4-host-prefix-cookie-jar` @ `71fcb3b`~~ and **PR #60** — the spike, its probes, and the real-app
+  measurement that closed its last hedge. Docs + probe sources only; `verify-api` skipped on the docs-only detector, which
+  was **correct there rather than a gap** — no `api/` file moved.
   **Why a second PR exists off the same branch — read this as the rule, not the incident:** **PR #60 merged at 17:56:17Z
   (`7e13914`) while the measurement was still running**, and the branch was deleted with it. The next `git push` therefore
   reported **`* [new branch]`** and left `gh pr view 60 --json headRefOid` frozen at `ea4c91b`. Both signals were checked
@@ -128,14 +130,40 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   literal it built with**. **`-067`'s Browser half is unachievable rather than deferred**: under same-origin serving no
   preflight occurs — `checkpoint-001` and this bullet previously said "the Browser halves of `-067`/`-068`", but
   **`-068` never had one**; its ladder seam is Integration only.
-- **AC ledger**: **13 verified + 4 open = 17** (the invariant is asserted by the edit script at every write, not by me).
-  **The four open ACs are AC-3, AC-11, AC-12 and AC-14** — read from the task record's checkbox lines at 2026-09-12 16:46 UTC.
+- **Decisions the agent now owns** *(owner instruction, 2026-09-12 ≈19:30 UTC: "decide your own recommendation from now
+  on"). Recorded as **agent-decided**, deliberately not filed as owner ratification — the difference is the whole point of
+  the ID-stable paperwork, and laundering it is the failure this file records most often.*
+  · **D-1, `-070`: closed by me. The number stays permanently unassigned.** Two records cite a "scoped-mutation-gate
+  verdict" that no artifact defines; reusing the ID would make both read as satisfied, and renumbering to fill a gap is
+  how M3's phantom references were created. The citations stand corrected, and `-071` took the next free number.
+  · **D-2, the dev profile becomes `https`, and this is a behaviour not a preference.** AC-2's `__Host-` prefix is a
+  locked invariant, so "login works over plain http" is not available to trade for; meanwhile the *default* launch profile
+  today is `http`, which means the first thing a learner does produces a login that returns `204` and then `401` forever,
+  silently, in a browser. **A teaching repository's default configuration must not be the one that fails quietly.**
+  Cost accepted: a human browser still meets the self-signed interstitial, because `dotnet dev-certs https` cannot save a
+  cert in this environment (measured, exit 2, `--check` finds none) — which is why the harness bypasses validation by CDP
+  and why `-064`'s green does not mean "any browser can reach this app". Decided; **not yet implemented** → proposed row
+  **`-072`** (reorder `launchSettings.json` so `https` is the default, and have a Development boot that serves the SPA on
+  a non-TLS endpoint log the consequence rather than letting it be discovered at a login form).
+  · **D-3, the deployed-topology tension: recommendation attached, implementation withheld.** `-064` could only
+  authenticate because page and API share an origin. On the two-origin shape in `docs/aws-deployment.md` the stream client
+  opens `new EventSource(url)` **without `withCredentials`** (`httpApplicationRepository.ts:211`), and `SameSite=Lax`
+  — `DECISION-m4-auth-006`, **ratified** — would withhold the cookie from any credentialed cross-origin subresource
+  anyway. So AC-16's credentialed CORS and AC-12's authenticated stream cannot both be load-bearing where the deployment
+  plan says they will be; the pair needs `SameSite=None; Secure`. **Inference from cookie semantics, not a measurement**
+  — same-origin cannot observe it, so it needs a probe of its own. I am **not** rewriting a ratified cookie decision on my
+  own authority: no open row runs the two-origin shape, so a change now would be speculative against a decision that is
+  owner paperwork. Recorded, proposed as **`-073`**, and left alone on purpose.
+- **AC ledger**: **14 verified + 3 open = 17**, counted from the checkbox lines at 2026-09-12 19:44 UTC
+  (`grep -c '^- \[x\] \*\*AC-'` → 14, `'^- \[ \] \*\*AC-'` → 3). **The three open ACs are AC-3, AC-11 and AC-14.**
+  **AC-12 moved to verified this boundary, by `-064`** — 7/7 authenticated in real Chromium, twice, with a negative
+  control that fails 4 of the same checks without a session.
   **This line previously named "12, 13, 14, 18", which was false twice over: AC-13 is *verified* (the 65-case M3 net, `-058`)
   and AC-18 does not exist — the ledger stops at AC-17.** A count that adds up is not a list that is right; the drift note is
   in [`checkpoint-001` §2](../tasks/TASK-m4-authentication.checkpoint-001.md), where the correction is appended to the very
   sentence that carried it.
-  **Three of the four** (AC-11 the CSRF probe, AC-12 cross-tab SSE in Chromium, AC-14 the bundle delta) sat behind Q4, which
-  is **now answered as option (a)**; **AC-3 sits behind its own restrike-or-restate decision, not Q4**, and stays open.
+  **AC-12 and AC-11 sat behind Q4; AC-14 never did** — it needed only a named configuration, and Q4's answer set which URL
+  literal to name. **AC-3 sits behind its own restrike-or-restate decision, not Q4**, and stays open.
 - **Merged this session**: **#55** `ee994f5` (`-066`) · **#56** `538c77e` (`-067`) · **#57** `fea085c` (`-068`) ·
   **#58** `47852a4` (`-069`). Each merge
   verified twice before acting: `gh pr view --json state,mergedAt,mergeCommit` **and** the `TDD-EXEC-m4-authentication-0NN`
@@ -228,24 +256,31 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   must stay a 500; a non-400 `BadHttpRequestException` must not be relabelled as field validation). **Probe B deleted the
   guard and the suite stayed 169/0** — so the claim is recorded as reasoning, and it is `-069`'s practice task. Four
   practice tasks are owed (`-066`…`-069`), none started, all listed in the task record.
-- **Exactly one next action**: **run `-064` (AC-12)** — `httpCrossTab.mjs` → **7/7 while authenticated** in real Chromium.
-  `(a′)` is **answered and now implemented** (`-071`), and the precondition was measured on the real app rather than argued:
-  a login at `https://172.23.124.252:5443` puts `__Host-JTSession` **in a Chromium cookie jar** and the protected route
-  answers `200`. Three things `-064` owes before it can be believed, all learned from the records above rather than invented:
-  **build the harness with `VITE_API_BASE_URL` set to the API's own origin** (an empty value silently selects the
-  localStorage adapter, so a green run would be a run against nothing); **clear cookies per case**, because the jar persists
-  across CDP targets and the failure mode is a **false 7/7**; and address the host at its **non-loopback** IP over **TLS**,
-  the only shape the container can reach — *the container's loopback is the container's own*. Then **`-063`**, whose two-case
-  split is **approved** (case 1 must use a state-changing verb: login takes no `X-CSRF-Token`), then **`-065`**, which must
-  name the URL literal it built with — Slice 0's **9 B** between `localhost` and an IP cannot move a **3 kB** gate, so that
-  is a figure concern, not a verdict one. **The four owed practice tasks (`-066`…`-069`) stay unstarted until invited.**
-  *(**PR #60 — the spike, its probes, and the refutation of `DECISION-007`'s premise — is MERGED** at `7e13914`, 17:56:17Z.
-  **PR #61 merged** at `1819bbb` 18:47:03Z — the real-app measurement, both verified both ways. **`-071` is the first
-  product code of Slice 5 and the branch now awaiting review.** Review, merge, tags and releases are **not agent duties**,
-  so the queue stops at the PR even though `-064` is unblocked — deliberately: `-071` changes `api/` behaviour that every
-  browser row depends on, so running `-064` against an unmerged tree would make browser evidence describe a `main` it is
-  not in. **`verify-api` runs on this PR rather than skipping**, because `api/` genuinely moved; the 179/0 above is local
-  evidence, and CI's is the independent copy.)*
+- **Exactly one next action**: **`-063` (AC-11)** — the antiforgery row, as **two cases each with its own positive control**
+  (the split was sanctioned ≈18:10 UTC). Its precondition is now visible rather than assumed: **there is no server-side
+  `X-CSRF-Token` check and no client-side sender in the tree at all** (`grep -rn "CSRF" api/src src/` finds one doc comment
+  in `Problems.cs`), which is also why `-064`'s cleanup `DELETE` sailed through unopposed. So `-063` is *implement the gate,
+  then prove it from a browser* — case 1 same-site write with no header must be refused (**and it must target a
+  state-changing verb: login itself is not antiforgery-gated, measured `204` with no token**), case 2 cross-site must carry no
+  cookie and so must answer `401` before the header is ever consulted. Then **`-065`**, which must name the URL literal it
+  built with — Slice 0's **9 B** between `localhost` and an IP cannot move a **3 kB** gate, so that is a figure concern, not a
+  verdict one. **The four owed practice tasks (`-066`…`-069`) stay unstarted.**
+  Two proposed rows came out of this boundary and are **recorded, not started**: **`-072`** (the `https` default, decided at
+  D-2 above) and **`-073`** (the cross-origin credentialed-stream probe, recommended at D-3 but withheld, because it would
+  reopen a ratified cookie decision on evidence `-064` cannot see).
+  *(**PR #60** merged `7e13914` 17:56:17Z · **PR #61** merged `1819bbb` 18:47:03Z · **PR #62** (`-071`) merged
+  **`21f1f45` 19:50:13Z**, all three verified both ways — `gh pr view` plus the `TDD-EXEC-m4-authentication-071` marker
+  present in `main`, whose tip is now that merge commit. **CI passed independently** on #62: `verify` 1 m 30 s and
+  **`verify-api` 2 m 33 s**, the latter the reason a PR that moves `api/` files is worth its own green rather than my
+  local 179/0. **PR #63** (`-064`) is open against `main` with exactly those two commits and `headRefOid` equal to local
+  `HEAD`.
+  **A prediction that did not survive contact, corrected here rather than left standing:** this bullet previously said
+  "when #62 merges, GitHub retargets the stacked PR to `main` automatically". It was never tested, and what is tested is
+  different — the stacked PR **could not be created at all** once its base was gone:
+  `gh pr create --base feat/m4-071-spa-hosting` → *"Base sha can't be blank … No commits between …"*. Retargeting may
+  well happen to a PR that is already open; it cannot rescue one that was never opened. **A descendant branch and a
+  stacked PR are not the same thing** — the first is a git fact, the second needs a base that still exists at the moment
+  of creation. Review, merge, tags and releases stay human; the queue stops at the PR.)*
 
 ## 4. Locked Technical Invariants (Do Not Undo)
 
