@@ -45,14 +45,41 @@ builder.Services.AddSingleton<ApplicationEventBus>();
 // hand-maintained header allow-list fails on the *next* feature rather than the current one. Headers are a
 // compatibility surface here, not a defence; the origin is the boundary a browser actually enforces.
 //
-// `AllowCredentials` is deliberately absent: M3 sends no cookies, and a wildcard origin combined with credentials is
-// rejected outright by browsers, so adding it later would break this quietly rather than loudly.
+// **`AllowCredentials` is now required, and it is a decision with a price.** M3 wrote the opposite sentence --
+// "deliberately absent: M3 sends no cookies" -- and was right then. `-050` put a session cookie on the wire, so the pair
+// `Access-Control-Allow-Origin: <exact>` + `Access-Control-Allow-Credentials: true` is what every cross-origin deployment
+// of this API now depends on. The reason it is spelled out rather than trusted: the wildcard-and-credentials combination
+// is refused by browsers with a network error that carries no HTTP status and no readable body, so a misconfiguration
+// looks exactly like the server being down. `CorsCredentialsTests` pins both halves (the pair on preflight AND on the
+// actual 401 response), pins that an unlisted origin gains nothing from this, and pins that a `*` written into
+// `Cors:AllowedOrigins` can never produce the forbidden pair.
+//
+// **The one thing this cannot make loud from here:** whether a real browser accepts the pair and attaches the cookie.
+// That is `-064`'s Chromium harness, still gated on the Q4 origin answer.
+// AC-16's operator error, made loud at boot instead of quiet at request time. Measured, not assumed: a literal "*" in
+// this list goes to WithOrigins, which treats it as an origin string to match against a request's Origin header -- and no
+// browser ever sends Origin: "*". The result is a policy that matches nothing: the preflight answers 204 with no
+// Access-Control headers at all, every cross-origin client is refused, and nothing anywhere says why. (The pair AC-16 is
+// written against -- wildcard origin plus credentials -- is not what happens, because the framework never reaches it.)
+// A wildcard cannot carry credentials, so an operator who writes one has already lost the thing they were trying to fix.
+var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (configuredOrigins.Any(o => string.Equals(o.Trim(), "*", StringComparison.Ordinal)))
+{
+    throw new InvalidOperationException(
+        "Cors:AllowedOrigins contains \"*\", which matches no real request and silently disables CORS for every " +
+        "cross-origin client; and a wildcard origin can never be paired with Access-Control-Allow-Credentials (AC-16). " +
+        "List the exact origins, for example \"http://127.0.0.1:5173\".");
+}
+
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 {
     var allowed = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
     if (allowed.Length > 0)
     {
-        policy.WithOrigins(allowed).AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(allowed).AllowAnyHeader().AllowAnyMethod()
+        // BEHAVIOR-067 / AC-16: the pair a credentialed cross-origin request needs. Without it the browser strips the
+        // __Host-JTSession cookie from any request that is not same-origin, and the user is told they are signed out.
+        .AllowCredentials();
     }
 }));
 
