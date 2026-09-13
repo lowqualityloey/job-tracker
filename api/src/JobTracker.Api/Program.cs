@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -124,6 +126,22 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 
 var app = builder.Build();
 
+// M5: the app sits behind an ALB/CloudFront that terminates TLS. Trust its X-Forwarded-* so Request.Scheme
+// reflects HTTPS (cookie Secure handling, absolute URLs). Known networks are deployment-specific and read from
+// configuration rather than hardcoded (see docs/aws-deployment.md §3). Missing config => trust nothing extra.
+var forwarded = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+};
+foreach (var cidr in builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [])
+{
+    if (System.Net.IPNetwork.TryParse(cidr, out var network))
+    {
+        forwarded.KnownIPNetworks.Add(network);
+    }
+}
+app.UseForwardedHeaders(forwarded);
+
 // Migrations apply at startup. Declared as a decision, not a default, because it has a real failure mode: two
 // instances racing the same migration, or a slow migration holding the process open past a health check. Both
 // are acceptable while there is one instance, no production data and nothing to be down — §4.2 keeps every M3
@@ -178,6 +196,17 @@ app.UseAntiforgeryGate();
 // Routes and handlers live in ApplicationCatalog (spec §4.1's deep module); Program is composition.
 app.MapAuthCatalog();
 app.MapApplicationCatalog();
+
+// M5: unauthenticated health probe for the ALB. It is outside the session/antiforgery protected scopes
+// (SessionGate.IsProtected covers /api/applications* and /api/auth/*; this is neither), so it is reachable
+// without a session cookie. Reports DB reachability so a sick instance fails its health check.
+app.MapGet("/api/health", async (JobTrackerDb db, CancellationToken ct) =>
+{
+    var healthy = await db.Database.CanConnectAsync(ct);
+    return healthy
+        ? Results.Ok(new { status = "ok", database = "reachable" })
+        : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+});
 
 // BEHAVIOR-071 / DECISION-m4-auth-007 option (a′), as amended by measurement — **the API serves the SPA as its own
 // origin, in Development only.**

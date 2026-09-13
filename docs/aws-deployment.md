@@ -51,6 +51,7 @@ Cookies (`__Host-JTSession`, `__Host-JTCsrf`, both `Secure`) are set by the API 
 | `Cors__AllowedOrigins` | task def | yes (validated, no `*`) | single value = the app origin; CORS effectively unused same-origin, set for safety |
 | forwarded headers | task def / code | yes | Enable `UseForwardedHeaders` for the ALB so `Request.Scheme`=https |
 | `Kestrel__Certificates__*` | n/a | no | ALB terminates TLS; Kestrel internal HTTP |
+| `ForwardedHeaders:KnownNetworks` | task def / config | yes | CIDR(s) of the ALB/CloudFront (e.g. the VPC CIDR). Without it `Request.Scheme` stays `http` behind the proxy, so `Secure`-cookie and absolute-URL logic may misjudge TLS |
 | `Web__SpaRoot` | n/a | no | Dev-only; ignored in Prod under Option A |
 
 **Fail-fast (pk:ship pillar 1):** `BootGuard.EnsureSafeToStart` (Program.cs:137) already runs at boot and already rejects `Cors:AllowedOrigins` containing `"*"`. Extend it to also assert `ConnectionStrings:Default` is present and `Cors:AllowedOrigins` is non-empty — crash at startup with a named variable, never mid-transaction.
