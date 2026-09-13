@@ -1537,9 +1537,29 @@ reproduced **61,368 / 60,118 B** again on this tree — byte-exact a second time
 unre-derivable and is `-076`'s sibling problem rather than this row's: a count nobody can recompute will keep being wrong
 in whichever direction memory points.
 
-**Next:** `-075`, the last open `◆` row — two CDP harnesses and two boot scripts sharing a recipe, provable only by
-re-running `-063`'s and `-064`'s browser rows against the extraction. The ordering is mine, and `-076` went first because
-it protects a number this milestone already claims while `-075` only costs time.
+**`TDD-EXEC-m4-authentication-075`** · **no `BEHAVIOR-*` of its own** (a `◆` row this milestone produced about itself — the browser harness) · Browser/Tests seam · p1 · delivered 2026-09-13
+
+**No Red/Green pair, deliberately:** this row changes what the *harness shares*, not what the app does, so its "test" is the two browser rows it refactors, re-run against the extraction — and the assertion is their exit code. **Verifies no AC**: the ledger stays **16 + 1**, AC-3 remains the only open criterion (an owner decision, not work). Closes the `◆` row `-063` created.
+
+**What it extracts.** `-063`'s `csrfGate.mjs` and `-064`'s `httpCrossTab.mjs` each carried their own CDP `connect()` / `makeClient()` / `evalJs()` / `waitUntil()` / `openTab()` / `authenticate()` and the cookie constants; `run-063.sh` and `run-064.sh` each carried the same scratch-DB / certificate / vite-build / API-boot / poll sequence. One fix to either copy had to be made twice to stay honest. Now:
+
+  · `tests/browser/harness.mjs` — the shared recipe: `connect`, `makeClient` (with an optional `onEvent` sink — csrfGate uses it for case 2's CDP telemetry), `evalJs`, `waitUntil`, `openTab`, `tokenInJar`, the base `authenticate` (form login + session-presence), `record` / `results` / `exitWithSummary`, `sleep`, and the constants. `openTab` takes `waitFor: 'app' | 'body'`: the application tabs poll for list/login anchors, but the foreign cross-site probe page (`probe.html`) contains none of those anchors, so it must only wait for `document.body`.
+  · `tests/browser/lib-e2e.sh` — the shared boot recipe: variable defaults, `cleanup`, preconditions, `e2e_scratch_db`, `e2e_cert`, `e2e_build`, `e2e_boot_api` (boots the API, polls for `401` from inside the container), and `e2e_run_harness` (copies the harness **and** `harness.mjs` into the container, then runs it).
+  · `csrfGate.mjs` / `httpCrossTab.mjs` now `import { … } from './harness.mjs'` and delete their duplicated copies. The CSRF `HttpOnly` guard (csrfGate-specific) and the `__Host-JTSession` `secure`-flag guard (httpCrossTab-specific) stay in each consumer, because they are row-specific assertions, not shared plumbing.
+  · `run-063.sh` / `run-064.sh` `source tests/browser/lib-e2e.sh` and keep only their run-specific steps (063: the cross-origin server + DB assertions; 064: the negative control + the `/applications` 200 check).
+
+**The one behaviour the extraction had to preserve, and almost broke.** The first re-run of `-063` aborted with `app never rendered at http://…:4179/probe.html`. The original `csrfGate.mjs` `openTab` did **not** poll for app anchors — only the app tab was polled (by a separate `awaitRender`); the foreign tab just needed `document.body`. My first `openTab` assumed every opened page was the application and timed out on the probe page. The `waitFor: 'body'` option is the fix, and it is recorded because it is exactly the class of thing a "shared helper" hides: a foreign page is not the app, and a helper that only knows the app cannot open it.
+
+**The proof, run against the extraction (not the originals — there are no originals left).**
+  · `bash tests/browser/run-064.sh` → **7/7 while authenticated**, and the negative control (`E2E_SKIP_LOGIN=1`) **fails as required** (4 of the checks did not pass); **0 rows left behind**.
+  · `bash tests/browser/run-063.sh` → **11/11**; **0 probe rows left behind**; **2 session rows** (case 1e's rotation logged in twice). CASE 2's cross-site write answered `401` via CDP telemetry, and the foreign page could not read the app token.
+  · Re-running the originals would be meaningless — there are no originals left. The gate is "the refactored rows still pass in real Chromium", and they do.
+
+**Coupling discharged.** `-063`'s record is not edited to claim the extraction; this block is the canonical note that its harness now imports from `harness.mjs`. The PromptKit OS tooling drift in the working tree (`.promptkit`, `AGENTS.md`, `.github/` templates) is **not** part of this row — it is its own `chore(promptkit)` PR, per handoff-002 H15.
+
+**EXEC count → 27** (26 + this block). ACs stay **16 + 1**. The M4 ladder is now **fully delivered**: `-047`…`-067` (21 behaviours), plus the three `◆` findings `-074` (key ring in Postgres), `-075` (this row), and `-076` (AC-14's live CI gate).
+
+**Next:** no further behaviour or `◆` rows remain in the M4 ladder. What remains is **not** work: AC-3's restrike-or-restate decision (a 5 ms / 50-sample bound the method cannot distinguish from noise), and the three human-side items carried from the checkpoint — whether a two-origin deployment is actually the plan (the file six citations attribute it to, `docs/aws-deployment.md`, has never existed in this repo's history), D-9 hand-rolled key store vs shipped package, and D-10 no `schedule:` on the baseline recheck.
 
 ### §6a. Durable checkpoint and handoff records (Level 2 gate)
 
@@ -1548,7 +1568,7 @@ it protects a number this milestone already claims while `-075` only costs time.
 | `checkpoint-001` | [`TASK-m4-authentication.checkpoint-001.md`](TASK-m4-authentication.checkpoint-001.md) | context compaction + milestone boundary, 2026-09-12 15:55 UTC (`-069` delivered) | `in_progress` — deliberately not a stop state |
 | `handoff-001` | [`TASK-m4-authentication.handoff-001.md`](TASK-m4-authentication.handoff-001.md) | same boundary; receiver runs its §2 (H1–H10) before editing | receiver must validate Task ID, revision, ACs, invariants, blockers, and the one next action |
 | `checkpoint-002` | [`TASK-m4-authentication.checkpoint-002.md`](TASK-m4-authentication.checkpoint-002.md) | requested at a session boundary, 2026-09-13 ≈00:20 UTC, after `-071`/`-064`/`-063`/`-065`/`-074`/`-076` and five merged PRs | **`handoff_ready`** — a stop state: no implementation edits, commits, PR actions or task switches until its §8 resume condition (PR #70 merged, or an owner decision that outranks `-075`) is satisfied. Read-only validation always permitted. |
-| `handoff-002` | [`TASK-m4-authentication.handoff-002.md`](TASK-m4-authentication.handoff-002.md) | same boundary; receiver runs its §2 (H1–H14) before editing | receiver must re-establish branch, ancestry, merge-by-payload, both suites, the **corrected §4 count command (23)**, gate ordering I-21, ring persistence I-22, the non-`HttpOnly` CSRF cookie I-23, AC-14's live CI gate and its negative control, and the absence of orphan servers/scratch databases — then take exactly one action, `-075` |
+| `handoff-002` | [`TASK-m4-authentication.handoff-002.md`](TASK-m4-authentication.handoff-002.md) | same boundary; receiver runs its §2 (H1–H14) before editing | receiver must re-establish branch, ancestry, merge-by-payload, both suites, the **corrected §4 count command (23)**, gate ordering I-21, ring persistence I-22, the non-`HttpOnly` CSRF cookie I-23, AC-14's live CI gate and its negative control, and the absence of orphan servers/scratch databases — `-075` (the last action) has now been executed; see its TDD-EXEC block above, which lifts the `handoff_ready` stop-state |
 
 This file (§6) remains the **Local Task Source**: the checkpoint and handoff are projections of it, and any mismatch leaves
 execution reconciling rather than advancing. Neither record authorises a tag, release, publication, remote operation,

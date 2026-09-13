@@ -43,167 +43,44 @@
 //   · `SameSite=Lax` is doing the work in case 2, on a two-origin topology. Under `-071`'s same-origin serving there is
 //     no "cross-site" request to make from the app at all, which is the trade recorded alongside that row.
 
+import {
+  CSRF_COOKIE,
+  connect,
+  makeClient,
+  evalJs,
+  waitUntil,
+  openTab,
+  authenticate,
+  record,
+  results,
+  sleep,
+} from './harness.mjs'
 
-const CDP_PORT = 9222
 const APP = process.env.E2E_APP ?? 'https://127.0.0.1:5443'
 const CROSS = process.env.E2E_CROSS ?? 'http://127.0.0.1:4173'
-const EMAIL = process.env.E2E_LOGIN_EMAIL ?? ''
-const PASSWORD = process.env.E2E_LOGIN_PASSWORD ?? ''
-const LIST_ANCHORS = '.application-card, .empty-state, .app-error'
-const LOGIN_ANCHOR = '#login-email'
-const CSRF_COOKIE = '__Host-JTCsrf'
-const SESSION_COOKIE = '__Host-JTSession'
 
-const results = []
-const record = (name, pass, detail) => {
-  results.push({ name, pass, detail })
-  console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  — ${String(detail).slice(0, 200)}` : ''}`)
-}
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
+// Network telemetry for case 2: the cross-site response is unreadable to the page (CORS), so its status can only be
+// observed from the browser's own CDP events. Without capturing these, an empty result list is indistinguishable from
+// "the server answered something we chose to read wrong".
 const events = []
-
-async function connect() {
-  // Both loopbacks, as `-042` learned: Chromium binds DevTools to whichever resolves first and this host has IPv6.
-  for (let i = 0; i < 90; i++) {
-    for (const host of ['127.0.0.1', '[::1]']) {
-      try {
-        const res = await fetch(`http://${host}:${CDP_PORT}/json/version`)
-        const { webSocketDebuggerUrl } = await res.json()
-        const ws = new WebSocket(webSocketDebuggerUrl)
-        await new Promise((r, j) => { ws.onopen = r; ws.onerror = j })
-        return ws
-      } catch {
-        /* poll again */
-      }
-    }
-    await sleep(200)
-  }
-  throw new Error(`no CDP endpoint on ${CDP_PORT}`)
-}
-
-function makeClient(ws) {
-  let nextId = 0
-  const pending = new Map()
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data)
-    if (msg.id !== undefined) {
-      const { resolve, reject } = pending.get(msg.id) ?? {}
-      pending.delete(msg.id)
-      msg.error ? reject(new Error(JSON.stringify(msg.error))) : resolve(msg.result)
-      return
-    }
-
-    // Responses to requests tell the page what it can see. These tell the *harness* what the server actually
-    // answered, which is the only way case 2 can be observed at all.
-    if (msg.method === 'Network.responseReceived') {
-      events.push({
-        sessionId: msg.sessionId,
-        url: msg.params.response.url,
-        status: msg.params.response.status,
-        type: msg.params.response.type,
-      })
-    }
-    // The twin that matters for a cross-origin probe: a request the platform refuses to *send* produces no response
-    // event at all, and without this line that case is indistinguishable from "the server answered something we
-    // chose to read wrong". First run failed exactly that way — an empty list, and no way to tell which emptiness.
-    if (msg.method === 'Network.loadingFailed') {
-      events.push({
-        sessionId: msg.sessionId,
-        url: msg.params.request? msg.params.request.url : undefined,
-        failed: `${msg.params.errorText}${msg.params.blockedReason ? ` blocked=${msg.params.blockedReason}` : ''}`,
-      })
-    }
-  }
-  return (method, params = {}, sessionId) =>
-    new Promise((resolve, reject) => {
-      const id = ++nextId
-      pending.set(id, { resolve, reject })
-      ws.send(JSON.stringify(sessionId ? { id, method, params, sessionId } : { id, method, params }))
+const onEvent = (msg) => {
+  if (msg.method === 'Network.responseReceived') {
+    events.push({
+      sessionId: msg.sessionId,
+      url: msg.params.response.url,
+      status: msg.params.response.status,
+      type: msg.params.response.type,
     })
-}
-
-async function evalJs(call, sessionId, expression) {
-  const r = await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId)
-  return r.result ?? r
-}
-
-async function waitUntil(call, sessionId, expression, ms = 10000) {
-  const deadline = Date.now() + ms
-  for (;;) {
-    const r = await evalJs(call, sessionId, `(function(){ return (${expression}) })()`)
-    if (r.value === true) return true
-    if (Date.now() > deadline) return false
-    await sleep(150)
+  }
+  if (msg.method === 'Network.loadingFailed') {
+    events.push({
+      sessionId: msg.sessionId,
+      url: msg.params.request ? msg.params.request.url : undefined,
+      failed: `${msg.params.errorText}${msg.params.blockedReason ? ` blocked=${msg.params.blockedReason}` : ''}`,
+    })
   }
 }
 
-async function openTab(call, url, clearJar = false) {
-  const { targetId } = await call('Target.createTarget', { url: 'about:blank' })
-  const { sessionId } = await call('Target.attachToTarget', { targetId, flatten: true })
-  await call('Runtime.enable', {}, sessionId)
-  await call('Page.enable', {}, sessionId)
-  await call('Network.enable', {}, sessionId)
-  await call('Security.setIgnoreCertificateErrors', { ignore: true }, sessionId)
-  if (clearJar) await call('Network.clearBrowserCookies', {}, sessionId)
-  await call('Page.navigate', { url }, sessionId)
-  return { targetId, sessionId }
-}
-
-/** Waits for the app's own render. `login` and `list` are both legitimate; conflating them is how a working guard looks like a broken app. */
-async function awaitRender(call, tab) {
-  for (let i = 0; i < 120; i++) {
-    const r = await evalJs(call, tab.sessionId,
-      `(() => {
-        if (document.querySelector(${JSON.stringify(LIST_ANCHORS)})) return 'list'
-        if (document.querySelector(${JSON.stringify(LOGIN_ANCHOR)})) return 'login'
-        return null
-      })()`)
-    if (r.value === 'list' || r.value === 'login') return r.value
-    await sleep(250)
-  }
-  const diag = await evalJs(call, tab.sessionId, 'document.body ? document.body.innerText.slice(0,160) : "no body"')
-  throw new Error(`${APP} never rendered — visible text: ${JSON.stringify(diag.value ?? '')}`)
-}
-
-async function authenticate(call, tab) {
-  const rendered = await awaitRender(call, tab)
-  if (rendered === 'list') {
-    return 'already authenticated (jar carried a session into this tab)'
-  }
-
-  await evalJs(call, tab.sessionId, `document.querySelector('#login-email').focus()`)
-  await call('Input.insertText', { text: EMAIL }, tab.sessionId)
-  await evalJs(call, tab.sessionId, `document.querySelector('#login-password').focus()`)
-  await call('Input.insertText', { text: PASSWORD }, tab.sessionId)
-  await evalJs(call, tab.sessionId, `document.querySelector('form button[type="submit"]').click()`)
-
-  if (!(await waitUntil(call, tab.sessionId, `!!document.querySelector(${JSON.stringify(LIST_ANCHORS)})`, 15000))) {
-    // Abort loudly: every check downstream measures an unauthenticated app, and seven failures would read as seven
-    // defects rather than one.
-    throw new Error('login never reached the list — every later check would be measuring an unauthenticated app')
-  }
-
-  const { cookies } = await call('Storage.getCookies', {}, tab.sessionId)
-  const session = (cookies ?? []).find((c) => c.name === SESSION_COOKIE)
-  const token = (cookies ?? []).find((c) => c.name === CSRF_COOKIE)
-  if (!session) throw new Error('the list rendered but the jar holds no session — a stale render, not a login')
-  if (!token) {
-    throw new Error(`logged in over ${SESSION_COOKIE} but the jar holds no ${CSRF_COOKIE}; the app has no token to send`)
-  }
-  if (token.httpOnly) {
-    // Not a tidiness check. A token the client cannot read cannot be echoed, and every write would then 403 — the
-    // failure would surface as "the app is broken", never as the attribute mistake it is.
-    throw new Error(`${CSRF_COOKIE} is HttpOnly: the client cannot read it, so the gate is unreachable by design`)
-  }
-
-  return `session + token present (token secure=${token.secure} httpOnly=${token.httpOnly} sameSite=${token.sameSite})`
-}
-
-/**
- * One `POST /api/applications` from inside a page, with the pieces of the request chosen by the caller.
- * Returns `{status, code}` read from the response body where the page is allowed to see it.
- */
 async function postFromPage(call, sessionId, { withHeader, headerValue, credentials, marker }) {
   const script = `(async () => {
     const token = ${JSON.stringify(withHeader ? (headerValue ?? '') : '')}
@@ -234,7 +111,7 @@ async function postFromPage(call, sessionId, { withHeader, headerValue, credenti
 }
 
 /** Reads the token the way the shipped client does: out of the page's own cookie jar. */
-async function tokenInJar(call, sessionId) {
+async function tokenInJarLocal(call, sessionId) {
   const r = await evalJs(call, sessionId, `(() => {
     const hit = (document.cookie.match(/(?:^|; )${CSRF_COOKIE}=([^;]*)/) ?? [])[1]
     return hit ?? ''
@@ -272,16 +149,25 @@ async function cleanup(call, sessionId, marker) {
 
 async function main() {
   const ws = await connect()
-  const call = makeClient(ws)
+  const call = makeClient(ws, onEvent)
 
   // --- the authenticated app tab -------------------------------------------------------------
-  const app = await openTab(call, `${APP}/applications`, true)
-  const authDetail = await authenticate(call, app)
-  console.log(`AUTHENTICATED  ${authDetail}`)
+  const app = await openTab(call, `${APP}/applications`, { clearJar: true })
+  const authResult = await authenticate(call, app)
+  console.log(`AUTHENTICATED  ${authResult.detail}`)
 
-  const token = await tokenInJar(call, app.sessionId)
+  const token = await tokenInJarLocal(call, app.sessionId)
   if (!token) throw new Error(`logged in, but ${CSRF_COOKIE} is not readable from the page`)
   record('the client can read a token out of its own jar', true, `${CSRF_COOKIE} length ${token.length}`)
+  // Not a tidiness check. A token the client cannot read cannot be echoed, and every write would then 403 — the
+  // failure would surface as "the app is broken", never as the attribute mistake it is. This was originally part of
+  // `authenticate`; it lives here now that the login helper is shared with httpCrossTab.mjs.
+  const { cookies: csrfCookies } = await call('Storage.getCookies', {}, app.sessionId)
+  const csrfCookie = (csrfCookies ?? []).find((c) => c.name === CSRF_COOKIE)
+  if (!csrfCookie) throw new Error(`logged in but the jar holds no ${CSRF_COOKIE}; the app has no token to send`)
+  if (csrfCookie.httpOnly) {
+    throw new Error(`${CSRF_COOKIE} is HttpOnly: the client cannot read it, so the gate is unreachable by design`)
+  }
 
   // --- CASE 1: same-site, authenticated, headerless -------------------------------------------
   const refusedMarker = 'CSRF-063-refused'
@@ -341,10 +227,10 @@ async function main() {
   // `CROSS` is a plain static server on another port and scheme. The page there has no relationship to the app's jar,
   // and that *is* the attack: an ordinary form-style POST, cookies offered, no custom headers (a custom header would
   // trigger a preflight and the run would then measure CORS rather than the session).
-  const foreign = await openTab(call, `${CROSS}/probe.html`)
+  const foreign = await openTab(call, `${CROSS}/probe.html`, { waitFor: 'body' })
   await waitUntil(call, foreign.sessionId, 'document.body !== null', 8000)
 
-  const foreignToken = await tokenInJar(call, foreign.sessionId)
+  const foreignToken = await tokenInJarLocal(call, foreign.sessionId)
   record('CASE 2c  the foreign page cannot read the app token', foreignToken === '', `its jar yields ${JSON.stringify(foreignToken)}`)
 
   const before = events.length
@@ -399,7 +285,7 @@ async function main() {
 
   const fresh = await openTab(call, `${APP}/applications`)
   console.log(`re-authenticating: ${await authenticate(call, fresh)}`)
-  const newToken = await tokenInJar(call, fresh.sessionId)
+  const newToken = await tokenInJarLocal(call, fresh.sessionId)
   if (!newToken || newToken === staleToken) {
     throw new Error(`login again produced no distinct token (same value as before: ${newToken === staleToken})`)
   }

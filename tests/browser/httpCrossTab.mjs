@@ -2,7 +2,7 @@
 //
 // Promoted from the spike at docs/spikes/2026-09-11-real-browser-cross-tab-check/crosstab.mjs, whose CDP helpers
 // `connect/openTab/evalJs/typeInto/clickEl/waitUntil` are reused nearly unchanged. Still dependency-free: raw CDP over
-// Node 24's global WebSocket. **No new package** — AC-14's runtime count stays at 3, and a browser harness that needs
+// Node's global WebSocket. **No new package** — AC-14's runtime count stays at 3, and a browser harness that needs
 // an install step is a harness nobody runs twice.
 //
 // ## Why this file has to exist at all
@@ -30,7 +30,7 @@
 // three things: the network saw `/api/applications`, `localStorage` holds **no** application key (the data went to
 // the server, not to disk), and the other tab shows the new row **without a reload** — the absence of a reload is the
 // test, because a `location.reload()` would also make it appear and would prove nothing about SSE.
-
+//
 // ## What `-064` added, and why the file could not stay as `-042` left it
 //
 // `-064` is the same seven checks run **while authenticated**. That is not a flag on the existing harness: `BEHAVIOR-055`
@@ -59,12 +59,25 @@
 //   · `E2E_SKIP_LOGIN=1` runs the whole file with no session. That is this row's negative control: if the seven checks
 //     can pass while unauthenticated, the row proves nothing and the run says so.
 //
-
+// ## The recipe is now shared
+// `connect` / `makeClient` / `evalJs` / `waitUntil` / `openTab` / `authenticate` and the CDP constants live in
+// `harness.mjs` (extracted by TDD-EXEC-m4-authentication-075). This file keeps the chrome-spawn path, the page-side
+// helpers (`typeInto` / `clickEl` / `text`), and the `secure`-flag assertion that is specific to this row.
 
 import { spawn } from 'node:child_process'
 import { openSync } from 'node:fs'
+import {
+  CDP_PORT,
+  connect,
+  makeClient,
+  evalJs,
+  waitUntil,
+  openTab,
+  authenticate,
+  record,
+  results,
+} from './harness.mjs'
 
-const CDP_PORT = 9222
 // Env-driven because *where this runs* changes what the addresses mean. Inside the container (the only topology
 // that works — my shell cannot route into the Docker network) the API is reachable only at the sandbox's routable IP.
 // `-042` ran with APP on a co-located static server at :4173 and API at :5080; those remain settable, but the defaults
@@ -77,14 +90,8 @@ const LIST = `${APP}/applications`
 // `?? APP`, not a second address: same-origin is the point of the run. Splitting them is `-042`'s topology and is still
 // expressible, but it now describes a configuration the shipped cookie policy cannot authenticate against.
 const API = process.env.E2E_API ?? APP
-// Bootstrap credentials, supplied by the runner. The API seeds exactly one user from these on a fresh database, so
-// there is no fixture to migrate and no password in this file.
-const EMAIL = process.env.E2E_LOGIN_EMAIL ?? ''
-const PASSWORD = process.env.E2E_LOGIN_PASSWORD ?? ''
 // The row's negative control: run the file with no session at all. See the -064 header above.
 const SKIP_LOGIN = process.env.E2E_SKIP_LOGIN === '1'
-const LIST_ANCHORS = '.application-card, .empty-state, .app-error'
-const LOGIN_ANCHOR = '#login-email'
 const CHROME_IMAGE = 'mcr.microsoft.com/playwright:latest'
 const CHROME_BIN = '/ms-playwright/chromium-1129/chrome-linux/chrome'
 const CONTAINER = 'jt-browser'
@@ -93,13 +100,6 @@ const CONTAINER = 'jt-browser'
 // whole trick that lets the *host* keep running the page (:4173) and the API (:5080): from inside a host-networked
 // container, 127.0.0.1 is the host's loopback, so no re-plumbing, no docker-compose file, and no URLs that only work
 // in this one environment. Only the browser is containerised.
-
-const results = []
-const record = (name, pass, detail) => {
-  results.push({ name, pass, detail })
-  console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  — ${detail.slice(0, 180)}` : ''}`)
-}
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // SIGKILL to `docker run` can leave the container behind, and a stale container still holding :9222 makes the next
 // run fail for a reason that has nothing to do with the code under test. Remove it by name; ignore "no such container".
@@ -115,116 +115,6 @@ function stopChrome(chrome) {
   spawn('docker', ['rm', '-f', CONTAINER], { stdio: 'ignore' })
 }
 
-
-// Chromium binds DevTools to *whichever* loopback the host resolves first, and this host has IPv6, so the endpoint came
-// up on `ws://[::1]:9222` while a `127.0.0.1` probe was refused — a harness that reports "browser unreachable" while
-// the browser is perfectly healthy. Trying both addresses per poll is the whole fix, and it is the kind of failure a
-// mocked environment can never produce: this is why -042 exists.
-const LOOPBACKS = ['127.0.0.1', '[::1]']
-
-async function connect() {
-  for (let i = 0; i < 90; i++) {
-    for (const host of LOOPBACKS) {
-      try {
-      const res = await fetch(`http://${host}:${CDP_PORT}/json/version`)
-      const { webSocketDebuggerUrl } = await res.json()
-      const ws = new WebSocket(webSocketDebuggerUrl)
-      await new Promise((r, j) => { ws.onopen = r; ws.onerror = j })
-      return ws
-      } catch {
-        /* try the next loopback, then poll again */
-      }
-    }
-    await sleep(200)
-  }
-  throw new Error(`no CDP endpoint on ${CDP_PORT} over ${LOOPBACKS.join(' or ')}`)
-}
-
-function makeClient(ws) {
-  let nextId = 0
-  const pending = new Map()
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data)
-    if (msg.id !== undefined) {
-      const { resolve, reject } = pending.get(msg.id) ?? {}
-      pending.delete(msg.id)
-      msg.error ? reject(new Error(JSON.stringify(msg.error))) : resolve(msg.result)
-    }
-  }
-  return (method, params = {}, sessionId) =>
-    new Promise((resolve, reject) => {
-      const id = ++nextId
-      pending.set(id, { resolve, reject })
-      ws.send(JSON.stringify(sessionId ? { id, method, params, sessionId } : { id, method, params }))
-    })
-}
-
-async function evalJs(call, sessionId, expression) {
-  const r = await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId)
-  // `Runtime.evaluate` answers with {result:{value}} — reading `r.value` returns undefined for every assertion,
-  // which is how the spike's own harness failed on its third run.
-  return r.result ?? r
-}
-
-async function openTab(call, url, instrument, clearJar = false) {
-  const { targetId } = await call('Target.createTarget', { url: 'about:blank' })
-  const { sessionId } = await call('Target.attachToTarget', { targetId, flatten: true })
-  await call('Runtime.enable', {}, sessionId)
-  await call('Page.enable', {}, sessionId)
-  await call('Network.enable', {}, sessionId)
-  // The dev bundle is served over a **self-signed** certificate, which no browser will accept, and Chromium's
-  // `net::ERR_CERT_AUTHORITY_INVALID` arrives as a failed navigation with no DOM at all — the harness would report
-  // "app never rendered" and the diagnosis would point at the application. Per-session, matching
-  // `probes/probe5-real-app-https.mjs`, which is the run that measured a real login over this exact shape.
-  // **This bypasses certificate validation and is therefore only ever valid against a throwaway dev server.** A
-  // human pointing a browser at the same port still sees the interstitial; that cost is recorded in the spike, and it
-  // is the reason `-064`'s green does not translate into "any browser can reach this app".
-  await call('Security.setIgnoreCertificateErrors', { ignore: true }, sessionId)
-  // `Network.*` is session-scoped: sent on the browser-level connection it answers `-32601 'Network.clearBrowserCookies'
-  // wasn't found`, which is exactly how this row's first run failed — before any check had a chance to speak.
-  //
-  // `clearJar` is set for **the tab that logs in and no other**. Clearing on every open would delete the session this
-  // row exists to prove, and tab B would then render `/login` — a harness bug reporting itself as "cross-tab
-  // propagation is broken".
-  if (clearJar) await call('Network.clearBrowserCookies', {}, sessionId)
-  if (instrument) {
-    // Installed before any page script runs, so the adapter's very first read is captured.
-    await call('Page.addScriptToEvaluateOnNewDocument', {
-      source: `(() => {
-        window.__net = []
-        const real = window.fetch
-        window.fetch = (...args) => {
-          const url = typeof args[0] === 'string' ? args[0] : String(args[0]?.url ?? args[0])
-          const entry = { url, method: String(args[1]?.method ?? 'GET'), status: null, error: null }
-          window.__net.push(entry)
-          return real(...args).then(
-            (res) => { entry.status = res.status; return res },
-            (err) => { entry.error = String(err); throw err }
-          )
-        }
-      })()`,
-    }, sessionId)
-  }
-  await call('Page.navigate', { url }, sessionId)
-  for (let i = 0; i < 120; i++) {
-    // The login page is a legitimate first render now, not a timeout: `RequireSession` turns the `401` this API returns
-    // for every `/api/applications*` route into a redirect to `/login?next=…`, so a harness that only accepts the list
-    // anchors could not tell "the guard works" from "the app is broken" — and would report the second one.
-    const r = await evalJs(call, sessionId,
-      `(() => {
-        if (document.querySelector(${JSON.stringify(LIST_ANCHORS)})) return 'list'
-        if (document.querySelector(${JSON.stringify(LOGIN_ANCHOR)})) return 'login'
-        return null
-      })()`)
-    if (r.value === 'list' || r.value === 'login') return { targetId, sessionId, rendered: r.value }
-    await sleep(250)
-  }
-  // Hoisted rather than inlined in the throw: a template literal with a nested `await` and a quoted string containing
-  // quotes is how this file failed to parse the first time it ran.
-  const diag = await evalJs(call, sessionId, 'document.body ? document.body.innerText.slice(0, 160) : "no body"')
-  throw new Error(`app never rendered at ${url} — visible text: ${JSON.stringify(diag.value ?? '')}`)
-}
-
 async function typeInto(call, sessionId, selector, text) {
   await evalJs(call, sessionId, `document.querySelector(${JSON.stringify(selector)}).focus()`)
   await call('Input.insertText', { text }, sessionId)
@@ -235,49 +125,7 @@ async function clickEl(call, sessionId, selector) {
   await evalJs(call, sessionId, `document.querySelector(${JSON.stringify(selector)}).click()`)
 }
 
-async function waitUntil(call, sessionId, expression, ms = 10000) {
-  const deadline = Date.now() + ms
-  for (;;) {
-    const r = await evalJs(call, sessionId, `(function(){ return (${expression}) })()`)
-    if (r.value === true) return true
-    if (Date.now() > deadline) return false
-    await sleep(150)
-  }
-}
-
 const text = (call, sessionId) => evalJs(call, sessionId, 'document.body.innerText').then((r) => String(r.value ?? ''))
-
-// Log in **through the real form**, not by posting to `/api/auth/login` from the harness. The difference is the row:
-// `-061`'s page, the app's own redirect to `next`, and whatever the client sends on the wire are all part of what
-// AC-12 depends on, and a harness that bypasses them would certify a login no user can perform.
-async function authenticate(call, tab) {
-  if (tab.rendered !== 'login') return `no login page appeared; app was already authenticated (${API})`
-
-  await typeInto(call, tab.sessionId, '#login-email', EMAIL)
-  await typeInto(call, tab.sessionId, '#login-password', PASSWORD)
-  await clickEl(call, tab.sessionId, 'form button[type="submit"]')
-
-  const landed = await waitUntil(call, tab.sessionId, `!!document.querySelector(${JSON.stringify(LIST_ANCHORS)})`, 15000)
-  const body = (await text(call, tab.sessionId)).slice(0, 120).replace(/\s+/g, ' ')
-  if (!landed) {
-    // Throwing rather than recording a failure: everything downstream measures an unauthenticated app, so one loud
-    // abort is honest and seven per-line failures would look like seven independent defects.
-    throw new Error(`login did not reach the list — visible text: "${body}"`)
-  }
-
-  // The assertion that makes this row's green mean something. The jar persists across CDP targets in this image, so
-  // "the list rendered" can be a stale session from an earlier run rather than the login that just happened.
-  const { cookies } = await call('Storage.getCookies', {}, tab.sessionId)
-  const session = (cookies ?? []).find((c) => /JTSession/i.test(c.name))
-  if (!session) {
-    throw new Error('the list rendered but the jar holds no __Host-JTSession — a stale render, not a session')
-  }
-  if (!session.secure) {
-    throw new Error(`__Host-JTSession arrived with secure=${session.secure}; AC-2's prefix discipline is broken`)
-  }
-  return `__Host-JTSession present (secure=${session.secure} httpOnly=${session.httpOnly} `
-    + `sameSite=${session.sameSite} domain=${session.domain}) after a form login at ${API}`
-}
 
 async function main() {
   // stdio captured, not ignored: the last run threw away the only output that could explain a failed CDP bring-up,
@@ -309,13 +157,23 @@ async function main() {
     // mount and an unauthenticated stream would be a 401 that no later check would explain. Opening A also clears the
     // jar — the jar survives closed tabs and new targets in this image, so an old session could otherwise carry all
     // seven checks green without this run having authenticated anything.
-    const a = await openTab(call, LIST, true, true)
+    const a = await openTab(call, LIST, { instrument: true, clearJar: true })
     tabs.push(a)
-    console.log(SKIP_LOGIN
-      ? 'AUTHENTICATED  skipped — negative control (E2E_SKIP_LOGIN=1)'
-      : `AUTHENTICATED  ${await authenticate(call, a)}`)
+    if (SKIP_LOGIN) {
+      console.log('AUTHENTICATED  skipped — negative control (E2E_SKIP_LOGIN=1)')
+    } else {
+      const authResult = await authenticate(call, a)
+      console.log(`AUTHENTICATED  ${authResult.detail}`)
+      // The assertion that makes this row's green mean something: the jar persists across CDP targets in this image, so
+      // "the list rendered" can be a stale session from an earlier run rather than the login that just happened. The
+      // shared `authenticate` returns the session cookie; this row additionally requires the `secure` attribute, which
+      // is AC-2's prefix discipline.
+      if (authResult.session && !authResult.session.secure) {
+        throw new Error(`__Host-JTSession arrived with secure=${authResult.session.secure}; AC-2's prefix discipline is broken`)
+      }
+    }
 
-    const b = await openTab(call, LIST, true)
+    const b = await openTab(call, LIST, { instrument: true })
     tabs.push(b)
     record('both tabs rendered the HTTP-backed build', tabs.length === 2 && b.rendered === 'list',
       `page ${APP}, api ${API}, tab B rendered "${b.rendered}"`)
