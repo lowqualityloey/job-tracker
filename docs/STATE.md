@@ -51,8 +51,8 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 - **Target Workspace / Package**: N/A — standalone repository, no workspaces
 - **Active RFC / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` (Level 3, approved and merged)
-- **Active Task Spec**: `none` (M5 deploy-readiness code merged; M5 infra plan + Dockerfile authored; ready for PR)
-- **Key Source Files in Flight**: `docs/m5-infra-plan.md` (infra provisioning plan, uncommitted), `api/Dockerfile` (multi-stage Docker build, uncommitted)
+- **Active Task Spec**: `none` (M5 deploy-readiness code merged; M5 infra plan + Dockerfile + release checklist authored; ready for owner review)
+- **Key Source Files in Flight**: `docs/releases/m5-aws-deployment.md` (release checklist, committed), `docs/m5-infra-plan.md` (infra provisioning plan, committed), `api/Dockerfile` (multi-stage Docker build, committed)
 - **Verification Commands (correct for this repo)**:
   - Frontend typecheck: `npx tsc -p tsconfig.app.json --noEmit` *(no `typecheck` script; do **not** use bare `npx tsc -b` — see DEBT-11)*
   - Frontend tests: `npm run test:run` · Build: `npm run build` · Dev: `npm run dev`
@@ -535,7 +535,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 ## 7. Next Immediate Actions
 
-1. **CURRENT (set by `pk:checkpoint`)**: PromptKit OS update committed (`966e360`). M5 infra plan + Dockerfile authored. **Next: open docs-only PR** with `docs/m5-infra-plan.md` + `api/Dockerfile`, then `pk:ship` + human deploy approval. The four `-066`…`-069` practice tasks and **AC-3** (owner restrike-or-restate) remain the only other open items.
+1. **CURRENT (set by `pk:ship`)**: M5 infra plan + Dockerfile + release checklist authored. **Next: owner reviews PR #80** (M5 infra plan + Dockerfile), ratifies D-M5-1…4 decisions, provisions domain + ACM cert, selects IaC tool. After infra implemented: `pk:ship` + human deploy approval. The four `-066`…`-069` practice tasks and **AC-3** (owner restrike-or-restate) remain the only other open items.
 2. **Agent, on merge** *(superseded by item 1 on 2026-09-12 — M3 shipped as PRs #5–#30 and M4 is 21 slices in; the* ***reconcile-and-verify-before-starting-the-next-phase*** *duty in this item still stands)*: reconcile (`git checkout main && git pull --ff-only`, then confirm the PR's head is the
    tip you pushed), and only then start **M5 — AWS Deployment** at **Level 3**: `pk:plan` + `pk:ship` first
    (domain model, API envelope, the four open architectural questions in §5 that M2a already answered three of),
