@@ -31,6 +31,17 @@ public static class BootGuard
     /// </summary>
     public static void EnsureSafeToStart(IConfiguration config, IHostEnvironment env)
     {
+        // M5 fail-fast: without a database connection string the app can do nothing and should not boot into a
+        // crash-loop pretending to be healthy. Name the key, never the value (startup exceptions land in logs/crash
+        // dumps that outlive the process).
+        var connectionString = config.GetConnectionString("Default");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Refusing to start: ConnectionStrings:Default is not set. Set it from your secret store " +
+                "(e.g. AWS Secrets Manager) before booting; the application cannot reach its database without it.");
+        }
+
         if (!env.IsProduction())
         {
             return;
