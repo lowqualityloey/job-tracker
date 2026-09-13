@@ -50,7 +50,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 ## 3. Active Working Set
 
 - **Target Workspace / Package**: N/A — standalone repository, no workspaces
-- **Active RFC / Spec**: `none` — M4 closed; M5 not yet planned (gated on deployment-target decision, §5/§7)
+- **Active RFC / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` (Level 3, approved and merged)
 - **Active Task Spec**: `TASK-2026-09-13-m5-aws-deployment` (Level 3, in_progress — deploy-readiness changes, PR #77)
 - **Key Source Files in Flight**: none
 - **Verification Commands (correct for this repo)**:
