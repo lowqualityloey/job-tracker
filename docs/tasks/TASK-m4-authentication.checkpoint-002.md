@@ -5,7 +5,17 @@
 - **Checkpoint at**: 2026-09-13 ≈00:20 UTC · **Trigger**: requested by the human (`pk:checkpoint`) after context compaction, at a milestone boundary — six rows delivered and the behaviour ladder empty for the first time in the milestone.
 - **Execution State**: **`handoff_ready`** — a **stop state**. No further implementation edits, commits, pull-request actions or task switches are permitted from here; the resume condition is in §8. The commits that *complete this checkpoint* (its two records plus the `docs/STATE.md` sync, and the one PR-body amendment that names them) are inside this record's own scope, not after it — the distinction is stated because the previous checkpoint was read mid-write by its own session and turned out to be wrong about its own branch.
 - **Branch / audited revision**: `docs/m4-076-state-projection` @ `38fa07c` when this file's prose was written, **1 commit ahead of `main`** (`8fabe48`), `git status --porcelain` empty at audit time, `git merge-base --is-ancestor 38fa07c origin/main` = **NO** (correct: not merged yet), and **PR #70 open** against `main`.
-  > The value that will be true after this commit exists is **not recorded here**: a hash cannot contain its own commit's hash, and this session has already retracted three identifiers written before their subjects existed. Find this record's carrier with `git log --grep='pk:checkpoint' -1 --format='%h %s'` and validate **ancestry, not equality**.
+  > The value that will be true after this commit exists is **not recorded here**: a hash cannot contain its own commit's hash, and this session has already retracted three identifiers written before their subjects existed. Find this record's carrier with `git log --grep='pk:checkpoint' -1 --format='%h %s'`
+
+> **Amended in the commit that carries this file, because the sentence above it was overtaken mid-push.** #70 merged at
+> **00:27:51Z** — after this record was written, before its commit reached `main`. The projection landed (`main` =
+> `58daf8a`); the two records here and the §2/§4/§5/§7/§8 sync did **not**: `git cat-file -e main:docs/tasks/…002.md`
+> fails and `git merge-base --is-ancestor <this commit> main` said **NO**. That is the **fourth** instance today of an
+> identifier or artifact being written while its own future was unsettled, and the first where the *act of checking*
+> (`gh pr view`, twice, returning the pre-merge head) looked like a stuck push rather than a closed PR. The rule kept
+> working: reconcile by ancestry, verify a merge by payload, and never conclude "the PR is slow" without asking whether
+> the door shut. The carrier is therefore a **different PR** than the one this file originally named — which is exactly
+> why the line above deliberately does not assert a number. and validate **ancestry, not equality**.
 - **Release-evaluation handoff fragment**: **N/A** — no candidate, tag, QA gate or release decision exists for M4. Nothing in this file authorises a tag, release, publication, remote operation, deployment or rollback; those stay `pk:ship` + the human.
 
 ---
@@ -102,7 +112,12 @@ sed -n '/^## 4\./,/^## 5\./p' docs/STATE.md | grep -cE '^[[:space:]]*[0-9]+\.'  
 
 > **`-075` — extract the shared browser-harness recipe, and prove the extraction by re-running `-063` (11/11) and `-064` (7/7) against it.**
 
-- **Resume condition for this stop state**: the human merges **PR #70** (then reconcile both ways as usual: `gh pr view 70 --json state,mergeCommit` **and** the payload read out of `main`), **or** names a different target — the two owner decisions in §5.2 and §5.3 would each legitimately outrank `-075`.
+- **Resume condition for this stop state**: the human merges **the PR that carries these two records** (identified by
+  `git log --grep='pk:checkpoint' -1` on the remote branch, not by a number guessed at write time — #70 was open when that
+  condition was first written and merged before this commit landed, so the condition now names the *artifact*, not the
+  ticket). Then reconcile both ways — `gh pr view <n> --json state,mergeCommit` **and** `git cat-file -e
+  main:docs/tasks/TASK-m4-authentication.checkpoint-002.md` — **or** the human names a different target: the two owner
+  decisions in §5.2 and §5.3 would each legitimately outrank `-075`.
 - **Why this row and not the practice tasks**: `-075` is the last open `◆` row, and it is the only one that prevents a *repetition cost* already paid today — two CDP harnesses and three boot scripts each re-implement the same recipe, and two fixes (DROP DATABASE `WITH (FORCE)`; killing `JobTracker.Api` by exact name because `dotnet run` does not forward signals) were applied twice in one day.
 - **What it genuinely costs**, stated so it is not discovered late: the extraction is only verified by **two real Chromium runs** (~5 minutes each, Docker in the loop; both have flaked at least once this session, including one transient `DockerContainerNotFoundException` that a re-run resolved). Re-running the evidence is the row; refactoring without it is editing.
 - **Order after it**: the four practice tasks (`grep -c '^- \*\*Practice task' docs/tasks/TASK-m4-authentication.md` → **4**; the natural `AGENTS.md step 9` command reads **5** because a sentence quotes it — see §7), then whatever the §5 owner decisions unblock.

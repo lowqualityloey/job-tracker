@@ -7,7 +7,7 @@
 
 M4 authentication is **functionally complete and CI-gated**: sessions behind `__Host-JTSession`, a login-issued antiforgery token in a JS-readable `__Host-JTCsrf` echoed as `X-CSRF-Token`, owner-scoped reads and SSE fan-out, `TimeProvider`-driven expiry with prune, credentialed CORS with `"*"` refusing boot, the API serving the built SPA on its own origin, and AC-14's bundle budget now enforced by a workflow step. What is left is not feature work: **`-075`** (harness recipe), four practice tasks, and **decisions that belong to the human** (AC-3; whether a two-origin deployment is real; the package/fixture trades D-9/D-10).
 
-Open at the boundary: **PR #70** `docs/m4-076-state-projection` — `docs/STATE.md` §3A for `-076`, plus these two records.
+Open at the boundary: the PR carrying these two records and the STATE sync. **Do not look for it by number:** #70 (the projection this was folded onto) merged at 00:27:51Z before this commit was pushed, so these files ride a later PR — find it with `git log --grep='pk:checkpoint' -1 --format='%h %s'` and confirm with `git cat-file -e origin/main:docs/tasks/TASK-m4-authentication.checkpoint-002.md`. H2/H3 below are written to answer that question mechanically.
 
 ## 2. Mandatory validation pass — run every command before editing
 
