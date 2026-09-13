@@ -11,7 +11,7 @@
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
 - **Current Working Branch**: `feat/m4-069-wrongtype-binding` @ `38ff6d2` — three commits over `main` @ `fea085c` (= merged PR #57). **PR #58 open, awaiting human review.**
-- **Last Updated**: 2026-09-13 00:20 UTC — **`pk:checkpoint` boundary (checkpoint-002 / handoff-002)**, `handoff_ready`. Since the 15:55 boundary: `-071`, `-064`, `-063`, `-065`, `-074`, `-076` delivered; PRs #62–#69 merged; AC-11, AC-12 and AC-14 moved to verified (16 + 1 open); API 169 → **189** tests; frontend 221 → **227**; ladder 24 → **27** rows; §4 → **23** invariants; §3A rewritten at six boundaries and grown measurably.
+- **Last Updated**: 2026-09-13 00:41 UTC — second `pk:checkpoint` pass at the same boundary. `checkpoint-002` / `handoff-002` **amended in place rather than duplicated**, following `checkpoint-001`'s precedent (it was amended at 16:46 UTC on its own site, not superseded by a new file). State is still `handoff_ready`; **PR #71 merged at 00:39:19Z (`b8a941d`) even though `gh pr view` reported OPEN when this line was written** — the PR API lagged the merge by about ninety seconds, so the rule is now: ancestry against a fetched `main` answers "did it land", a ticket page does not. Resume condition satisfied as to content, **not as to authorisation**: a checkpoint was requested, not `-075`. New at this pass: the working tree carries **PromptKit OS tooling drift that this agent did not author and must not commit** (see §5).
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -479,6 +479,14 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
   history), **D-9** (hand-rolled key store vs the shipped EF Core package), and **D-10** (no `schedule:` invented for the
   baseline recheck, so a drifted fixture will not nag). Nothing here is blocked *for the agent*; the session is
   `handoff_ready`, which is a self-imposed stop state, not an external one.
+- **Working-tree drift owned by the human, not by the agent** (00:41 UTC): `git status --porcelain` returns `M .promptkit`
+  (submodule pointer `a1eb608 → eecd77b`), `M AGENTS.md` (114-line rewrite of the operating-system block, Better-PromptKit →
+  **PromptKit OS**, which also added formatting conventions this file now follows), plus untracked
+  `.github/ISSUE_TEMPLATE/…` and `.github/pull_request_template.md`. Left untouched deliberately: `.promptkit/` is a
+  read-only submodule per `AGENTS.md` invariant 2, and folding a tooling sweep into PR #71 would make that PR's message
+  false about its contents — the exact defect the `git status` rule exists to catch. **Action required: land it as its own
+  `chore(promptkit)` PR or say otherwise.** Verified surviving the rewrite: `awk '/^### Commit discipline/,/^CI \(/'
+  AGENTS.md | grep -c '^- \*\*'` → **10**, including this session's tenth rule.
 - **M1 shipped.** All 6 commits are on `origin/main` via PR #1 (`63d769d`); local `main` fast-forwarded
   cleanly, so the stale `AGENT.md` and its hanging `npm run test` no longer exist for anyone cloning the repo.
 - **Submodule note for the reviewer**: `.promptkit` is a gitlink (mode `160000`) at `a1eb608`, with
@@ -525,6 +533,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Title & Scope | Decision Summary | ADR File |
 | :--- | :--- | :--- | :--- |
+| 2026-09-13 00:41 UTC | Assistant (`pk:checkpoint`, second pass, same session) | **M4 checkpoint-002 amended, not duplicated** | #71 measured **open** at 00:41 and found **merged at 00:39:19Z** moments later — `gh pr view` served a stale read after the merge, so `state` was demoted and ancestry promoted; the stop state now rests on authorisation, not on whether the records landed. Amended in place on checkpoint-001's precedent: dated banner + §8 status note + **H15** in the handoff. New blocker surfaced and deliberately **not** committed: PromptKit OS tooling drift (`M .promptkit` submodule, `M AGENTS.md` 114-line rewrite, two new `.github/` templates) authored by nobody here — `.promptkit/` is read-only per invariant 2, and sweeping it into a docs PR would falsify that PR's own commit message. Re-derived after the rewrite: commit-discipline rules **10** (this session's tenth survived), §4 **23**, ladder **27**, EXEC **26**, ACs **16 + 1** (AC-3). |
 | — | — | No ADRs recorded yet. Candidates worth writing: persistence medium (DEBT-01), `id` strategy (`number` → UUID), `.promptkit` submodule vs vendored copy | `docs/adrs/` |
 
 ---
@@ -534,7 +543,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 1. **CURRENT (set by `pk:checkpoint`, 2026-09-13 00:20 UTC)**: **`-075`** — extract the shared browser-harness recipe
    (two CDP `connect()`s, two duplicated boot scripts) and prove it by **re-running `-063`'s 11/11 and `-064`'s 7/7 against
    the extraction**; a refactor of evidence tooling that does not re-produce the evidence is just editing. **Resume
-   condition first**: the human merges **PR #70**, and the receiver runs `handoff-002`'s H1–H14 before editing. Full form,
+   condition first** (records **are** in `main` at `b8a941d`; outstanding is the human's word to start `-075`, plus the un-owned tooling changes — see §5): the human merges **the PR carrying `checkpoint-002`**, and the receiver runs `handoff-002`'s H1–H14 before editing. Full form,
    cost and what outranks it: [`checkpoint-002` §8](tasks/TASK-m4-authentication.checkpoint-002.md).
    *Superseded, kept because its completion is the reason for the current state:* the 15:55 instruction was "when #58 is
    merged, post Q4 and stop". Q4 was answered, `-063`/`-064`/`-065` ran, and the practice tasks it told nobody to start are

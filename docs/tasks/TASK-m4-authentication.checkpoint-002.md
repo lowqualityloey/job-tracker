@@ -1,5 +1,41 @@
 # Checkpoint Record 002 — TASK-m4-authentication
 
+> **Amended at 2026-09-13 00:41 UTC, in the same session, on the human's second `pk:checkpoint` request.** No sentence
+> below was deleted or rewritten; this banner and the §8/branch notes are appended at their own sites. Three things the
+> original file could not know, in descending order of importance:
+>
+> 1. **The PR carrying this record was #71, and the measurement that named it wrong is the finding.** At 00:41 UTC
+>    `gh pr view 71 --json state` returned **OPEN**, `origin/main` was `58daf8a`, and checking `main` for the file failed.
+>    **#71 had actually merged at 00:39:19Z** (`b8a941d`, head `c24308f`): the PR API was serving a stale read roughly
+>    ninety seconds after the merge, so this record's own amendment banner was false for a minute about the single fact it
+>    existed to assert.
+>    What survives as the rule, replacing a weaker one written twice today: **`state` from the PR API is not the authority;
+>    ancestry against a freshly fetched `main` is.** `git fetch origin main` then `git merge-base --is-ancestor <sha>
+>    origin/main` answers "did it land" while the ticket page lags — and it retroactively explains today's two "the push
+>    looks stuck, `gh pr view` still shows the old head" episodes: never a slow push, always a fast merge behind a slow read.
+>    **Resume condition: satisfied as to content** (the records are in `main` at `b8a941d`), **not as to authorisation** — a
+>    checkpoint was requested, not `-075`, so `handoff_ready` and its stop state stand. And the commit carrying this
+>    amendment was itself orphaned the same way once more — the fifth artifact today, and the first whose cause was the
+>    *read* rather than the door.
+> 2. **The working tree is dirty with changes that are not the agent's.** Four paths moved while this record was being
+>    written: the `.promptkit` submodule pointer (`a1eb608 → eecd77b`), a 114-line rewrite of `AGENTS.md`'s operating-system
+>    block (Better-PromptKit → **PromptKit OS**), and two new untracked files,
+>    `.github/ISSUE_TEMPLATE/…` and `.github/pull_request_template.md`. None of it was authored here, none of it is in
+>    #71, and per `AGENTS.md`'s own rules it is **not** this PR's to commit: `.promptkit/` is a read-only submodule, and
+>    an unrelated tooling sweep folded into a docs PR would make #71's message false about its contents. It is surfaced as
+>    an owner decision instead, and it is the reason §7's hygiene scan now has a real finding rather than a clean bill.
+> 3. **`AGENTS.md`'s commit-discipline count survived the rewrite at 10** — re-derived, not assumed:
+>    `awk '/^### Commit discipline/,/^CI \(/' AGENTS.md | grep -c '^- \*\*'` → **10** — which matters because the tenth
+>    rule (bound a projection edit by the section) was added by *this* session and the tooling rewrite touched the same
+>    list. One of the ten is now at risk of being upstream-overwritten, so it is worth checking after any future sync that
+>    the rule about deleting 51 lines is still there.
+>
+> **Everything else in this record still measures the same at 00:41:** §4 **23** invariants · ladder **27** rows ·
+> **26** EXEC ids · ACs **16 + 1** (open: **AC-3**) · AGENTS rules **10** · CI on #71 `verify` pass / `verify-api` pass
+> (skipped internally, steps 4–5) / `bundle-baseline-recheck` skipping.
+>
+> **Read §5, §7 and §8 alongside this banner, not instead of it.**
+
 - **Task ID**: `TASK-m4-authentication` · **Canonical record**: [`TASK-m4-authentication.md`](TASK-m4-authentication.md) (§6 carries the per-row `TDD-EXEC` records; this file is a projection, not a replacement — the Task Record stays authoritative)
 - **Specification / planning**: [`docs/specs/2026-09-12-spec-m4-authentication.md`](../specs/2026-09-12-spec-m4-authentication.md) (approved by PR #34, `fa4ed7d`) · ladder [`docs/tests/2026-09-12-test-m4-authentication.md`](../tests/2026-09-12-test-m4-authentication.md) · grill [`docs/reviews/2026-09-12-m4-plan-grill.md`](../reviews/2026-09-12-m4-plan-grill.md) · predecessor [`checkpoint-001`](TASK-m4-authentication.checkpoint-001.md), whose `handoff-001` was consumed and validated at this session's start
 - **Checkpoint at**: 2026-09-13 ≈00:20 UTC · **Trigger**: requested by the human (`pk:checkpoint`) after context compaction, at a milestone boundary — six rows delivered and the behaviour ladder empty for the first time in the milestone.
@@ -120,6 +156,7 @@ sed -n '/^## 4\./,/^## 5\./p' docs/STATE.md | grep -cE '^[[:space:]]*[0-9]+\.'  
   decisions in §5.2 and §5.3 would each legitimately outrank `-075`.
 - **Why this row and not the practice tasks**: `-075` is the last open `◆` row, and it is the only one that prevents a *repetition cost* already paid today — two CDP harnesses and three boot scripts each re-implement the same recipe, and two fixes (DROP DATABASE `WITH (FORCE)`; killing `JobTracker.Api` by exact name because `dotnet run` does not forward signals) were applied twice in one day.
 - **What it genuinely costs**, stated so it is not discovered late: the extraction is only verified by **two real Chromium runs** (~5 minutes each, Docker in the loop; both have flaked at least once this session, including one transient `DockerContainerNotFoundException` that a re-run resolved). Re-running the evidence is the row; refactoring without it is editing.
+- **Status of this action at the 00:41 amendment**: **not started, and not permitted to start.** #71 is open, so these records are not in `main`; the dirty tree (banner item 2) also bars a clean start under `AGENTS.md`'s milestone-boundary rule. Nothing about `-075` itself changed.
 - **Order after it**: the four practice tasks (`grep -c '^- \*\*Practice task' docs/tasks/TASK-m4-authentication.md` → **4**; the natural `AGENTS.md step 9` command reads **5** because a sentence quotes it — see §7), then whatever the §5 owner decisions unblock.
 - **The command that makes `-076`'s gate honest, if the fixture is ever doubted**: `RESULT_FILE=/tmp/x.env bash tests/build/bundleDelta.sh`, then compare `$REPRODUCED_BASELINE_ON_B` against `tests/build/bundle-baseline.json`.
 
