@@ -51,7 +51,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 - **Target Workspace / Package**: N/A — standalone repository, no workspaces
 - **Active RFC / Spec**: `none` — M4 closed; M5 not yet planned (gated on deployment-target decision, §5/§7)
-- **Active Task Spec**: `none` (no in-flight Task Record; `TASK-m4-authentication` is complete)
+- **Active Task Spec**: `TASK-2026-09-13-m5-aws-deployment` (Level 3, in_progress — deploy-readiness changes, PR #77)
 - **Key Source Files in Flight**: none
 - **Verification Commands (correct for this repo)**:
   - Frontend typecheck: `npx tsc -p tsconfig.app.json --noEmit` *(no `typecheck` script; do **not** use bare `npx tsc -b` — see DEBT-11)*
@@ -535,7 +535,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 ## 7. Next Immediate Actions
 
-1. **CURRENT (set by `pk:checkpoint-003`, 2026-09-13 14:03 +1200)**: **M5 — AWS Deployment (Level 3, `pk:ship` + human approval) is QUEUED and GATED.** No code or infra until the owner decides the deployment target (single vs two-origin topology; ECS/Fargate vs App Runner vs Elastic Beanstalk; single vs multi-instance, which reopens the in-process SSE bus assumption `ASSUMPTION-m3-backend-api-002`). The first concrete step is to author `docs/aws-deployment.md` (it has never existed — six prior citations pointed at a phantom) and run `pk:plan` + `pk:ship`. Until then, the only open engineering items are the four `Practice task`s from `-066`…`-069` (non-blocking) and **AC-3** (owner restrike-or-restate decision).
+1. **CURRENT (set by implementation, 2026-09-13)**: **M5 deploy-readiness changes are IN PROGRESS (PR #77).** All architectural decisions settled (ECS/Fargate, Option A single-origin via CloudFront, single instance, RDS key ring, migrate-on-boot). The three code changes are implemented: `GET /api/health` (unauthenticated ALB probe), BootGuard fail-fast for missing `ConnectionStrings:Default`, and config-driven forwarded headers for ALB/CloudFront. API compiles clean (0 warnings/errors). On PR merge: the remaining M5 work is infra (CloudFront/S3/ECS task def) and `pk:ship` + human deploy approval. The four `Practice task`s from `-066`…`-069` and **AC-3** (owner restrike-or-restate) remain the only other open items.
 2. **Agent, on merge** *(superseded by item 1 on 2026-09-12 — M3 shipped as PRs #5–#30 and M4 is 21 slices in; the* ***reconcile-and-verify-before-starting-the-next-phase*** *duty in this item still stands)*: reconcile (`git checkout main && git pull --ff-only`, then confirm the PR's head is the
    tip you pushed), and only then start **M5 — AWS Deployment** at **Level 3**: `pk:plan` + `pk:ship` first
    (domain model, API envelope, the four open architectural questions in §5 that M2a already answered three of),
