@@ -133,6 +133,22 @@ printf '  dist/ ignored: %s · porcelain after builds: %s files\n' \
   "$(git -C "$REPO" check-ignore -q dist && echo yes || echo NO)" \
   "$(git -C "$REPO" status --porcelain | wc -l | tr -d '[:space:]')"
 
+# Machine-readable output for CI. The script's own assertions are about the *head vs a rebuilt baseline*; the committed
+# fixture in bundle-baseline.json is a separate claim, and only the caller that holds both can compare them. Emitting the
+# numbers here is what lets the workflow assert "the fixture still reproduces" without parsing a human-readable table —
+# which would be a test that breaks whenever someone improves the wording above it.
+if [ -n "${RESULT_FILE:-}" ]; then
+  {
+    printf 'REPRODUCED_BASELINE_ON_B=%s\n' "$b_on"
+    printf 'REPRODUCED_BASELINE_OFF_B=%s\n' "$b_off"
+    printf 'HEAD_ON_B=%s\n' "$h_on"
+    printf 'HEAD_OFF_B=%s\n' "$h_off"
+    printf 'DELTA_B=%s\n' "$delta"
+    printf 'BASE_COMMIT_REF=%s\n' "$BASE_SHA"
+    printf 'URL_LITERAL_B=%s\n' "$URL_LITERAL"
+  } > "$RESULT_FILE"
+fi
+
 [ "$delta" -lt "$GATE_BYTES" ] || fail "AC-14 gate exceeded: ${delta} B >= ${GATE_BYTES} B at $URL_LITERAL"
 printf '\n\033[32m-065 complete: the flag-on delta is %s B against a reproduced %s B baseline (under the %s B gate),\n' \
   "$delta" "$b_on" "$GATE_BYTES"

@@ -1,0 +1,25 @@
+{
+  "_comment": [
+    "AC-14's bundle baseline, as measured — not as remembered. `-065` refused to quote this number in its own record",
+    "and rebuilt `41b32af` in the same run instead, because subtracting a five-hour-old figure from a fresh build",
+    "measures two afternoons rather than one milestone. A per-PR CI gate cannot do that: actions/checkout defaults to",
+    "depth 1, and rebuilding the baseline commit on every push costs four builds for a number that changes only when",
+    "someone edits a dependency. So the quoted value returns here as a *fixture with provenance*, and the counterweight",
+    "is `bundle-baseline-recheck` in ci.yml: a dispatch-only job that re-runs tests/build/bundleDelta.sh, which rebuilds",
+    "both trees, and fails if this file no longer reproduces byte-for-byte.",
+    "",
+    "The URL literal is part of the number, not a detail: `import.meta.env.VITE_API_BASE_URL` is inlined into the bundle,",
+    "so `localhost` (9 chars) and the sandbox IP (14 chars) differ by 9 gzip bytes on identical code — measured in",
+    "`-065`. A gate built at a different literal than this one is not measuring the same thing."
+  ],
+  "baseline_commit": "41b32af",
+  "measured_utc": "2026-09-13T01:20:00Z",
+  "measured_by": "tests/build/bundleDelta.sh at head b489f18, four builds in one run",
+  "reproduction": "byte-exact: 60118 and 61368 matched Slice 0's 05:25 UTC figures to 0 bytes",
+  "url_literal": "http://172.23.124.252:5080",
+  "build_command": "VITE_API_BASE_URL=<url> npm run build && cat dist/assets/*.js | gzip -c | wc -c",
+  "toolchain": { "node": "v24.20.0", "npm": "11.19.0", "vite": "5.4.21" },
+  "flag_off_bytes": 60118,
+  "flag_on_bytes": 61368,
+  "gate_bytes": 3072
+}
