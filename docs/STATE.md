@@ -11,7 +11,7 @@
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
 - **Current Working Branch**: `feat/m4-069-wrongtype-binding` @ `38ff6d2` — three commits over `main` @ `fea085c` (= merged PR #57). **PR #58 open, awaiting human review.**
-- **Last Updated**: 2026-09-12 15:55 UTC — **`pk:checkpoint` boundary** (context compaction). `-066`…`-069` delivered; durable records: [`checkpoint-001`](tasks/TASK-m4-authentication.checkpoint-001.md) and [`handoff-001`](tasks/TASK-m4-authentication.handoff-001.md). API **169/0**, `npm run verify` exit **0** (221 tests / 23 files).
+- **Last Updated**: 2026-09-13 00:20 UTC — **`pk:checkpoint` boundary (checkpoint-002 / handoff-002)**, `handoff_ready`. Since the 15:55 boundary: `-071`, `-064`, `-063`, `-065`, `-074`, `-076` delivered; PRs #62–#69 merged; AC-11, AC-12 and AC-14 moved to verified (16 + 1 open); API 169 → **189** tests; frontend 221 → **227**; ladder 24 → **27** rows; §4 → **23** invariants; §3A rewritten at six boundaries and grown measurably.
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -84,6 +84,12 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
   artifacts today had to retract a PR number or a commit SHA written before the thing it names existed, including this
   file twice, so the projection stops trying to name itself and points at the branch instead:
   `docs/m4-076-state-projection`, one commit, whose SHA is whatever `git rev-parse HEAD` says when it is opened.
+  **Its scope grew at the boundary, and is named here rather than discovered in the diff**: the human asked for
+  `pk:checkpoint` while this PR was open, so `checkpoint-002` and `handoff-002` (new files) and the §2/§4/§5/§7/§8 sync
+  ride along on this branch. The reason is the hazard this file keeps recording: two open PRs editing `docs/STATE.md`
+  produce a projection that merges in one order or the other and loses whichever prose was written second. A separate
+  checkpoint PR would have been cleaner per commit and worse per file; that trade is the scope change, and the only
+  honest way to log a mid-flight scope change is where the reader will look for it.
   **What merged before it, both ways verified against `main` rather than against a PR page:**
   **PR #69 (`-076`, the bundle gate) is MERGED** — `8fabe48` at 00:02:17Z. Payload read out of `main`:
   `tests/build/bundleGate.sh` (96 lines), `bundle-baseline.json` (25), the `Bundle gate (AC-14, -076)` step present in
@@ -456,15 +462,23 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 20. **Every problem document carries a `code` that exists in `contracts/problem-codes.json` — including failures the
     framework produces, not just endpoints.** And the SSE fan-out is scoped by the **record's** `OwnerId`, never by the
     requester's identity; bus state stays per-process only under `ASSUMPTION-m3-backend-api-002` (single instance through M5).
+
+**Three invariants added at the `checkpoint-002` boundary (2026-09-13), which is why §4's count is 23 and not the 20 that command has returned all week:**
+
+21. **`app.UseAntiforgeryGate()` registers strictly after `app.UseSessionGate()`.** The 401/403 asymmetry *is* the diagnosis: no session ⇒ `401 unauthorized`; session but no/invalid token ⇒ `403 antiforgery`. Reverse those two lines and every refusal becomes unattributable, `DataRouteAuthTests`' ratified 401s move, and `-063`'s two browser cases — which exist precisely to tell the layers apart — stop meaning anything.
+22. **The data-protection key ring lives in `data_protection_keys`, not in process memory.** Reverting it to the framework default is not neutral: the fault returns with **no error message to mark it** — a 403 in someone else's request, days after the deploy that caused it (`-074` measured 201 → restart → 403 before the fix, 201 after, with the key row count held at 1).
+23. **`__Host-JTCsrf` is readable from JavaScript on purpose: no `HttpOnly`.** A token the client cannot read cannot be echoed, so adding the flag would make the gate unreachable by design rather than by attack. The rest of the prefix contract is untouched — `Secure`, `Path=/`, no `Domain`, never varying by environment. A future hardening pass will try to "fix" this; `-063`'s evidence is the reason not to.
 ## 5. Known Blockers, Risks & Open Questions
 
-- **Blockers**: none blocking *implementation*; **four ladder rows and four ACs are gated on one owner answer** —
-  spec §7's **Q4** (harness document origin vs API origin are different *sites* to Chromium, so `SameSite=Lax` never carries
-  the session cookie and AC-12 would report a product failure that is only topology). `-063`, `-064`, `-065` and the Browser
-  halves of `-067`/`-068` wait on it; options and a recommendation are pre-written in
-  [`checkpoint-001` §6](tasks/TASK-m4-authentication.checkpoint-001.md). Separately: **`-069`'s handler guard is untested**
-  (probe B removed it and the suite stayed 169/0), and **`GET /api/auth/session` has no ladder row** though spec §4.3
-  promises the endpoint.
+- **Blockers**: **none blocking implementation, and none of the kind that was here at the last boundary.** This bullet used
+  to say "four ladder rows and four ACs are gated on one owner answer — spec §7's **Q4**". Q4 was answered on 2026-09-12
+  (option (a), now `DECISION-m4-auth-007`, implemented by `-071`), the four rows it gated are **all executed and verified**,
+  and three of the four ACs moved with them. Current truth, re-derived: **no behaviour row is unexecuted** and **one AC is
+  open (AC-3)** — plus the owner decisions that outrank any remaining row: **whether a two-origin deployment is actually the
+  plan** (the file six citations attribute that plan to, `docs/aws-deployment.md`, has never existed in this repository's
+  history), **D-9** (hand-rolled key store vs the shipped EF Core package), and **D-10** (no `schedule:` invented for the
+  baseline recheck, so a drifted fixture will not nag). Nothing here is blocked *for the agent*; the session is
+  `handoff_ready`, which is a self-imposed stop state, not an external one.
 - **M1 shipped.** All 6 commits are on `origin/main` via PR #1 (`63d769d`); local `main` fast-forwarded
   cleanly, so the stale `AGENT.md` and its hanging `npm run test` no longer exist for anyone cloning the repo.
 - **Submodule note for the reviewer**: `.promptkit` is a gitlink (mode `160000`) at `a1eb608`, with
@@ -483,7 +497,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 - **Technical debt register** (severity P1 = before M2, P2 = during M2, P3 = polish):
 
 | ID | Sev | Finding | Evidence | Suggested workflow |
-| :--- | :--- | :--- | :--- | :--- |
+| :--- | :--- | :--- | :--- | | 2026-09-13 00:20 UTC | Assistant (`pk:checkpoint`, boundary of the same session) | **M4: `-071`…`-076`, five merged PRs, AC-11/12/14 moved** | Six rows delivered and reconciled both ways; antiforgery gate + key-ring persistence + AC-14's CI gate; 189 API tests, 227 frontend, 11/11 and 7/7 in Chromium. **Two invariants and a phantom inventory added, and the session's own checking audited**: the §4 count command it cited four times was measuring bold top-level lines across all sections (18) rather than §4's items (20 → **23**); three working-tree greps used as absence proofs were falsified by the prose that recorded them; `Program.cs` was truncated 274 → 78 by a scripted edit and **still compiled**; a merge landed mid-sentence and orphaned a commit for the third time. Records: [`checkpoint-002`](tasks/TASK-m4-authentication.checkpoint-002.md) · [`handoff-002`](tasks/TASK-m4-authentication.handoff-002.md). Open: PR #70. |
+:--- |
 | DEBT-01 | — | **CLOSED by M2a.4** (`f1ae7af`) — create/edit/delete reach `localStorage` through the provider, and a second repository instance reading the same store is asserted in `storageFaults.test.ts`. **Residual still owed, and M2b widened it**: every persistence and cross-tab claim is jsdom-backed (jsdom never fires `storage` by itself; the tests dispatch it). The human's check is now two tabs open at `/applications`, edit or delete in one, watch the other update without a reload. **Residual CLOSED 2026-09-11 by observation, not deferral** — real Chromium 128 over raw CDP, 13/13: both tab directions, `schemaVersion: 1` envelope with 7 records under exactly one key, chip 45px, focus ring `solid 3px rgb(147,197,253)`. Still believed-not-seen: Firefox/Safari, quota-exceeded, `SecurityError`, quarantine recovery — all jsdom-only (`docs/spikes/2026-09-11-real-browser-cross-tab-check.md`) | — | — |
 | DEBT-02 | P1 | Only 1 test file / 2 tests, and it covers a pure presentational leaf. Zero page, route, or derivation coverage | `src/components/StatusBadge.test.tsx` is the sole test | `pk:test` |
 | DEBT-03 | — | **[CLOSED locally — PR #4]** **Was:** no lint tooling and no CI, so the DoD was unenforceable on another machine or by a different human. **Now:** eslint 9 (flat config: type-checked TS, `react-hooks`, `jsx-a11y`, vitest focus/disable) + stylelint 17 + `.github/workflows/ci.yml`, which runs one command — `npm run verify` — on every PR and on `main`. Formatting **deliberately still absent**: a formatter rewrites 35 files in a commit unrelated to any feature | `eslint.config.js`, `stylelint.config.js`, `.github/workflows/ci.yml`. First run surfaced **17 real findings**, all fixed: 2 dead imports, 2 scripted-patch escape bugs, 4 untyped `JSON.parse` reads, 9 redundant casts | `pk:fix` ✅ |
@@ -516,18 +531,14 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 ## 7. Next Immediate Actions
 
-1. **CURRENT (set by `pk:checkpoint`, 2026-09-12 15:55 UTC)**: when the human says **PR #58** is merged — reconcile
-   (`git checkout main && git pull --ff-only`) and prove it **both** ways: `gh pr view 58 --json state,mergedAt,mergeCommit`
-   *and* the `TDD-EXEC-m4-authentication-069` marker in `main`. Then **post Q4 and stop**: `-069` was the last decision-free
-   server-side row, so the correct next move is a question, not a commit. Do not start the four owed practice tasks
-   (`-066` idle-window config · `-067` empty-vs-absent `AllowedOrigins` · `-068` the fan-out's linear scan · `-069` the
-   untested guard) uninvited. Full handoff: [`handoff-001`](tasks/TASK-m4-authentication.handoff-001.md).
-0. **DONE 2026-09-11**: PR #7 (`docs/m3-backend-api-spec`) — **the M3 spec is approved**; its §7 checklist was the review script. Original item, for the record: review script; the four things that most deserve your disagreement are `DECISION-006` (widening the error union M2a froze), `DECISION-007` (client-minted ids, which is unusual and argued at length), the `date`-not-`timestamptz` choice, and the deliberate non-goal of **no auth ⇒ no public exposure before M4**. Then PR #6 (`docs/real-browser-crosstab-evidence`) is already merged; attention items there are moot. Old item:
-   `72f2b68` changes the lint config's structure (typed rules moved inside the `src/**` block — read the comment
-   on why the unscoped spread was the wrong default), and the spike note's "what this does not prove" section is
-   the part that keeps the closure honest.
-   ~~While reviewing, spend 30 seconds on the DEBT-01 residual~~ **DONE 2026-09-11 — retired with an actual
-   browser run rather than a checkbox: 13/13.**
+1. **CURRENT (set by `pk:checkpoint`, 2026-09-13 00:20 UTC)**: **`-075`** — extract the shared browser-harness recipe
+   (two CDP `connect()`s, two duplicated boot scripts) and prove it by **re-running `-063`'s 11/11 and `-064`'s 7/7 against
+   the extraction**; a refactor of evidence tooling that does not re-produce the evidence is just editing. **Resume
+   condition first**: the human merges **PR #70**, and the receiver runs `handoff-002`'s H1–H14 before editing. Full form,
+   cost and what outranks it: [`checkpoint-002` §8](tasks/TASK-m4-authentication.checkpoint-002.md).
+   *Superseded, kept because its completion is the reason for the current state:* the 15:55 instruction was "when #58 is
+   merged, post Q4 and stop". Q4 was answered, `-063`/`-064`/`-065` ran, and the practice tasks it told nobody to start are
+   still unstarted — four of them, `grep -c '^- \*\*Practice task'` → **4**.
 2. **Agent, on merge** *(superseded by item 1 on 2026-09-12 — M3 shipped as PRs #5–#30 and M4 is 21 slices in; the* ***reconcile-and-verify-before-starting-the-next-phase*** *duty in this item still stands)*: reconcile (`git checkout main && git pull --ff-only`, then confirm the PR's head is the
    tip you pushed), and only then start **M3 — Backend (ASP.NET Core Web API)** at **Level 2**: `pk:plan` first
    (domain model, API envelope, the four open architectural questions in §5 that M2a already answered three of),
