@@ -203,23 +203,33 @@ which is how "no `aws` CLI on this machine" got caught two hours after it was wr
   this account; C CDK; D bought `/20` + VPC endpoints; E manual `citext` pre-creation; F manual rotation; G human-run
   deploy), written into spec §12's Answer cells *before* any AWS-adjacent work, which is what the resume condition
   demanded. "Six of them block T-02…T-05" was true until this pass.
-- **What now gates T-02, in place of §12 — re-measured 2026-09-14 06:31 UTC, and one premise here was wrong.** The bullet
-  this replaces read *"no `aws` CLI on this machine (`command not found`)"*; that command tested the **Linux PATH only**.
-  This box is WSL and AWS CLI v2 is installed on the Windows side and callable from here:
-  `"/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe" --version` → `aws-cli/2.36.44 Python/3.14.6 Windows/11`. The gate is
-  therefore not a missing tool but **three facts, none of which an agent may supply**:
-  **(1) Which profile holds this project's account — ANSWERED by the owner at 06:49 UTC: `loey`.** `aws configure
-  list-profiles` → `loey`, `jonell`; both carry a `login_session` key in `C:\Users\jonel\.aws\config`, and there is
-  **no `credentials` file on either side** (both paths measured absent) — so there is no access-key path here, and no raw
-  secret to keep out of chat either. Neither profile sets `region`, which is the second thing the first attempt
-  measured (§Next action's `NoRegion` note).
-  **(2) A live session — measured EXPIRED at 06:50 UTC.** `login_session` is a browser-login artifact with an expiry; the
-  first authenticated attempt returned `Your session has expired. Please reauthenticate using 'aws login'`. Renewal opens
-  a browser, so it is the **owner's terminal** (`aws login --profile loey`), not this shell — which makes this the single
-  remaining gate before the reads, not one of three.
-  **(3) The zone's apex name** — B fixed the shape of the hostname story, not the literal. It *can be read* rather than
-  recalled once (2) exists, which is exactly why (1) and (2) come first: `route53 list-hosted-zones` returns every apex
-  in the account, so the agent should answer (3) by measurement instead of by asking the owner to remember it.
+- **What now gates T-02 — re-measured 2026-09-14 twice, and the second pass falsified the first.** Full evidence:
+  [`m5-deploy-log.md`](./m5-deploy-log.md), 18 read-only calls across two regions.
+  **CLI and profile: settled.** AWS CLI v2 is a Windows binary callable from this WSL box
+  (`aws-cli/2.36.44` at `"/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"`) — the earlier *"no `aws` CLI on this machine
+  (`command not found`)"* had tested only the **Linux `PATH`**. The owner named `loey` at 06:49 UTC; neither profile
+  carries a `region` key, so every call is region-qualified. Both profiles carry *only* a `login_session` key in
+  `C:\Users\jonel\.aws\config`, and no `credentials` file exists on either side of the WSL boundary — so there is no
+  access-key path here, and equally nothing long-lived that a chat log could leak.
+  **Session: live from 07:21:13Z — and the way it came live corrects this record.** `login_session` is a browser-login
+  artifact with an expiry; at 06:50 UTC every authenticated call returned `Your session has expired. Please
+  reauthenticate using 'aws login'`. This record then said renewal is *"the owner's terminal, not this shell"* — **partly
+  false**: `aws login` accepts `--region`, and without it the command stops to ask, which in a non-TTY shell surfaces as
+  `No Windows console found. Are you running cmd.exe?`. Given `--region ap-southeast-1` it printed `Attempting to open
+  your default browser` **from this shell** and the owner only had to complete the sign-in. Agent-initiated,
+  human-authenticated — the human half is the credentials, not the process launch.
+  **The apex name: not a pending read — a falsified premise.** `route53 list-hosted-zones` returns `"HostedZones": []`
+  in **both** profiles, and `route53domains list-domains` returns `"Domains": []`. The 07:03 pass here asserted that the
+  read "returns the apex", writing the *expectation* as if it were the *result*; measurement answered with an empty list.
+  So B's "a Route 53 zone already in this account" is **not true of this account**, and T-02's DNS-validation half has no
+  destination. The choice is now an owner decision again, with a cost attached, not a fact to be recalled. The candidates
+  on the table: register a domain in this account (money, `route53domains register-domain`, then a zone comes with it);
+  point an existing third-party domain at a new hosted zone here (delegation at the current registrar, $0.50/mo);
+  create the zone in whichever account really owns the domain and validate there; or drop the custom hostname from M5 and
+  accept the ALB/CloudFront default DNS names — which breaks the `__Host-` cookie shape that decision B was protecting.
+  **Two facts nobody predicted:** `loey` and `jonell` resolve to the **same account** (IDs compared by hashing the digits,
+  not by eye), and both authenticate as **`arn:aws:iam::<ACCOUNT>:root`** with **zero IAM users** in the account. Every M5
+  write would therefore run as account root. Neither blocks a read; both block calling a write plan finished.
 - **A fourth constraint, newly measured, on the artifact T-02 writes into: the repository is PUBLIC**
   (`gh repo view --json visibility` → `PUBLIC`). Every read lands in `docs/tasks/m5-deploy-log.md`, and zone apex names,
   account IDs and ALB/CloudFront DNS names are precisely the literals that make a deployment recon-able. **The log
@@ -241,30 +251,33 @@ which is how "no `aws` CLI on this machine" got caught two hours after it was wr
 (seven of seven, 2026-09-14 — see §"Blockers / Open"): T-01's exit criterion is met, and the next task is T-02** (L1,
 zone confirmation + both ACM certificates + DNS validation). What it waited on was written here as *two named facts, not
 a decision* — the zone's apex name (owner) and "an `aws` CLI with working credentials on the machine that runs it
-(measured absent here)". **That second fact was false and the first is now a read, not a question**: the CLI is a Windows
-binary reachable from WSL, the profile is named (`loey`), and `list-hosted-zones` returns the apex. One owner command
-(`aws login --profile loey`) then four reads stand between here and the certificates — see §"Blockers / Open" and the
-checklist below, which is the authoritative version as of 06:50 UTC.
+(measured absent here)". **Both halves of that sentence are now known to be wrong, and the second one twice**: the CLI is
+a Windows binary reachable from WSL, the session is live from 07:21 UTC, and `list-hosted-zones` — which the 07:03 pass
+here claimed "returns the apex" — **returns an empty list**. Step 0 ran; its result is not a hostname but the absence of
+one. See §"Blockers / Open" and [`m5-deploy-log.md`](./m5-deploy-log.md).
 Provisioning itself stays behind `pk:ship` and human approval; Level 3 is unchanged.
 The decisions PR shipped: **#84 merged at `3e2f2fb` (`2026-09-14T06:07:46Z`)** — §12's answers are in `main`'s
 history, and the live contract for the next session is [`checkpoint-002`](./TASK-m5-aws-deployment.checkpoint-002.md)
 (including its paste-ready handover prompt and T-02's step-0 checklist).
 
-**That contract has now been consumed: #85 merged `585121b` → `3121b2d` at `2026-09-14T06:23:49Z`, and T-02 step 0 ran.**
-Its outcome is the corrected blocker above, plus the next reads written down so they are pastable the moment a session
-exists. Two things the earlier checklist got wrong and this one fixes: the binary is the Windows `.exe` (there is no
-Linux `aws`), and **`--profile` has no default to fall back to here** — both profiles are named, neither is assumed:
+**Step 0 has now run — all five reads, plus thirteen more — and it returned a finding rather than a hostname.**
+Its outcome is the corrected blocker above and the deploy log; what follows is the same list with its results attached,
+kept because *how* each line was run is now part of the record. Two things the earlier checklist fixed, and a third it
+could not have known: the binary is the Windows `.exe` (there is no Linux `aws`); **`--profile` has no default to fall
+back to here**; and `--region` is not one value for all services — `route53domains` lives in `us-east-1`, not A's region.
 
 ```text
 AWS="/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"        # measured: aws-cli/2.36.44, reachable from WSL
 R="--region ap-southeast-1"                              # NOT optional — see the NoRegion note below
-"$AWS" --profile loey $R sts get-caller-identity         # proves the session before anything else runs
-"$AWS" --profile loey $R route53 list-hosted-zones       # settles the apex name by reading, not by recall
-"$AWS" --profile loey $R ec2 describe-availability-zones          # the ALB needs 2 AZs
-"$AWS" --profile loey $R rds  describe-db-engine-versions --engine postgres   # postgres:18.6 parity
-"$AWS" --profile loey $R ecr  describe-repositories               # A's third read, spec §12
-# …and only after all four read clean: the two ACM certificate requests (us-east-1 + ap-southeast-1).
-# Those are AWS *writes*, so they sit behind pk:ship and an explicit owner go-ahead — not behind this list.
+"$AWS" --profile loey $R sts get-caller-identity         # ✓ rc=0 07:21:13Z — but arn is iam::<ACCOUNT>:root
+"$AWS" --profile loey $R route53 list-hosted-zones       # ✓ rc=0, and the answer is [] — no zone exists
+"$AWS" --profile loey $R ec2 describe-availability-zones          # ✓ 1a/1b/1c available — ALB two-AZ rule holds
+"$AWS" --profile loey $R rds  describe-db-engine-versions --engine postgres   # ✓ 18.6 offered — exact parity
+"$AWS" --profile loey $R ecr  describe-repositories               # ✓ rc=0, [] — the registry must be created
+# …and the two the list did not have, both added by the run: route53domains list-domains (us-east-1) → [] and
+# acm list-certificates in us-east-1 + ap-southeast-1 → both [].
+# The two ACM certificate requests are AWS *writes*, so they sit behind pk:ship and an explicit owner go-ahead —
+# not behind this list. They are also now behind a decision this list surfaced, not behind a credential.
 ```
 
 **`--region` is on every line because the first execution of this list failed without it** (2026-09-14 06:50 UTC). The
@@ -273,11 +286,13 @@ R="--region ap-southeast-1"                              # NOT optional — see 
 southeast-1` is A's answer, so passing it explicitly is not a new decision; the earlier draft of this list carried
 `--region` only on the three `describe-*` calls and its first two commands were therefore unrunnable as written. The
 second attempt, with the region supplied, returned `Your session has expired. Please reauthenticate using 'aws login'`
-— so the gate is now exactly one owner command in the owner's terminal, and the apex name is one read behind it.
+— and after the owner authenticated, every line above ran. **The apex the read was supposed to return does not exist**,
+so the gate that remains is not a credential and not a command: it is a decision about where this app's hostname lives.
 
-`list-hosted-zones` rather than the spec's `list-hosted-zones-by-name` is a deliberate one-command deviation: the
-`-by-name` form takes the apex as an argument, which is the very thing it exists to confirm. Read-only, paginated, and it
-removes the need for the owner to remember a string the account can just say.
+`list-hosted-zones` rather than the spec's `list-hosted-zones-by-name` is a deliberate one-command deviation that earned
+itself the moment it ran: the `-by-name` form takes the apex as an argument, so with no zone in the account it would have
+returned an empty list *for whatever string was guessed* and looked like a successful check. Listing everything is what
+turned "not found" into "there is nothing here" — the difference between a wrong answer and a missing premise.
 
 T-06 is done (§ above) and **committed** — the ladder below ran, and both records were merged in PR #81
 (`dfe018c` → merge `b4c2888`, 2026-09-14 03:46:01Z). Its Red → Green is recorded; the Refactor step of the triple was
