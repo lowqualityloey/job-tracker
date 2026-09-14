@@ -2,7 +2,7 @@
 
 - **Task ID**: `TASK-2026-09-13-m5-aws-deployment`
 - **Milestone**: M5 — AWS Deployment (Level 3, `pk:ship` + human approval)
-- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`, and **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
+- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`; **DEBT-27 closed 15:14:36Z by #92's measured merge (`09b4e0d`)**, and the pass continues with **T-03's paper design** ([`docs/specs/2026-09-14-spec-m5-t03-network.md`](../specs/2026-09-14-spec-m5-t03-network.md)) — design only, because **I-A1-5 still forbids executing it**. And **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
   merged (PR #85 → `3121b2d`, `2026-09-14T06:23:49Z`), and the owner's instruction resumed this task at **T-02**, whose
   step 0 executed at 06:31 UTC and **retracted one of this record's own premises**: the `aws` CLI is not absent on this
   machine, it is a Windows binary reachable from WSL (§"Blockers / Open"). The 2026-09-13 stop state ("no commits, no PR,
@@ -10,7 +10,7 @@
   and what remains is spec §6 **T-02…T-17**, gated on three named owner facts — not on any decision, and not on any
   installation.
 - **Owner / Actor**: Assistant (agent)
-- **Branch**: task work lands per-PR on `main`. **Re-measured at 14:35 UTC for this pass**: `gh pr view 91` → `MERGED` at
+- **Branch**: task work lands per-PR on `main`. **Re-measured at 15:20 UTC**: `gh pr view 92` → `MERGED 2026-09-14T15:14:36Z`, merge `09b4e0d`, `merge-base --is-ancestor ed1ed5f main` → **YES**, and `git diff --stat 9f14671..HEAD` → three paths, +290/−80, all under `docs/`. Current work sits on **`docs/m5-t03-network-design`**, cut from `09b4e0d`. **Earlier this boundary: `gh pr view 91` → `MERGED` at
   `2026-09-14T14:24:13Z`, merge commit `9f14671`, and `git merge-base --is-ancestor 9f14671 HEAD` → **YES** on the branch carrying this
   edit — so `checkpoint-003` and its projection sync are in `main`'s history, not merely pushed. `main` = `origin/main` at that SHA after
   `git pull --ff-only`; `git status --porcelain` shows only the pre-existing `.m5-parts/` (DEBT-21). **Current work sits on
@@ -558,3 +558,51 @@ decisions are requested alongside it and do not block it.**
 
 **Zero AWS calls in this pass** — zero reads, not merely zero writes: a citation pass needs no session, and the standing instruction is
 that the session is not claimed live. No source file, no config, no dependency: `runtime deps 3 / dev deps 19`, unchanged since M0.
+
+## T-03 on paper (2026-09-14 15:25 UTC) — the only M5 task that needs no credential, no card, and no owner answer
+
+**Why this one.** `checkpoint-003` §8 and then §3A's live bullet both named it: T-03 (VPC, ECR, log group) is the
+first provisioning task whose *design* is unblocked even while **I-A1-5** blocks its *execution*. Writing it down is
+also the cheapest way to find out whether §12 D's "no NAT, endpoints instead" answer is actually *sufficient* — that
+question gets decided by a document and confirmed by one task reaching `RUNNING`, and the gap between those two is
+where first deploys die.
+
+**Produced:** [`docs/specs/2026-09-14-spec-m5-t03-network.md`](../specs/2026-09-14-spec-m5-t03-network.md) —
+address plan (`10.0.0.0/20`, six `/24`s, four deliberately held), three route tables with the fail-closed claim stated
+as a test, the four-SG matrix including **the rule-weight trap** (the CloudFront prefix list costs **weight 55 of 60**
+rules, so `sg-alb` has about five slots for its lifetime and a deploy can fail on arithmetic), the **endpoint set**
+with eight rows and the one row that decides the design (whether the ECS agent can register a task with no egress
+beyond its endpoints), the CDK layout with **each dependency justified or refused**, eight `assertions`-based template
+tests each named for the mistake it catches, the serialised `[verify-at-apply]` commands, and the bootstrap/destroy
+ordering.
+
+**Boundary stated where it bites:** a synth test never dials an endpoint, so the suite pins the *shape* and cannot
+prove the *sufficiency* the design rests on. Anyone reading §8 of that document as proof of §5 has read the wrong
+section as the guarantee — the failure mode this repository has already documented twice.
+
+**Two things the design changed about the milestone rather than about itself.** `apexValue = null` under H-A is now an
+explicit supported state with its own test (**T-N7**), because that is what makes §14.6's "H-C is a redeploy, not a
+redesign" a property with a check behind it instead of a wish; and **VPC flow logs were left out deliberately**, named
+as open item **O-3** — §14.4 lists them as the detector for the accepted cleartext risk, so omitting them is a decision
+and not an oversight.
+
+**Repaired on the way, because the reconcile reflex keeps paying:** spec §3.1's VPC row still specified
+`private with NAT (tasks)` and still called §12's VPC question open, both superseded by §12 D hours earlier — the
+DEBT-27 shape one cell smaller. Fixed in its own commit, with §6's `T-03` rationale amended to say what networking now
+defends: **two** unencrypted edges, not one.
+
+**§11 was filled after the first draft, by a primary-source pass at 18:30 UTC — and the pass failed, so the section's
+content is the failure.** Both AWS pricing pages returned HTTP 200 to this machine with **zero numbers** (the
+per-region tables are client-rendered); two follow-up static-doc reads hit the session's web ceiling. What the draft
+had asserted at its own §0 — that §11's prices "came off AWS's own pages on 2026-09-14" — was a citation with no read
+behind it, and §11.1 retracts it at the line, house style. Every price row is now `[verify-at-apply]` with the serial
+read that closes it, and §11.2 argues the part that matters: **no number forms this design** — the endpoint-vs-NAT
+choice is privacy-argued (§12 D) and test-enforced (T-N1), so the failed pricing pass changes no CIDR and no SG rule.
+The pass also grep-verified that the parent §12 D's `~$0.01105/hr` and `~$32/mo` figures both trace to the indicted
+`m5-infra-plan.md` §7 table — directionally right, provenance-wise unusable.
+
+**Status:** design only. No `cdk`, no dependency installed, **zero AWS calls — zero reads as well as zero writes**
+(the 18:30 pass read two *pricing web pages*; the control plane got nothing, then and now). It
+executes when **O-1…O-4** clear: H-B before-or-after, root-vs-scoped identity, flow logs, and the three console
+numbers. There is no agent-side task behind it that touches a platform: T-04 and T-05 depend on T-03 being provisioned,
+so the queue belongs to the owner until those four answers arrive.

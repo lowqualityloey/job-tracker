@@ -1,7 +1,7 @@
 # Project Architectural Profile (`PROMPTKIT.md`)
 
 ## 0. PromptKit OS Profile
-- **Profile**: balanced
+- **Profile**: turbo
 - **Installed**: 2026-09-14
 - **Engine**: .promptkit
 - **Upgrade**: Run `.promptkit/init.sh --balanced` for full 22 workflows, or `--turbo --experimental` for parallel waves
@@ -194,4 +194,4 @@ Tailored to this codebase; generic template language removed.
 - [ ] **Never claim a green build without running it**, and never report `pnpm`/`yarn`/`turbo` commands
       — this repository is npm-only.
 
-profile: balanced
+profile: turbo
