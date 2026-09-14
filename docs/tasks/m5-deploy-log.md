@@ -47,7 +47,7 @@ credentials, not the process launch.
 | 8 | `ec2 describe-availability-zones --all` | `1a, 1b, 1c` available (+2 wavelength zones: `1-han-1a`, `1-mnl-1a`) | ✓ **≥3 normal AZs** — the ALB two-AZ requirement is satisfiable. |
 | 9 | `ec2 describe-vpcs` | **One** VPC, `172.31.0.0/16`, `IsDefault: True` | ✓ Default VPC only; no custom VPC exists. |
 | 10 | `ec2 describe-subnets` | 3 subnets, one per AZ (1a/1b/1c), all `MapPublicIpOnLaunch: True` | ✓ Default-VPC shape, public subnets in three AZs. |
-| 11 | `rds describe-db-engine-versions --engine postgres` | 16.9 → **16.15**, 17.5 → **17.11** available | ✓ Version parity is achievable; pinning it is still D-M5's call. |
+| 11 | `rds describe-db-engine-versions --engine postgres` | Majors 12–18 offered; newest minor per major, counted from the full response: **18.6 present** (179 rows match major 18) | ✓ **Exact parity** with `api/docker-compose.yml`'s `postgres:18.6` is available in `ap-southeast-1` — no downgrade decision needed. |
 | 12 | `ecr describe-repositories` (`ap-southeast-1` **and** `us-east-1`) | `"repositories": []` | ❌ **No ECR repository exists.** §12 F is therefore *create*, not *reuse*. |
 | 13 | `s3api list-buckets` | `"Buckets": []` | ✓ Empty. |
 | 14 | `cloudfront list-distributions` | 0 items | ✓ Empty. |
@@ -83,8 +83,13 @@ Certificate requests (`us-east-1` for CloudFront, `ap-southeast-1` for the ALB),
 attachment. All three are **writes**, and deviation 1 means the validation route is currently unknown. Blocked behind
 `pk:ship` and an explicit owner answer.
 
-## Two command-form lessons (both cost a failed call)
+## Command-form lessons (each one cost a failed call or a wrong verdict)
 
+- **A filter that is narrower than the question destroys the answer.** Read 11 was first written from
+  `grep -oE '"EngineVersion": "1[67][^"]*"'` — a pattern that cannot see major 18 — and the log therefore recorded
+  "17.11 newest, parity is a decision". It is not: **`18.6` is offered**, matching local dev exactly. Re-measured from the
+  saved response with the majors counted (`12–18`, 179 rows at major 18). This is AGENTS.md's `grep -E "Passed!|error CS"`
+  failure with the roles reversed: the pattern was written for what I expected to compare, not for what the API returns.
 - `route53domains` **has no `ap-southeast-1` endpoint** — `Could not connect to the endpoint URL`. The whole checklist was
   region-qualified with the workload region; the registrar API is a global service reached through `us-east-1`, like ACM
   for CloudFront. A region flag is not a global constant.
