@@ -7,14 +7,10 @@
 ## 1. Executive Summary & Current Position
 
 - **Project Name**: Job Tracker (`job-tracker` v0.2.0)
-- **Current Milestone / Epic**: **M4 — Authentication delivered and merged** (27-row ladder, 26 EXEC records, 16/17 ACs verified; AC-3 open on owner restrike-or-restate decision), **M5 — AWS Deployment in progress at Level 3** (deploy-readiness code merged PRs #77/#78; infra plan + first Dockerfile merged as PR #80 `80918be`; **the spec has since been rewritten from measurement and that rewrite is uncommitted**). M1 · M2a · M2b · M3 all delivered (**14/14 M3 ACs verified**).
+- **Current Milestone / Epic**: **M4 — Authentication delivered and merged** (27-row ladder, 26 EXEC records, 16/17 ACs verified; AC-3 open on owner restrike-or-restate decision), **M5 — AWS Deployment in progress at Level 3** (deploy-readiness code merged PRs #77/#78; infra plan + first Dockerfile merged as PR #80 `80918be`; **the measured spec rewrite merged in #81, T-06 with it, T-07 in #82 — and spec §6's `T-02` row is now *stale against the owner's H-A decision*, which is DEBT-27**, the live contract being [`checkpoint-003`](tasks/TASK-m5-aws-deployment.checkpoint-003.md)). M1 · M2a · M2b · M3 all delivered (**14/14 M3 ACs verified**).
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
-- **Current Working Branch**: `main` = `origin/main` = `3e2f2fb` (measured 2026-09-14 06:12 UTC; `git pull --ff-only`
-  after `gh pr view 84` → `MERGED 2026-09-14T06:07:46Z`; `5eb76d5` and `5f2c87e` both asserted ancestors via
-  `git merge-base --is-ancestor`). This pass's commits sit on `docs/m5-checkpoint-002`. Working tree **clean** apart
-  from `.m5-parts/` (28 files, 212 KB — DEBT-21, whose delete-after trigger has now *passed*: the ladder it was held
-  through merged in #81).
+- **Current Working Branch**: `chore/state-m5-post-90-checkpoint` @ `6da421a`, measured 2026-09-14 14:03 UTC and cut from `main` = `origin/main` = `6da421a` (PR #90's merge commit, `mergedAt 2026-09-14T11:19:05Z`, read from `gh pr view` rather than recalled), 0 commits ahead at open, `git merge-base --is-ancestor origin/main HEAD` → **YES**; `gh pr list --state open` → **0**. Working tree **clean** apart from `.m5-parts/` (28 files, 212 KB — **DEBT-21**, whose delete-after trigger passed at #81; this checkpoint deliberately did not remove it: a different concern belongs in a different commit).
 - **Last Updated**: 2026-09-13 17:06 UTC (`pk:checkpoint` → [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) ·
   [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md)). Nothing was committed, pushed, tagged, released or deployed
   this session. Verification re-executed here: **`npm run verify` exit 0** (227 tests / 23 files, 61.23 kB gz, build 1.38 s)
@@ -69,6 +65,7 @@
   Newly measured and load-bearing for the artifact T-02 writes into: the repository is **PUBLIC**
   (`gh repo view --json visibility`), so `m5-deploy-log.md` carries commands, verdicts and `<placeholder>` identifiers —
   never a live zone name or account ID.
+- **Last Updated (2026-09-14 14:05 UTC, `pk:checkpoint` → [`checkpoint-003`](tasks/TASK-m5-aws-deployment.checkpoint-003.md))**: reached by `pk:route` — the owner picked route 1 from the decision matrix. A **documentation-only** boundary pass: **zero AWS calls of any kind**, no source file touched, and `npm run verify` re-executed on this tree anyway because the gate is this repository's rule rather than CI's — **exit 0**, 23 files / **227 tests**, build **61.23 kB** gz, 1.42 s, 0 failure lines in the unfiltered log. What it records: **five PRs merged under the last projection** (#86 → #90, all states re-read at this boundary), **T-02 measured and decided** (§12 B falsified — the account holds no hosted zone and no domain; the owner has no payment method; the route is **H-A, CloudFront's default domain, $0**, with H-B parallel and H-C blocked), and **one divergence this pass refuses to repair quietly**: spec §6's `T-02` row and §12 B still describe the pre-decision plan while the task record carries the new one — opened as **DEBT-27**, routed to `pk:plan`. Task state is `handoff_ready`, so the stop condition is written down rather than implied.
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -91,20 +88,29 @@
   (`0986e53` → `7e99d7e`, 2026-09-14 05:33:17Z, CI `verify-api` **210/210**). Open: **T-01…T-17** (spec §6):
   **T-06 and T-07 — the only `Depends: —` code tasks — are delivered**, §12 was
   **answered seven of seven and the answers merged (#84 → `3e2f2fb`) — T-01's exit criterion is met by count**,
-  and **T-02 is open**, gated on three owner facts — profile choice, a live SSO session, the zone apex name (the `aws`
-  CLI itself measured *present* through the Windows binary). State: `in_progress`. Decision record: `docs/aws-deployment.md` *(exists
-  since `a65f430`, **five rows stale per spec §11**)* · Spec: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` ·
-  Task: [`docs/tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) ·
-  Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md) · [`checkpoint-002`](tasks/TASK-m5-aws-deployment.checkpoint-002.md) *(live pointer)*
+  **T-02 is measured, decided, and unreconciled**: its step 0 executed read-only (58 calls across two passes and two regions,
+  **zero writes**) and falsified §12 B — `list-hosted-zones` and `list-domains` both return `[]`, so there was never a zone in this
+  account. The owner then answered the follow-on with a constraint rather than a preference: **no payment method can be attached**, so
+  registration is cancelled for this milestone and the route is **H-A** ($0, CloudFront's default domain), with **H-B** ($0.50/mo, an
+  unproxied nested `NS` delegation into a Route 53 zone) filed in parallel and **H-C** (~$17/yr) deferred to a card. **Spec §6's `T-02`
+  row and §12 B's Answer cell still describe the pre-decision plan — DEBT-27, owned by `pk:plan`.** T-03…T-17 remain, and every M5 write
+  waits on three console numbers (DEBT-26). State: **`handoff_ready`** — self-imposed at a session boundary, `in_progress` on
+  checkpoint-003 §8's resume condition. Decision record: `docs/aws-deployment.md` *(exists since `a65f430`, **five rows stale per spec §11**
+  — DEBT-22, owned by T-15)* · Spec: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` (**1,220 lines**, re-`wc -l`'d 14:03 UTC) ·
+  Task: [`docs/tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) (512 lines) ·
+  Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md) · [`checkpoint-002`](tasks/TASK-m5-aws-deployment.checkpoint-002.md) · [`checkpoint-003`](tasks/TASK-m5-aws-deployment.checkpoint-003.md) *(live pointer)*
 
 Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 ### Active Task Breakdown
 
-- [ ] `TASK-m5-aws-deployment` — **`in_progress`** (Level 3). Spec §6 carries the decomposition: **T-01 done and
-  clean-room re-proven**, **T-06 merged (PR #81) and T-07 merged (PR #82, CI 210/210)**, **§12 answered 2026-09-14 → T-01 done; T-02 is open** (profile + live session + zone name are its gates),
-  **T-08…T-17 open**. Record: [`tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) ·
-  Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md) · [`checkpoint-002`](tasks/TASK-m5-aws-deployment.checkpoint-002.md) *(live pointer)*
+- [ ] `TASK-m5-aws-deployment` — **`handoff_ready`** (Level 3; `in_progress` on checkpoint-003 §8's resume condition). Spec §6 carries the
+  decomposition: **T-01 done and clean-room re-proven**, **T-06 merged (PR #81) and T-07 merged (PR #82, CI 210/210)**,
+  **§12 answered 2026-09-14 → T-01 done**, **T-02 step 0 executed and its premise falsified** (§12 B: no zone exists in the account),
+  **the hostname decided under the owner's no-card constraint → H-A / $0**, and **T-02's spec row still unamended — DEBT-27, which is the
+  next executable agent work (`pk:plan`)**. **T-03…T-17 open**, every write gated on the three console numbers (DEBT-26).
+  Record: [`tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) ·
+  Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md) · [`checkpoint-002`](tasks/TASK-m5-aws-deployment.checkpoint-002.md) · [`checkpoint-003`](tasks/TASK-m5-aws-deployment.checkpoint-003.md) *(live pointer)*
 - [x] `TASK-m4-authentication` — 27-row ladder, 26 executed and merged, closed at `71fcb3b`; **AC-3** (owner-side browser
   walkthrough) stays open on the M4 record, and it is the only M4 item this boundary inherits
 - [x] `TASK-2026-09-10-onboard`: Brownfield intake — scan manifests, extract commands, populate `PROMPTKIT.md`, generate `DESIGN.md`, reset `STATE.md`
@@ -118,7 +124,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - [x] `TASK-m2b-filters-cross-tab`: status chips + cross-field search + `StorageEvent` reconciliation + fail-closed mid-session version gate — **complete, PR #3 open**
 - [x] `DEBT-03 — lint + CI bootstrap`: eslint 9 + stylelint 17 + GitHub Actions + `npm run verify` — **MERGED as PR #4 (`68db873`)**. No spec or task record — a single-concern `pk:fix`; its canonical statement is the DEBT-03 row in §5 and the reasons written inside `eslint.config.js` / `stylelint.config.js`
 
-**T-01 executed, re-proven clean-room, and exit-met 2026-09-14 (§12 seven of seven on `main` via #84); T-06 and T-07 merged (#81, #82); next: T-02; the live contract is `checkpoint-002`.**
+**T-01 executed, re-proven clean-room, and exit-met 2026-09-14 (§12 seven of seven on `main` via #84); T-06 and T-07 merged (#81, #82); T-02 measured and decided (H-A, $0) but not yet written back into the spec — DEBT-27; next: merge this checkpoint, then `pk:plan`; the live contract is `checkpoint-003`.**
 
 ---
 
@@ -131,10 +137,7 @@ PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** 
 - **Active Task Spec**: [`docs/tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) — `in_progress`,
   reconciled against the spec on 2026-09-13 (branch, state, decision IDs, AC-1, blockers and next action were all stale).
   This is the pointer §3A holds; the two lines used to disagree, which is why the pointer now appears in both places.
-- **Key Source Files in Flight** (measured with `git status --porcelain`, 2026-09-14 05:05 UTC): **nothing dirty
-  but this checkpoint's docs edits** — the whole 09-13/09-14 working set (`api/Dockerfile`, `api/.dockerignore`,
-  the spec rewrite, both M5 records, the `.promptkit` gitlink) is committed and **merged** in PR #81; T-07's code
-  is committed (`HealthProbe.cs`, `HealthProbeBoundTests.cs`, `Program.cs` across `a5fc654`/`4799856`/`a42070e`).
+- **Key Source Files in Flight** (measured with `git status --porcelain` at 2026-09-14 14:03 UTC, and again after the build the gate ran): **nothing dirty but this checkpoint's own docs paths** — every M5 artefact through #90 is committed *and* merged, including T-07's code (`HealthProbe.cs`, `HealthProbeBoundTests.cs`, `Program.cs` at `a5fc654`/`4799856`/`a42070e`) and the `AGENTS.md` rule-eleven promotion (`31ae2e1`, mirrored into `.agents/rules/job-tracker-learning.md` in the same commit as DEBT-12 requires). No `.cs`, `.ts`, `.tsx`, `.css` or config file differs from `main` in this session, and `vite.config.js` is absent (DEBT-11's guard holds after the build). **Untracked**: `.m5-parts/` (28 files, 212 KB, deliberately *not* gitignored — DEBT-21)
   **Untracked**: `.m5-parts/` (28 files, 212 KB, deliberately *not* gitignored — DEBT-21).
 - **Verification Commands (correct for this repo)**:
   - Frontend typecheck: `npx tsc -p tsconfig.app.json --noEmit` *(no `typecheck` script; do **not** use bare `npx tsc -b` — see DEBT-11)*
@@ -225,70 +228,51 @@ PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** 
 > inferred from it: `grep -c '^## '` → **8** against `HEAD`'s 8, and §4 remains `cmp`-identical at 56 lines; the ⛔
 > archive marker below and everything under it are untouched, so the live/false boundary is still the 09-13 one.
 
-- **Active Task (live)**: [`TASK-m5-aws-deployment`](tasks/TASK-m5-aws-deployment.md) — **`in_progress`**, pointer held
-  here. **Level 3.** T-01 closed and merged (§12 seven of seven, #84 → `3e2f2fb`), both unblocked code tasks merged
-  (T-06 #81, T-07 #82), checkpoint-002 merged (#85), and **T-02 step 0 is complete and merged**: 58 read-only calls in two
-  passes across two regions, logged in [`m5-deploy-log.md`](tasks/m5-deploy-log.md), shipped as #86 → #87 → **#88**. It is
-  **half-blocked, and the block is now priced rather than unknown** — `route53 list-hosted-zones` and
-  `route53domains list-domains` both return empty, so **spec §12 B's "a Route 53 zone already in this account" is
-  falsified**; the repository itself shows no evidence of any owned domain (no `homepage`, no Pages custom domain, no
-  domain-shaped literal in any tracked file). **Zero AWS writes; the account is greenfield.** As of 09:3x UTC the residual block is **financial, not informational**: the owner has no payment method, so neither the $17 domain nor the plan’s own **~$75/month** topology estimate is currently payable — see DEBT-26 and the task record’s “the $0 answer” section.
-- **In flight (live)**: **`docs/m5-t02-hostname-recommendation`** — the branch that carried #89 — **is finished, and that it is finished is a measurement taken in this pass, not a carried-over belief.** The session context still described #89 as “awaiting owner review”; `gh pr view 89 --json state,mergedAt,mergeCommit` says **`MERGED`**, at **`2026-09-14T09:40:11Z`**, merge commit **`fcd8ef9`**, base `62f5c9e`, **+284/−48 across 5 files**, and `git merge-base --is-ancestor 1cdd6b6 origin/main` → **YES**, so all six commits are in `main` and nothing is orphaned. **That read is why this paragraph exists**: had the stale “OPEN” been trusted, three more documentation edits would have been pushed onto a closed branch — the #86/#87 stranding for a third time, caught this time only because the measurement came before the action. The work continues on **`docs/m5-t02-zero-cost-decision`**, cut from `fcd8ef9`. **`gh pr create` has since returned one, so this sentence is written after the measurement rather than before it: this branch’s PR is #90**, with `headRefOid` compared against `git rev-parse HEAD` immediately after creation and again after the commit that adds the number. What stays absent is the **head SHA itself** — DEBT-25: a head transcribed into the commit that carries it is false on arrival, which is exactly how the previous revision of this bullet asserted `764d82b` and went stale one commit later. The writable form is the invariant: `gh pr view 90 --json headRefOid` always equals the branch tip, and that read is retaken immediately before anything depends on it. CI on #89’s final head `1cdd6b6` was green — run `34827500385`, **23 files / 227 tests**, build 883 ms, 0 failure lines, `verify-api`’s 5 s being the docs-only skip — and every number above is a record of a reading, not a prediction. Measured at this boundary, not remembered: #86
-  `MERGED 07:05:51Z` → `9e054e1`; #87 `MERGED 07:39:56Z` → `20ce0a8`; **#88 `MERGED`**, head `3f529fc` **equal to** the
-  branch tip that merged, and `merge-base --is-ancestor 3f529fc origin/main` → **YES** before this branch was cut. The
-  second merge race is therefore closed with all four of its commits in `main` and nothing orphaned. Still on the remote and
-  still the owner's to delete: `docs/m5-t02-step0-measurement`, `docs/m5-t02-retraction-close`,
-  `docs/m5-t02-step0-results` (DEBT-22 discipline — no branch deletion by the agent).
-- **Exactly one next action (live)**: **the owner reads three numbers from the Billing console — account plan type (Free
-  or Paid), remaining credit balance, and whether *any* payment method is attached.** The four gates were just answered in
-  one message: the apex name **is chosen**, and **there is no card** — which cancels registration outright rather than
-  deferring it politely. Two consequences. **(1) The chosen name is withheld from this file and every tracked file until it
-  is actually registered.** `gh repo view --json visibility` says **PUBLIC**, the name is known-unregistered, and its
-  availability was measured at 08:2x UTC and **does not survive being read** — so committing it here would hand a stranger
-  a free target to snipe for exactly the $17 the owner says they do not have. It stays in the session record. **(2) The $17
-  was never the blocker.** `docs/m5-infra-plan.md` §7, written before this session and never reconciled to ability to pay,
-  already estimates **~$75/month** for the planned topology, of which **~$32 is an optional NAT gateway** that the same
-  table’s footnote three lines later permits skipping. The domain T-02 spent two passes on is **23% of one month**, so
-  “free alternative to the domain” is the smaller half of the question (DEBT-26). Three hostname routes are priced in
-  the task record: **H-A $0** — CloudFront default domain; keeps `__Host-` (which needs `Secure` + `Path=/` + no `Domain`,
-  never a registrable domain); deletes ACM validation, delegation, the apex redirect, and a stable public URL. **H-B
-  $0.50/mo** — a free third-party subdomain whose **nested `NS` record delegates into a Route 53 hosted zone**, keeping
-  *essentially the entire T-02/T-03 lesson set for sixty cents*; `is-a.dev`’s own `dnsconfig.js` proves `NS` and `TXT` are
-  honoured with `proxyState = data.proxied ? ON : OFF`, i.e. off unless requested, so an unproxied nested delegation resolves
-  publicly — at the cost of building a cookie boundary on a hostname a volunteer can delete. **H-C $17/yr** —
-  registration, **blocked**: credit cannot pay registry fees. **Decision taken under the blanket delegation: H-A now, H-B
-  filed as a non-blocking application, H-C only when a card exists.** Verified today from `aws.amazon.com/free`: the Free
-  plan is “**up to $200 in credits**”, “over 90 services for **up to 6 months**”, “**no charges and no
-  surprise overages**”, and past always-free limits “**credits are automatically applied to cover the costs**” —
-  which is why the *credit balance* may be the real answer even with no card, since only registration is excluded.
-  **Deliberately not claimed:** whether the Free plan itself requires a card, and whether ECS/ALB/CloudFront/RDS draw credit
-  down — the billing user-guide URL space 404s, `eu.org` served an expired certificate, and `sts get-caller-identity` now
-  answers `INVALID_REQUEST`, so those facts come from the console or not at all. **Zero AWS writes this pass; the
-  registration half of the prepared ladder is withdrawn.**
-- **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 06:31 UTC**, re-read at **06:50**,
-  **07:01**, **07:39**, **08:20**, **08:22** and **08:30**; this pass edits `AGENTS.md`, its mirror, `docs/STATE.md` and two
-  task documents — **no source file** — and `npm run verify` was nevertheless **re-run locally against it**, because the gate
-  is this repository's rule rather than CI's: **23 files / 227 tests passed, build `61.23 kB` gzipped, 0 lines matching
-  `failed|FAIL|✖|error TS`, no `npm ERR`**;
-  `git status --porcelain` → only `.m5-parts/` (DEBT-21, untracked by decision); `gh pr view 85` → `MERGED 06:23:49Z`,
-  `headRefOid` `585121b`, merge `3121b2d`; `command -v aws` → nothing **but** `aws.exe --version` → **aws-cli/2.36.44**;
-  `aws configure list-profiles` → `loey`, `jonell`, both `login_session`-based, with **no `credentials` file on either
-  side** and **no `region` key on either**; `gh repo view --json visibility` → **PUBLIC** (hence the deploy-log redaction
-  rule). **AWS calls: eighteen, all read-only, all region-qualified, all on the owner's named profile** — the first two
-  errored (`(NoRegion)` at 06:49:55, then `Your session has expired` at 06:50:10; an errored STS call is not a session),
-  and from **07:21:13Z** every one returned `rc=0`. `sts` resolves to `arn:aws:iam::<ACCOUNT>:root` in **both** profiles,
-  which are the **same account** (compared by hashing the digits, not by eye); S3, CloudFront, ECS, Secrets Manager,
-  CloudFormation, ECR in two regions, ACM in two regions, Route 53 and Route 53 Domains are **all empty**; one VPC
-  (`IsDefault: True`, three public subnets across 1a/1b/1c — the ALB's two-AZ rule is satisfiable); RDS offers Postgres
-  **18.6**, exact parity with `api/docker-compose.yml`. **Nothing was provisioned and no write API was invoked.**
-  **The full gate ran on the PR's then-head via CI** — job `103885886584` at 06:59:12Z: **Test Files 23 passed (23) ·
-  Tests 227 passed (227)**, build `61.23 kB` gz, the DEBT-11
-  config-shadow assertion green, and **0** lines matching `failed|FAIL|✖` across the whole job log (read unfiltered, then
-  counted). `npm run verify` itself was **not** re-run locally. `verify-api` on the same head reports *pass* in **5 s**,
-  and that is the skip, not a test run: its two real steps — build-with-warnings-as-errors and test-against-a-real-
-  PostgreSQL — both read **skipped** in the step-level API, exactly the trap `ci.yml:164-178` and grill F-10 name. The
-  standing API verdict remains CI #82's **0 failed / 210 passed** (1 m 12 s, job `103865396138`), with the local suite
-  still DEBT-23-broken.
+> **Amendment pass, 2026-09-14 14:05 UTC (`pk:checkpoint` → `checkpoint-003`, entered via `pk:route`) — the four bullets below were regenerated whole from live commands; the archive under the ⛔ marker stays untouched, so the live/false boundary is still the 09-13 one.** This is the fifth such pass over the same four bullets and the first whose *finding* is a divergence rather than an event: five PRs (#86–#90) merged since the previous regeneration, so the block was rebuilt from measurement instead of amended in place. **DEBT-25 is honoured in form as well as letter: no head SHA of this branch appears anywhere in this block** — only the invariant `gh pr view <n> --json headRefOid` equals `git rev-parse HEAD`, retaken immediately before anything depends on it.
+
+- **Active Task (live)**: [`TASK-m5-aws-deployment`](tasks/TASK-m5-aws-deployment.md) — **`handoff_ready`** (Level 3), pointer held here.
+  Everything that has executed since this block was last regenerated is *merged*: #85 (checkpoint-002) through **#90**, five states
+  re-read with `gh pr view --json state,mergedAt,mergeCommit` at 14:03 UTC rather than carried — #86 `07:05:51Z` → `9e054e1`,
+  #87 `07:39:56Z` → `20ce0a8`, #88 `08:09:43Z` → `62f5c9e`, #89 `09:40:11Z` → `fcd8ef9`, #90 `11:19:05Z` → `6da421a`. T-02's
+  **measurement** half is complete and its **decision** half is answered: the account holds **no hosted zone and no registered domain**
+  (§12 B falsified by `list-hosted-zones` / `list-domains`, both `[]`), the owner can attach **no payment method**, and under the blanket
+  delegation the route is **H-A — CloudFront's default domain, $0** — with **H-B** ($0.50/mo, unproxied nested `NS` delegation into a
+  Route 53 zone) filed as a non-blocking parallel application and **H-C** (~$17/yr) blocked until a card exists. **Zero AWS writes; steps
+  2–6 of the prepared ladder are withdrawn** (step 3 was its only irreversible line). What is *not* complete is the reconciliation:
+  **spec §6's `T-02` row and §12 B's Answer cell still say the pre-decision thing**, so the authority and the record disagree — opened as
+  **DEBT-27**, routed to `pk:plan`, and deliberately not repaired inside a checkpoint commit. **The M5 write gate is now financial and
+  external, not informational**: three console numbers — plan type, remaining credit, payment methods present or absent (DEBT-26) — and
+  `pk:ship` after that. The chosen apex stays out of every tracked file: `gh repo view --json visibility` → **PUBLIC**, the name is
+  known-unregistered, and availability does not survive being read.
+- **In flight (live)**: **this** branch, `chore/state-m5-post-90-checkpoint`, cut from `6da421a`, carrying exactly two paths — this
+  projection and `docs/tasks/TASK-m5-aws-deployment.checkpoint-003.md` — then published with `git push -u` and given a PR by `gh pr create`.
+  **The branch's own head SHA is not written here** (DEBT-25); the writable form is the invariant that
+  `gh pr view <this-pr> --json headRefOid` equals `git rev-parse HEAD`, and rule eleven requires that read **immediately before** any push,
+  merge, or claim depending on it — #86, #87 and #88 each proved how short that claim's shelf life is. `gh pr list --state open` read **0**
+  at this boundary, so nothing else waits on a reviewer. Still on the remote and still the owner's to delete:
+  `docs/m5-t02-step0-measurement`, `docs/m5-t02-retraction-close` (DEBT-22 discipline — no branch deletion by the agent).
+- **Exactly one next action (live)**: **the human reviews and merges this PR.** After it merges, the agent's next executable step is
+  **`pk:plan` on the DEBT-27 divergence**: restate spec §6's `T-02` row for H-A, correct §12 B's Answer cell, and write **D-M5-3's TLS
+  consequence as an explicit dated amendment rather than an implication** — with no public certificate for the ALB, "TLS all the way to the
+  target" becomes **CloudFront → ALB over `HTTP:80`, the :80 listener pinned to CloudFront's managed prefix list**, which is a
+  security-posture change and not a discount; `checkpoint-003` §7 carries the scope-change table, and **it authorises nothing until
+  reviewed**. **Two things this action must not be confused with:** it provisions nothing, and it is not the billing question — **no AWS
+  write of any kind happens before the owner's three console numbers arrive** (DEBT-26) *and* the amendment lands on `main`. T-03 (VPC +
+  ECR + log group, with CDK's new `devDependencies` each justified in writing) is the first provisioning task after both, and it is
+  `pk:ship`-gated.
+- **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 14:05:08 UTC**. **`npm run verify` → exit 0 on this tree**
+  (typecheck → `lint --max-warnings 0` → `lint:css` → `test:run` → build): **23 files / 227 tests passed**, 12.80 s, build **61.23 kB** gz
+  in **1.42 s**, and **0** lines matching `failed|FAIL|✖|error TS|npm ERR` across the whole unfiltered log — read whole, because a filtered
+  grep has already destroyed an evidence line on this machine once (DEBT-24's family). CI on `main` @ `6da421a`: run **`34837595296` →
+  success**; #90's head verdict was read off run `34833090998` / job `103940707373` in the pass recorded at
+  [`m5-deploy-log.md:265-266`](tasks/m5-deploy-log.md) — **23 files / 227 tests, 9.07 s, build 978 ms, 0 failure lines** — with the ids
+  copied in full rather than recalled. `verify-api` on a docs-only head is the **designed skip** in `ci.yml:142-178`: read the step
+  summary, not the check mark. The standing full-API verdict stays **CI #82: 0 failed / 210 passed** (1 m 12 s, job `103865396138`) and the
+  local suite is still **DEBT-23**-broken, so *API-green is a CI-only claim*. `git status --porcelain` → only `.m5-parts/` (**DEBT-21**:
+  28 files, 212 KB, trigger passed at #81, delete-after named to the owner and not self-executed). Runtime deps **3**, dev deps **19**,
+  `AGENTS.md` commit-discipline rules re-derived → **11**, `grep -c '^## ' docs/STATE.md` → **8**, §4 **56** lines `cmp`-identical to `HEAD`.
+  **AWS calls this pass: zero** — not "zero writes"; zero reads too, because a checkpoint needs no session, and `sts` last answered
+  `INVALID_REQUEST` on its own re-probe, which is not restated here as a live session.
 
 > ⛔ **ARCHIVE — everything below this line is the 2026-09-12 M4-era projection, kept as evidence, not as current state.**
 > Do not read its branch names, PR numbers, AC counts or "next action" as live; the live set is the four bullets above.
@@ -713,6 +697,15 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
   — region `ap-southeast-2` (superseded by **D-M5-4** `us-west-2`), AWS Beanstalk (**D-M5-3** = ECS Fargate), GitHub-push
   deploy (**D-M5-9**), "no CDN" (**D-M5-1**), and a hand-minted data-plane token (§5's signature) — and an ADR is the
   wrong home for a live fact with no owner to keep it current. **T-15 owns that repair.**
+  **Amended 2026-09-14 14:05 UTC (checkpoint-003) — the block moved twice, and neither move is a decision this file owns.**
+  **(i)** T-02's residuals are gone as *information* and remain as *money*: the profile was answered (`loey`), the session proved
+  startable from this shell (`aws login --profile loey --region ap-southeast-1` → `sts` rc=0 at 07:21:13Z), and the apex question was
+  answered by cancelling registration for this milestone — **H-A, $0, CloudFront's default domain** — because no payment method can be
+  attached. The surviving write gate is **three console numbers only the owner can read** (plan type, remaining credit, payment methods):
+  DEBT-26's standing rule. **(ii)** A **new structural blocker exists that this pass found by measuring rather than creating**: **spec §6's
+  `T-02` row and §12 B's Answer cell are stale against the owner's H-A decision**, so the authority and the task record describe different
+  tasks. That is **DEBT-27**, routed to `pk:plan`, and it must land *before* any provisioning task — building against a row nobody re-read
+  is how §12 B's `$12` estimate survived at 33–42 % low.
   **Not blocking — the correction this pass exists for:** **T-06 and T-07 are code-only and startable now.** An earlier
   draft of this session called M5 "wholly parked on owner decisions"; spec §6 line 844 says otherwise, and R-4.2's
   heartbeat and R-4.4's health bound exist *precisely because* the platform is unprovisioned. *(The phrase this line carried
@@ -771,6 +764,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | DEBT-24 | P2 | **A PR's state is a measurement with a shelf life of seconds, and this file has now written a false one twice.** #86 merged while a push was in flight (the orphan that `docs/m5-t02-retraction-close` recovered); #87 merged at `20ce0a8` **07:39:56Z** — between the `gh pr view 87 → OPEN` read that went into §3A's In-flight bullet and the push that followed it, so four commits landed on a branch whose PR no longer existed and the bullet asserted a review that was | . **Promoted into `AGENTS.md` as rule eleven on 2026-09-14 08:30 UTC** under the owner's "do what you recommend"; **Promoted into `AGENTS.md` rule eleven + its `.agents/rules/` mirror on 2026-09-14 under the owner's "do what you recommend"; the rule is:** re-read `gh pr view <n> --json state,headRefOid` in the same breath as the push, never in the same turn** — a claim that a PR is open is only good until the next human click, so it must be re-measured at the moment it is written *and* at the moment it is acted on. | Now applied to `AGENTS.md` **and** mirrored into `.agents/rules/job-tracker-learning.md` in the same commit, as the mirror rule requires; the owner's delegation was "do what you recommend", and the canonical list's own count is re-derived by the command in that file rather than by this row. |
 | DEBT-25 | P2 | **A projection that transcribes its own artifact’s identity is false on arrival.** DEBT-24 told agents to assert `headRefOid` after pushing; it did not cover the recursion — writing a PR head SHA into `docs/STATE.md` makes that SHA stale via the very commit that records it, so *no correct sentence of that shape is writable*. Hit for real this pass: §3A asserted `764d82b` while the branch tip moved to `1cdd6b6` inside the same hour, and the falsity read as fluent prose. |  Evidence: §3A’s In-flight bullet, now rewritten as the invariant “`gh pr view 89 --json headRefOid` always equals the branch tip”; SHAs survive only in the past tense, as records of readings. |  Suggested workflow: `pk:sync` — in generated projections state identities as an invariant plus the command that measures them, never the measured value itself. Candidate for the `AGENTS.md` list at the next promotion. |
 | DEBT-26 | **P1** | **`docs/m5-infra-plan.md` §7 prices M5 at ~$75/month and nothing in the repository ever asked whether it could be paid.** T-02 spent two passes and ~58 read-only calls on a $17/yr domain — **23% of one month** of the architecture it sits inside — while §7’s single largest line, a **~$32 NAT gateway**, is optional per the footnote three lines beneath it and was still carried into the total. |  Evidence: `docs/m5-infra-plan.md:200-213` — Fargate ~$12, RDS ~$13, ALB ~$16+data, CloudFront ~$1, S3 ~$0.50, Secrets Manager ~$0.40, **NAT ~$32**, **total ~$75** — against the owner’s statement that no card can be attached, and against `aws.amazon.com/free`, which now offers “up to $200 in credits” for “up to 6 months” with “no surprise overages”: runway may exist without a card, and **that number has never been measured here**. |  Suggested workflow: `pk:spike` a cost-gated topology — no NAT gateway (the plan’s own footnote), SSM SecureString instead of Secrets Manager, RDS stopped between sessions, scripted `up`/`down` so always-on billing is measured in practice-hours not months — then re-quote every line from `aws pricing` behind a live session. **No M5 write happens until the three console numbers arrive.** |
+| DEBT-27 | P2 | **The spec and the task record describe two different T-02s, and the older one is the authoritative-looking one.** Spec §6's `T-02` row still reads *"Register/confirm the zone, request **both** ACM certificates, complete DNS validation"* and §12 B's Answer cell still records option (1), *"a Route 53 hosted zone already in this account"* — a claim `route53 list-hosted-zones` falsified at 07:39 UTC (`[]` in both profiles), with `route53domains list-domains` `[]` too. The owner's actual answer — **H-A: CloudFront's default domain, $0, chosen under a no-payment-method constraint** — exists only in the task record, where a reader with no reason to open that file will not find it. The divergence is not cosmetic: under H-A there is **no public ACM certificate for the ALB**, so D-M5-3's TLS-to-the-target collapses to CloudFront→ALB over `HTTP:80` restricted to CloudFront's managed prefix list — **a security-posture change resting in a document the spec never cites** | spec §6 line 824 · spec §12 line 1168 · `docs/tasks/TASK-m5-aws-deployment.md:458-511` (the priced route table and the decision) · `m5-deploy-log.md` (the 58 read-only calls) · `docs/tasks/TASK-m5-aws-deployment.checkpoint-003.md` §7 (the pending scope-change table) | `pk:plan` — a dated Level 2 amendment inside the Level 3 milestone: restate `T-02`, correct B, make D-M5-3's consequence explicit, then re-derive T-03's `[verify-at-apply]` cells. **This row closes when the amendment reaches `main`, not when this row exists.** |
 
 ---
 
@@ -831,6 +825,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
    (one default VPC, three public subnets, two service-linked roles). The successor duty is therefore not "then T-02
    starts" — it is **the owner's hostname decision**, next to a quieter one this file never expected to raise: the deploy
    CLI authenticates as **account root**, with zero IAM users in the account.
+   **Update 4 (2026-09-14 14:05 UTC, `checkpoint-003`, entered via `pk:route`):** item 1 stays closed and no longer competes with §3A — its successor duty is no longer an owner read but an agent write that touches no platform: **merge the checkpoint PR, then `pk:plan` the DEBT-27 divergence** (spec §6 `T-02` + §12 B + D-M5-3's TLS consequence, per `checkpoint-003` §7). §3A's live bullet owns the sentence and §7 does not compete with it.
 2. **Agent, on merge** *(superseded by item 1 on 2026-09-12 — M3 shipped as PRs #5–#30 and M4 is 21 slices in; the* ***reconcile-and-verify-before-starting-the-next-phase*** *duty in this item still stands)*: reconcile (`git checkout main && git pull --ff-only`, then confirm the PR's head is the
    tip you pushed), and only then start **M5 — AWS Deployment** at **Level 3**: `pk:plan` + `pk:ship` first
    (domain model, API envelope, the four open architectural questions in §5 that M2a already answered three of),
@@ -856,6 +851,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-14 14:05 UTC | Assistant (`pk:route` → the owner chose route 1 → `pk:checkpoint`) | **M5 · the post-#90 checkpoint: a projection five PRs behind, and the divergence the routing pass found** | Routing turn first — `.promptkit/workflows/route.md` re-read from disk, then `docs/STATE.md` §1/§3A/§5/§7, the M5 task record, spec §6/§12 and live git/gh compared. That comparison surfaced the defect this pass exists for: **§1 still asserted `main = 3e2f2fb` and §3A's "exactly one next action" still named M4's `-075`** — each true once, false in aggregate, because **#86–#90 merged underneath them** (states and `mergedAt` for all five re-read at 14:03 UTC via `gh pr view`; `6da421a` measured as `main` = `origin/main` = HEAD with `merge-base --is-ancestor` → YES; `gh pr list --state open` → 0). Offered five routes; the owner took **`pk:checkpoint`** over `pk:plan` / `pk:spike` / housekeeping, so this pass **repaired the projection and created no other change**: four §3A bullets regenerated whole, §1/§2/§3/§5/§7/§8 synced, and [`checkpoint-003`](tasks/TASK-m5-aws-deployment.checkpoint-003.md) written as the durable Level 3 record (identity, verification table, invariants, exactly one next action, handover prompt). **The finding worth the ceremony:** the owner's H-A answer ($0 CloudFront default domain, registration cancelled for lack of a card, H-B parallel, H-C when a card exists) lives **only** in the task record, while **spec §6's `T-02` row and §12 B's Answer cell still describe the falsified option-(1) plan** — opened as **DEBT-27** and routed to `pk:plan` as a dated amendment carrying D-M5-3's real consequence (no public ALB cert ⇒ CloudFront→ALB over `HTTP:80` pinned to the CloudFront prefix list: a security change, not a discount). **DEBT-25 honoured in form, not only cited: this row writes no head SHA for its own branch**, only the `headRefOid == HEAD` invariant, re-read per rule eleven. **Zero AWS calls of any kind — zero reads, not "zero writes"**; `.m5-parts/` (DEBT-21, 28 files, 212 KB) left in place as a separate concern, named rather than `rm -rf`'d. Structure verified *after* the edit, not inferred: `^## ` **8** (equal to `HEAD`), §4 `cmp`-identical at **56** lines, §3A live bullets **4** with the ⛔ archive untouched. Gate: `npm run verify` **exit 0** on this tree — 23 files / **227 tests**, build **61.23 kB** gz, 1.42 s, **0** failure lines unfiltered; runtime deps **3**, dev deps **19**, `AGENTS.md` rules re-derived **11**. Next: human merges, then `pk:plan`; no M5 write before the owner's three console numbers arrive. |
 | 2026-09-14 10:04 UTC | Assistant (owner answered all four gates in one message; recommendation taken under blanket delegation, zero writes) | **M5 · the hostname question answered, and the answer was: the domain was never the blocker** | Owner reply: “`<apex>` chosen, **no money to attach a real card**, go with your recommendations.” Three things followed. **(a) Registration is cancelled for this milestone, not postponed** — the prepared ladder’s steps 2–6 are withdrawn (step 3 was its only irreversible spend) and the chosen apex is **deliberately kept out of the repo**, because `gh repo view --json visibility` = PUBLIC, the name is known-unregistered, and availability does not survive being read: committing it would gift a stranger the $17 snipe. **(b) My own sentence was wrong and is corrected in place**: option (4) “keeps the bill at $0” zeroes only the *domain* — `docs/m5-infra-plan.md` §7, written before this session, prices the planned topology at **~$75/month**, of which **~$32 is an optional NAT gateway** the table’s own footnote permits skipping. The whole T-02 debate was over 23% of one month (recorded as **DEBT-26, P1**). **(c) A $0.50/mo route that keeps the lesson was found by reading source, not marketing**: `is-a.dev`’s `dnsconfig.js` honours `NS` and `TXT` with `proxyState = data.proxied ? ON : OFF`, so a **nested unproxied `NS` delegation into a Route 53 hosted zone** preserves ACM DNS validation and the two-region cert constraint for sixty cents — traded against building a cookie boundary on a hostname a volunteer project can delete. Routes recorded as H-A ($0, CloudFront default domain) / H-B ($0.50/mo) / H-C ($17/yr, blocked); decision: **H-A now, H-B applied for in parallel, H-C when a card exists**. Verified from `aws.amazon.com/free`: Free plan “up to $200 in credits”, “up to 6 months”, “no charges and no surprise overages”, credits auto-applied past always-free — so remaining **credit**, not the card, may be the real runway, since only registration is credit-excluded. Not claimed, because unverified: whether the Free plan needs a card, and whether ECS/ALB/RDS consume credits; the billing guide’s URL space 404’d three times, `eu.org` served an expired certificate, and `eu.org` help was unreachable. Session re-probed honestly before anything: `sts get-caller-identity` → `INVALID_REQUEST`, so **one read-only call and zero writes**, no pricing measured live. Also caught: **DEBT-24’s own recursion** — §3A asserted a PR head that its next commit invalidated, now recorded as **DEBT-25** and rewritten as an invariant instead of a value. Structure after these edits: `^## ` **8**, §4 untouched at **56** lines, debt rows **26**, all four tables re-checked for per-row cell counts. Next: three console numbers from the owner, then a cost-gated re-scope of §7. |
 | 2026-09-14 08:30 UTC | Assistant (`pk:ship` declined, `pk:fix`+measurement instead) | **M5 · T-02 hostname priced; DEBT-24 promoted to rule eleven** | **"Do what you recommend", applied where recommendation is allowed and where it is not.** #88 was **already merged** before this pass began (`MERGED`, head `3f529fc` = the tip that merged, `merge-base --is-ancestor` → YES), so DEBT-24 was promoted to **`AGENTS.md` rule eleven** and mirrored into `.agents/rules/job-tracker-learning.md` in the same commit, making the list eleven and its own re-derive command the authority on that count. **Zero AWS writes; 40 more read-only calls (58 lifetime), and 20 of the 40 bought nothing** — logged at that ratio. Two findings: **(a) `aws.exe` is not concurrency-safe on a `login_session` cache** — ten parallel `route53domains list-prices` calls all failed `CreateOAuth2Token … authorization grant is invalid` while serial calls on the *same* token returned rc=0, so the failure I first wrote down as "the session expired" was my own `&`; this upgrades the scoped-identity question from hygiene to reliability, because a fanned-out ladder self-revokes mid-deploy. **(b) §12 B's price was wrong**: measured `list-prices` gives `.com` **$16**, `.dev` **$17**, `.app` $20, `.io` **$71**, `.click` $3, with **register == renew for every TLD** (no first-year hook), zone **$0.50/mo charged at creation**, free if deleted within 12 h — and **promotional credit cannot pay registration fees**, which is the precise reason a blanket delegation cannot complete this step. Recommendation written into the task record: **register a `.dev` here (~$23/yr)**, with the ladder serialised and `--idempotency-token`-guarded, plus **a retraction of my own overstatement** that dropping the hostname "breaks `__Host-`" (it does not — the requirement is `Secure`+`Path=/`+no `Domain`; what option 4 actually deletes is M5's subject matter). Halted on the four things that are not mine: **the name, the card, `pk:ship`, root-vs-scoped**. `npm run verify` re-run locally: 23 files / 227 tests, build clean, 0 failure lines. |
 | 2026-09-14 07:52 UTC | Assistant (`pk:fix` on the merge race, second occurrence) | **#87 merged underneath this session; four commits rebuilt, and the pattern became DEBT-24** | `git push` to `docs/m5-t02-retraction-close` landed `21da62f` on a branch whose PR had already closed eight minutes earlier: #87 merged `9030b3c` → `20ce0a8` at `07:39:56Z`, between the `gh pr view 87 → OPEN` measurement written into §3A's In-flight bullet and the push that bullet described. Measured before rebuilding — `merge-base --is-ancestor`: `9030b3c` **in** `main`, `32c8991`/`432bd5b`/`e3ba9c5`/`21da62f` **orphaned**; nothing lost, because the remote branch held all four (unlike #86, where the orphan was the emergency). Recovery is the same shape, applied before the claim rather than after: new branch off `origin/main`, `git cherry-pick 9030b3c..21da62f` → clean, four commits, `+203/-64` across three docs files, no conflict and no code touched. §3A's bullet rewritten to name the race instead of a review that never came, and **no PR number is written into this file** — the file's own 09-12 note is about retracting numbers named before they existed, so the number gets asserted by `headRefOid` after the push, not predicted before it. The generalisable rule is proposed as **DEBT-24** rather than installed into `AGENTS.md`: a claim that a PR is open is measured in seconds, not minutes, and it must be re-read at the moment it is acted on — promotion to the ten-rule list is the owner's call, because that list is mirrored into `.agents/rules/` and edits to it re-sync in the same commit. Local full-suite verification still not re-run: `npm run verify` remains DEBT-23-broken locally, and CI on this PR is the gate that will speak. **Zero AWS writes in this session, and the hostname decision is still the only thing gating T-02's second half.** |
