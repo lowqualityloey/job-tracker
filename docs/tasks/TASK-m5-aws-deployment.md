@@ -2,14 +2,18 @@
 
 - **Task ID**: `TASK-2026-09-13-m5-aws-deployment`
 - **Milestone**: M5 — AWS Deployment (Level 3, `pk:ship` + human approval)
-- **State**: **decisions recorded 2026-09-14 — spec §12 is seven of seven answered, so T-01's exit criterion is met.**
-  The 2026-09-13 stop state ("no commits, no PR, no AWS, no IaC") was lifted in order by the owner's publication
-  authorization; T-06 and T-07 are merged (PRs #81/#82), the checkpoints are merged (#83), and what remains is
-  spec §6 **T-02…T-17: T-02 is next**, gated on the two facts named in §"Blockers / Open", not on any decision.
+- **State**: **`in_progress`** — T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
+  merged (PR #85 → `3121b2d`, `2026-09-14T06:23:49Z`), and the owner's instruction resumed this task at **T-02**, whose
+  step 0 executed at 06:31 UTC and **retracted one of this record's own premises**: the `aws` CLI is not absent on this
+  machine, it is a Windows binary reachable from WSL (§"Blockers / Open"). The 2026-09-13 stop state ("no commits, no PR,
+  no AWS, no IaC") was lifted in order by the owner's publication authorization; T-06 and T-07 are merged (PRs #81/#82)
+  and what remains is spec §6 **T-02…T-17**, gated on three named owner facts — not on any decision, and not on any
+  installation.
 - **Owner / Actor**: Assistant (agent)
-- **Branch**: task work lands per-PR on `main` (last merge read at this checkpoint: #84 → `3e2f2fb`,
-  `2026-09-14T06:07:46Z`, `gh pr view` measured); this checkpoint's own commits sit on
-  `docs/m5-checkpoint-002`. *The previously recorded `da04ee4` header was superseded by PRs #81–#84.*
+- **Branch**: task work lands per-PR on `main` (last merge read at this boundary: #85 → `3121b2d`,
+  `2026-09-14T06:23:49Z`, `gh pr view` measured, with `3e2f2fb` and `585121b` both re-asserted as ancestors by
+  `git merge-base --is-ancestor`); the current work sits on `docs/m5-t02-step0-measurement`.
+  *The previously recorded `da04ee4` header was superseded by PRs #81–#85.*
 - **Plan / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` — 1,220 lines (`wc -l` re-measured 2026-09-14; the §12 answer pass grew some lines and the rewrite trimmed others), §0–§13, **the authority for every
   `D-M5-*` ID and task dependency below**
 - **Decision record**: `docs/aws-deployment.md` — cited as ratified, **but §11 of the spec marks five of its rows stale**;
@@ -188,9 +192,10 @@ machine's Docker nesting, not this code**:
 
 ## State boundary (Level 3)
 
-`handoff_ready`, self-imposed: it bars implementation — no AWS calls, no IaC, no `api/`/`src/` edits, no commits, no PR,
-no task switch — until the resume condition below is met or the owner overrides this record. It does **not** bar the
-unblocked code task in §Next action, and it does not bar read-only measurement.
+`in_progress`, and **the word does not loosen the Level 3 bar**: every AWS *write* is still barred — no certificate
+request, no IaC apply, no `pk:ship` step — until the owner authorizes each one. What the boundary never barred, and what
+T-02 step 0 was, is **read-only measurement**; the record's own rule is that the read precedes the write that leans on it,
+which is how "no `aws` CLI on this machine" got caught two hours after it was written down.
 
 ## Blockers / Open
 
@@ -198,10 +203,28 @@ unblocked code task in §Next action, and it does not bar read-only measurement.
   this account; C CDK; D bought `/20` + VPC endpoints; E manual `citext` pre-creation; F manual rotation; G human-run
   deploy), written into spec §12's Answer cells *before* any AWS-adjacent work, which is what the resume condition
   demanded. "Six of them block T-02…T-05" was true until this pass.
-- **What now gates T-02, in place of §12:** (i) the zone's **apex name** — B decided the shape, not the literal, and unlike
-  the decisions it cannot be applied from chat; (ii) **no `aws` CLI on this machine** (`command not found`, measured
-  2026-09-14) and no credential path proven — T-02's first commits are installing and proving that, before any
-  `describe-*` or certificate request.
+- **What now gates T-02, in place of §12 — re-measured 2026-09-14 06:31 UTC, and one premise here was wrong.** The bullet
+  this replaces read *"no `aws` CLI on this machine (`command not found`)"*; that command tested the **Linux PATH only**.
+  This box is WSL and AWS CLI v2 is installed on the Windows side and callable from here:
+  `"/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe" --version` → `aws-cli/2.36.44 Python/3.14.6 Windows/11`. The gate is
+  therefore not a missing tool but **three facts, none of which an agent may supply**:
+  **(1) Which profile holds this project's account — ANSWERED by the owner at 06:49 UTC: `loey`.** `aws configure
+  list-profiles` → `loey`, `jonell`; both carry a `login_session` key in `C:\Users\jonel\.aws\config`, and there is
+  **no `credentials` file on either side** (both paths measured absent) — so there is no access-key path here, and no raw
+  secret to keep out of chat either. Neither profile sets `region`, which is the second thing the first attempt
+  measured (§Next action's `NoRegion` note).
+  **(2) A live session — measured EXPIRED at 06:50 UTC.** `login_session` is a browser-login artifact with an expiry; the
+  first authenticated attempt returned `Your session has expired. Please reauthenticate using 'aws login'`. Renewal opens
+  a browser, so it is the **owner's terminal** (`aws login --profile loey`), not this shell — which makes this the single
+  remaining gate before the reads, not one of three.
+  **(3) The zone's apex name** — B fixed the shape of the hostname story, not the literal. It *can be read* rather than
+  recalled once (2) exists, which is exactly why (1) and (2) come first: `route53 list-hosted-zones` returns every apex
+  in the account, so the agent should answer (3) by measurement instead of by asking the owner to remember it.
+- **A fourth constraint, newly measured, on the artifact T-02 writes into: the repository is PUBLIC**
+  (`gh repo view --json visibility` → `PUBLIC`). Every read lands in `docs/tasks/m5-deploy-log.md`, and zone apex names,
+  account IDs and ALB/CloudFront DNS names are precisely the literals that make a deployment recon-able. **The log
+  records the command, the verdict, and a `<placeholder>` in place of any identifier** — carrying real names in a public
+  file is the owner's call to make explicitly, never a default to slide into.
 - **A = workload region** gates the `us-east-1` ACM pairing and every `describe-*` measurement.
   **B = domain / DNS host / zone owner** is the long pole: DNS validation costs minutes-to-hours that no retry shortens.
   **C = IaC tool** decides the *form* of every task in §6, and everything downstream of it is rework if it flips.
@@ -222,6 +245,35 @@ Provisioning itself stays behind `pk:ship` and human approval; Level 3 is unchan
 The decisions PR shipped: **#84 merged at `3e2f2fb` (`2026-09-14T06:07:46Z`)** — §12's answers are in `main`'s
 history, and the live contract for the next session is [`checkpoint-002`](./TASK-m5-aws-deployment.checkpoint-002.md)
 (including its paste-ready handover prompt and T-02's step-0 checklist).
+
+**That contract has now been consumed: #85 merged `585121b` → `3121b2d` at `2026-09-14T06:23:49Z`, and T-02 step 0 ran.**
+Its outcome is the corrected blocker above, plus the next reads written down so they are pastable the moment a session
+exists. Two things the earlier checklist got wrong and this one fixes: the binary is the Windows `.exe` (there is no
+Linux `aws`), and **`--profile` has no default to fall back to here** — both profiles are named, neither is assumed:
+
+```text
+AWS="/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"        # measured: aws-cli/2.36.44, reachable from WSL
+R="--region ap-southeast-1"                              # NOT optional — see the NoRegion note below
+"$AWS" --profile loey $R sts get-caller-identity         # proves the session before anything else runs
+"$AWS" --profile loey $R route53 list-hosted-zones       # settles the apex name by reading, not by recall
+"$AWS" --profile loey $R ec2 describe-availability-zones          # the ALB needs 2 AZs
+"$AWS" --profile loey $R rds  describe-db-engine-versions --engine postgres   # postgres:18.6 parity
+"$AWS" --profile loey $R ecr  describe-repositories               # A's third read, spec §12
+# …and only after all four read clean: the two ACM certificate requests (us-east-1 + ap-southeast-1).
+# Those are AWS *writes*, so they sit behind pk:ship and an explicit owner go-ahead — not behind this list.
+```
+
+**`--region` is on every line because the first execution of this list failed without it** (2026-09-14 06:50 UTC). The
+`loey` profile's config section carries only `login_session` — no `region` key — so even `sts get-caller-identity` and
+`route53 list-hosted-zones`, both of which are *global* endpoints, abort with `An error occurred (NoRegion)`. `ap-
+southeast-1` is A's answer, so passing it explicitly is not a new decision; the earlier draft of this list carried
+`--region` only on the three `describe-*` calls and its first two commands were therefore unrunnable as written. The
+second attempt, with the region supplied, returned `Your session has expired. Please reauthenticate using 'aws login'`
+— so the gate is now exactly one owner command in the owner's terminal, and the apex name is one read behind it.
+
+`list-hosted-zones` rather than the spec's `list-hosted-zones-by-name` is a deliberate one-command deviation: the
+`-by-name` form takes the apex as an argument, which is the very thing it exists to confirm. Read-only, paginated, and it
+removes the need for the owner to remember a string the account can just say.
 
 T-06 is done (§ above) and **committed** — the ladder below ran, and both records were merged in PR #81
 (`dfe018c` → merge `b4c2888`, 2026-09-14 03:46:01Z). Its Red → Green is recorded; the Refactor step of the triple was
