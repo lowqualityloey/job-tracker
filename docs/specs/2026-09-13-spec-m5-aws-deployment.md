@@ -20,6 +20,11 @@ Every factual statement below carries the command or the `file:line` that produc
 cannot be measured from a repository I own (AWS service limits, managed-policy contents), it is marked
 **[verify-at-apply]** and a task exists to measure it against the live account instead of against documentation prose.
 
+> **Amended once since the owner's answers, and §14 is the amendment.** It reverses part of `D-M5-3`, and it is the only section of
+> this document that was written against AWS's own text rather than against the account: §14.3 carries the publisher, title, URL and
+> access date behind each claim, and §14.6 states the one place two AWS pages contradict each other. **Read §14 before trusting any
+> certificate or TLS statement in §2, §3.1, §3.3, §6 or §12** — those sections were amended in place with strikethroughs pointing here.
+
 The morning draft of this spec was written from an inherited planning record whose inputs had been lost. That record
 asserted infrastructure existed. It did not. §1.1 is the list, and it stays in the document on purpose: the recurring
 failure mode here is not missing capability, it is **prose that outlived the thing it described** — the same class as
@@ -305,6 +310,22 @@ guess.
 **Rejected.** HTTP-only origin hop protected only by a CloudFront-source SG rule: one fewer free certificate, and it
 depends on every future actor honouring a rule that is trivial to widen.
 
+> ### ⚠️ D-M5-3 **partly reversed by §14 (2026-09-14) — the rejected option is now the selected one, and it was not a free choice.**
+> The reversal's mechanism is the ALB's *name*. CloudFront validates the certificate on an encrypted origin hop, and will not accept a
+> self-signed one ([CIT-A1-4]); ACM will not issue a public certificate for an Amazon-owned domain ([CIT-A1-3]); and the only name
+> the ALB has under **H-A** is `*.elb.amazonaws.com`. So the 443 listener has no certificate it can legitimately present, the origin
+> connection drops to **HTTP:80**, and the sentence above — *"one fewer free certificate, and it depends on every future actor honouring
+> a rule"* — describes the deployed design rather than the rejected one.
+> **What was NOT weakened, and is the reason this reversal is survivable:** the hop is inside the VPC and unreachable from the internet.
+> The defence changes shape from *encryption* to *unreachability plus authentication*: the ALB keeps no public route to :80 except through
+> CloudFront, ingress is filtered to the CloudFront origin-facing prefix list, **and** the origin sends a secret custom header the ALB's
+> listener rule requires, defaulting to a fixed `403` — which is AWS's documented *primary* method, not an extra
+> ([CIT-A1-5]). The `Secure` cookie is still never carried in cleartext to a browser; it is carried in cleartext between two AWS
+> facilities, over a path with no route to it.
+> **Expiry condition, so this is not permanent damage:** restoring the encrypted hop costs **a hostname**, and §14.2 prices the two
+> routes that yield one (H-B ≈ $0.50/mo, H-C ≈ $17/yr). When either lands, **D-M5-3 revives verbatim** — this block is then the record of
+> a constrained window, not a design preference.
+
 ### D-M5-4 — Migrations stay at boot; there is no separate migration step
 
 `db.Database.Migrate()` runs **inline at boot** (`Program.cs:157-160`), after `BootGuard.EnsureSafeToStart` (155) and
@@ -493,19 +514,23 @@ touching the client.
                         └──────────────────────────────┘
 ```
 
-**Nothing in this diagram is optional, and the two edges that look optional are the ones people cut.** HTTP:80 on the
+**Nothing in this diagram is optional, and the two edges that look optional are the ones people cut.** ~~HTTP:80 on the
 ALB exists only to fail loudly (no listener ⇒ a cleartext path is refused, not served), and the ALB's own 443
-certificate is what makes CloudFront→origin not-cleartext for the session cookie. D-M5-1 chose the single public origin
+certificate is what makes CloudFront→origin not-cleartext for the session cookie.~~ **Amended by §14 (2026-09-14): under H-A those two
+edges swap jobs.** :80 is the *serving* origin path — because the ALB has no certificate it can present for its own name — and the
+diagram's "not-cleartext" claim is withdrawn rather than defended. What replaces it is the reachability argument in the D-M5-3 block
+above: the :80 listener is reachable **only** from CloudFront's origin-facing address ranges, and only requests carrying the shared
+origin header are forwarded at all. The `443` listener returns when a hostname does. D-M5-1 chose the single public origin
 because both cookies are `__Host-` prefixed with no `Domain` and `EventSource` is opened without `withCredentials`
 (§1.2): an `api.<domain>` split is **not deployable as written**, and the fix for it is more client changes than the
 split is worth.
 
 | Resource | Requirement | Why this and not the simpler thing |
 | :--- | :--- | :--- |
-| Route 53 | Alias `app.<domain>` → CloudFront. **No record points at the ALB.** | A record at the ALB is a route to a `Secure`-cookie session that skips everything in front of it. **[verify-at-apply]** whether the zone is in this account. |
-| CloudFront | One distribution; S3 + ALB origins; viewer protocol policy **redirect-to-https**. | Two distributions double the certificate and header surface and buy nothing this app asked for. |
+| Route 53 | ~~Alias `app.<domain>` → CloudFront~~ **Under H-A (§14): no record at all — the public name is CloudFront's default distribution domain, and `route53 list-hosted-zones` measured `[]`, so there is no zone to write into.** The second sentence stands unchanged, and matters more now: **no record points at the ALB.** | A record at the ALB is a route to a `Secure`-cookie session that skips everything in front of it. The `[verify-at-apply]` was resolved by measurement on 2026-09-14: the zone is not in this account. |
+| CloudFront | One distribution; S3 + ALB origins; viewer protocol policy **redirect-to-https**; **origin protocol policy for the ALB origin is `http-only` under H-A (§14)** — `https-only` returns `502` with no matching certificate ([CIT-A1-4]). | Two distributions double the certificate and header surface and buy nothing this app asked for. |
 | S3 | `dist/` only; Block Public Access all-four on; access via OAC. | The deep-link fix (§3.5) is a function, not a bucket policy; the bucket stays dumb deliberately. |
-| ACM | `app.<domain>` **in us-east-1** for CloudFront + one in the workload region for the ALB. | CloudFront only accepts a us-east-1 certificate; that asymmetry is a classic first-deploy stall. |
+| ACM | ~~two certificates~~ **Under H-A (§14): zero.** CloudFront's default domain is served by CloudFront's own AWS-managed certificate ([CIT-A1-2]), and no certificate can be requested for the ALB's Amazon-owned name ([CIT-A1-3]). | The us-east-1 asymmetry that made this a classic first-deploy stall **stops being a constraint under H-A** — which is the one respect in which the route is simpler than the plan, and §14.6 flags an unresolved AWS-internal contradiction about the *origin-side* half of that rule. |
 | VPC | Public subnets (ALB) + private with NAT (tasks) + private (RDS), 2 AZs. | §12 leaves "default VPC vs bought CIDR" to the owner; the *requirement* is that the ALB's SG is the only ingress to the tasks. |
 
 ### 3.2 ECS (Fargate) service
@@ -544,9 +569,12 @@ split is worth.
 
 ### 3.3 ALB, listeners, and the forwarded-header trust boundary
 
-- Internet-facing, in ≥2 AZ subnets. **HTTPS:443** listener with the workload-region ACM cert (D-M5-3). The HTTP:80
+- Internet-facing, in ≥2 AZ subnets. ~~**HTTPS:443** listener with the workload-region ACM cert (D-M5-3). The HTTP:80
   listener's only job is `redirect-to-https`; if it is absent, a mistaken HTTP path fails loudly, which is better than
-  serving it.
+  serving it.~~ **Amended by §14: under H-A the ALB serves on HTTP:80 and has no 443 listener**, because no certificate can be
+  requested for its Amazon-owned name. The loudness guarantee that sentence carried is replaced by two others: the :80 listener's
+  SG ingress is the CloudFront origin-facing prefix list **only**, and a request that does not carry the shared origin header is
+  answered with a fixed `403` by the listener's default rule ([CIT-A1-5]). The 443 listener returns with H-B or H-C.
 - Listener rules by priority: **1)** `/api/*` → `tg-api`; **2)** default → `tg-notfound`, a target group with **no
   registered targets**, which answers 503. The API has exactly nine routes (§1.2) and the SPA is not one of them, so
   "send everything else to the API" would be routing traffic to a service that has no handler for it.
@@ -556,7 +584,11 @@ split is worth.
   that fact (§1.2: the flags are unconditional, so a cleartext path is also a broken login).
 - **ALB→target is HTTP:8080 and nothing else may reach the tasks.** SG ingress on the task SG allows `8080` from the ALB
   SG *only*. This is the sentence that makes "last hop is cleartext" defensible: it is not that cleartext is fine, it is
-  that there is no path to it that isn't the ALB.
+  that there is no path to it that isn't the ALB. **§14 extends the same argument one hop up and records the cost of doing so:**
+  under H-A the sentence becomes *"there is no path to the ALB's :80 that isn't CloudFront, and CloudFront's requests are the ones
+  carrying the shared header"* — a reachability-plus-authentication claim where D-M5-3 used to make an encryption claim. Prefix-list
+  membership is L3/L4 filtering and can be widened by one console edit; the header is the part that actually authenticates, and it is
+  the reason the SG rule is listed as optional in AWS's own procedure ([CIT-A1-5]).
 
 ### 3.4 Target group, health checks, and what "healthy" means to a deployment
 
@@ -828,7 +860,7 @@ produced, the task is not done, however healthy the console looked.
 | T-06 | **Implement R-4.2 heartbeat** in `ApplicationCatalog.cs:71-113`, with the four assertions in §4.2 | — | L1 | A 5-minute idle stream emits ≥ 12 comment frames and **zero** `event:` lines; a right-owner write still produces exactly one `event: change`; an unrelated-owner write produces nothing; disconnect stops the writes | Without it the SSE feature is likely to break in production while remaining invisible locally — the exact asymmetry §4.1 measured. Independent of AWS: start here. |
 | T-07 | **Implement R-4.4** health-endpoint bound + a test that a `CanConnectAsync` which never returns yields unhealthy within the bound | — | L1 | `/api/health` returns 503 inside the configured window against a datasource that hangs forever | §4.4: the breaker trusts this endpoint, and trust with no bound is how a stalled deploy reads as a slow one. |
 | T-08 | ECS cluster, task definition (container :8080, `stopGracePeriod`, separate task/execution roles), service with circuit breaker **and** `deploymentAlarms` | T-05 | L2 | `describe-services` output showing `deploymentConfiguration.deploymentAlarms.enabled = true` with the target-group ARN listed; first deploy reaches `RUNNING` | D-M5-7's mechanism lives here. Built without alarms, the breaker is inert and §8's rollback story is fiction. |
-| T-09 | ALB + HTTPS:443 listener + `/api/*` rule + `tg-api` (check `/api/health`, matcher `200`) + `tg-notfound` + SG chain | T-08 | L2 | `curl -kv https://<alb>/api/health` from inside the VPC → 200; from the public internet → **no answer**; a request to a non-`/api` path → 503 | §3.3–3.4. The check path is the one row in the milestone that can invert the meaning of every signal downstream. |
+| T-09 | ~~ALB + HTTPS:443 listener~~ **Under H-A (§14): ALB + HTTP:80 listener** + `/api/*` rule + **the shared origin-header check whose default action is a fixed `403`** + `tg-api` (check `/api/health`, matcher `200`) + `tg-notfound` + SG chain. **Restore the 443 listener when H-B or H-C lands — that is the whole of the reversal, and it is why this row was restated instead of rewritten** | T-08 | L2 | ~~`curl -kv https://<alb>/api/health`~~ **(amended)** `curl -s -o /dev/null -w '%{http_code}' http://<alb>/api/health` **with no header → 403**; with the shared header → 200; `curl` from the public internet to the ALB's :80 → **no answer** (prefix-list ingress only); a non-`/api` path → 503 | §3.3–3.4. The check path is the one row in the milestone that can invert the meaning of every signal downstream. |
 
 | # | Task | Depends | Cer. | Prove it by | Why it cannot be skipped |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -1169,7 +1201,7 @@ after the first deploy rather than before it.
 | ID | Decision | What the spec assumes while it is open | The options, and the measured thing that decides | Blocks | Answer |
 | :-- | :-- | :-- | :-- | :-- | :-- |
 | **A** | **Workload region** | Nothing region-specific except two fixed facts: CloudFront's certificate must live in **us-east-1** (an AWS constraint, not a preference, §3.1), and one region must hold the VPC, ALB, ECS, RDS, ECR and Secrets Manager secret together. | Any region with Fargate + ALB + RDS PostgreSQL **18.6** + publicly-validated ACM. The binding constraint is parity with `postgres:18.6` in `api/docker-compose.yml` (§1.5): latency to a single-user app is worth tens of milliseconds, a major-version downgrade is worth re-deciding §1.5's `citext` story. Read it, don't recall it: `aws rds describe-db-engine-versions --engine postgres --region <r>`, `aws ec2 describe-availability-zones --region <r>` (the ALB needs 2), `aws ecr describe-repositories --region <r>`. **[verify-at-apply]** all three, into `docs/tasks/m5-deploy-log.md`. | T-02…T-05 | **A: `ap-southeast-1` (Singapore)** — owner, 2026-09-14. The three `describe-*` reads above stay open as T-02's first action into `m5-deploy-log.md` — no `aws` CLI on this box yet. |
-| **B** | **Domain, DNS host, and who owns the zone** | `app.<domain>` as a placeholder; one SAN entry; DNS validation; **two** ACM certificates (us-east-1 for CloudFront, workload region for the ALB). | (1) A hosted zone already in this account — **[verify-at-apply]** `aws route53 list-hosted-zones-by-name`; cheapest and fastest to validate. (2) Buy a domain (~$12/yr) and delegate. (3) **No domain at all**: CloudFront's default `d111111abc.cloudfront.net` distribution name is HTTPS-valid, and `__Host-` cookies survive it (secure context, no `Domain`, path `/` — §1.2). But then **the ALB cannot get a public certificate**, because ACM will not issue for `*.elb.amazonaws.com` **[verify-at-apply]**, so D-M5-3's TLS-to-the-target collapses to CloudFront→ALB over HTTP:80 with the :80 listener restricted to CloudFront's managed prefix list. That is a *different decision record*, not a cheaper one — and it is the option to choose only knowingly. | T-02 | **B: option (1) — a Route 53 hosted zone already in this account** — owner, 2026-09-14. **Zone apex name not yet written**; `app.<domain>` stands as placeholder until it is, and T-02's "confirm the zone" needs the literal. Option (3)'s weaker-TLS branch is moot; `list-hosted-zones-by-name` runs at T-02. **Answer superseded the same day, 2026-09-14 — kept above rather than deleted, per §0's rule that the only evidence of checking is the diff between what was asserted and what was measured.** Option (1) described a zone **this account does not have**: `route53 list-hosted-zones` → `[]` in both profiles and `route53domains list-domains` → `[]` ([`m5-deploy-log.md`](../tasks/m5-deploy-log.md), reads 9–14). **Re-answer: option (3) as route H-A** — CloudFront's default distribution domain, **$0**, chosen by the owner under the explicit constraint that **no payment method can be attached**; **H-B** (a free third-party subdomain whose unproxied nested `NS` delegates into a Route 53 zone, ~$0.50/mo) is filed in parallel and non-blocking, and **H-C** (registration, ~$17/yr) is deferred to a card rather than cancelled as a design. Consequences, the price correction that came with them, and the one thing this route still has to prove are §14; the hostname's *shape* requirement — **it must live in exactly one config value**, so paying $17 later is a redeploy and not a redesign — is invariant **I-A1-1** there. The apex string itself is deliberately in no tracked file: the repository is PUBLIC, the name is unregistered, and availability does not survive being read. |
+| **B** | **Domain, DNS host, and who owns the zone** | `app.<domain>` as a placeholder; one SAN entry; DNS validation; **two** ACM certificates (us-east-1 for CloudFront, workload region for the ALB). | (1) A hosted zone already in this account — **[verify-at-apply]** `aws route53 list-hosted-zones-by-name`; cheapest and fastest to validate. (2) Buy a domain (~$12/yr) and delegate. (3) **No domain at all**: CloudFront's default `d111111abc.cloudfront.net` distribution name is HTTPS-valid, and `__Host-` cookies survive it (secure context, no `Domain`, path `/` — §1.2). But then **the ALB cannot get a public certificate**, because ACM will not issue for `*.elb.amazonaws.com` **[verify-at-apply]**, so D-M5-3's TLS-to-the-target collapses to CloudFront→ALB over HTTP:80 with the :80 listener restricted to CloudFront's managed prefix list. That is a *different decision record*, not a cheaper one — and it is the option to choose only knowingly. **Corrected after reading AWS's own text (§14.3), because the sentence above is under-specified in two ways that a deployer would act on:** the documented prefix list is **global**, `com.amazonaws.global.cloudfront.origin-facing` (IPv4) / `com.amazonaws.global.ipv6.cloudfront.origin-facing` (IPv6) — the regional `com.amazonaws.<region>.cloudfront.origin` form **does not appear in the current Developer Guide**, and the list costs **weight 55 of the 60 default security-group rules**; and restricting an ALB to CloudFront is documented with a **shared secret custom origin header plus a listener rule whose default action returns `403`** as its primary method, with the prefix list as the *optional* network layer ([CIT-A1-5]). Encryption is not either of them. | T-02 | **B: option (1) — a Route 53 hosted zone already in this account** — owner, 2026-09-14. **Zone apex name not yet written**; `app.<domain>` stands as placeholder until it is, and T-02's "confirm the zone" needs the literal. Option (3)'s weaker-TLS branch is moot; `list-hosted-zones-by-name` runs at T-02. **Answer superseded the same day, 2026-09-14 — kept above rather than deleted, per §0's rule that the only evidence of checking is the diff between what was asserted and what was measured.** Option (1) described a zone **this account does not have**: `route53 list-hosted-zones` → `[]` in both profiles and `route53domains list-domains` → `[]` ([`m5-deploy-log.md`](../tasks/m5-deploy-log.md), reads 9–14). **Re-answer: option (3) as route H-A** — CloudFront's default distribution domain, **$0**, chosen by the owner under the explicit constraint that **no payment method can be attached**; **H-B** (a free third-party subdomain whose unproxied nested `NS` delegates into a Route 53 zone, ~$0.50/mo) is filed in parallel and non-blocking, and **H-C** (registration, ~$17/yr) is deferred to a card rather than cancelled as a design. Consequences, the price correction that came with them, and the one thing this route still has to prove are §14; the hostname's *shape* requirement — **it must live in exactly one config value**, so paying $17 later is a redeploy and not a redesign — is invariant **I-A1-1** there. The apex string itself is deliberately in no tracked file: the repository is PUBLIC, the name is unregistered, and availability does not survive being read. |
 | **C** | **IaC tool** | Nothing. §3, §8 and §10 are tool-neutral; D-M5-9 fixes the *requirement* (code, and state that lives off this laptop), not the tool. | **Terraform** (HCL; `plan` output is reviewable by someone who never read the code; a second language in the repo; state needs its own bucket + locking). **AWS CDK** (TypeScript — the language this repo already has 22 files of; the stack is code you can unit-test; the synthesised template is a debugging artifact you rarely read). **Raw CloudFormation** (no new toolchain, no abstraction, one long YAML, drift detection built in). The factor that decides it here is the one AGENTS.md is about: the owner has to defend this in an interview, so *which plan can you read aloud* beats *which scales to a team*. Note that §10's read-only `describe-*` verification commands stay valid under all three — they read state, not source. | T-03 | **C: AWS CDK (TypeScript)** — owner ratifying the recommended default, 2026-09-14. Rationale adopted from this row: a unit-testable stack in the repo's own language, defensible in interview. New `devDependencies` land with T-03 — this decision record adds none. |
 | **D** | **VPC shape: bought CIDR with three subnet tiers, or the default VPC** | §3.1's requirement stands either way: ALB in public subnets (2 AZs), tasks in private-with-egress, RDS in private, and the ALB's SG as the only ingress to `:8080`. | Default VPC = zero CIDR planning and every subnet public, so a slipped RDS SG is an *internet-reachable* database. Bought `/20` = three tiers, and a routing question to answer honestly: **why do the tasks need a NAT at all?** This app makes no outbound HTTP calls — no webhooks, no external fetches — so the real consumers are the ECS agent pulling from ECR, Secrets Manager, and CloudWatch Logs, all three of which have **interface or gateway endpoints** costing ~$0.01105/hr each instead of ~$32/mo for two NATs (§11's row on `m5-infra-plan.md:213`, which called the saving "real"; it is real, and the endpoint route is the version of it that keeps the subnets private). **[verify-at-apply]** endpoint availability per service in the chosen region. | T-03 | **D: bought `/20`, three subnet tiers, VPC endpoints instead of NATs** — recommended default, 2026-09-14. Endpoint availability for ECR / Secrets Manager / CloudWatch Logs in `ap-southeast-1` stays `[verify-at-apply]` at T-03. |
 | **E** | **PostgreSQL footprint, and which role creates `citext`** | §3.6: one instance, single-AZ, a `db.t4g.micro`-class opening size, 20 GB gp3, 7-day snapshots **[verify-at-apply]** each; migrations run as the app's own role at boot (D-M5-4). | Instance class and storage are a bill, not an architecture. The **first-deploy blocker** is §1.5's `citext`: `InitialCreate` calls `CreateExtension("citext")` and a non-superuser cannot. Options: (a) run the app as the master user — works, and makes every application bug a superuser bug; (b) **create the extension once, by hand, as the master, before the first deploy** — one `CREATE EXTENSION IF NOT EXISTS citext;`, keeps the app role unprivileged, and the migration's own call then has nothing to do; (c) a separate migrator role for a one-off `dotnet ef database update` — which is D-M5-4's *rejected* shape, revived for one command. (b) is the smallest change to what already exists. **[verify-at-apply]** that EF tolerates a pre-existing extension by reading `Migrations/20260909125540_InitialCreate.cs`'s generated `Up()` **before** the first deploy, because option (b) is only safe if it does. | T-04 | **E: option (b)** — recommended default, 2026-09-14: `CREATE EXTENSION IF NOT EXISTS citext;` run once by hand as master before the first deploy; the app role stays unprivileged. The EF-tolerates-pre-existing-extension read of `Migrations/20260909125540_InitialCreate.cs` is a repo-file read, not an AWS call — due at T-04's opening. |
@@ -1222,3 +1254,126 @@ application bug (§5), which is the most expensive kind of wrong this project ca
 What did *not* change: the topology, the cookie argument, the rollback ladder, and the nine decisions in §2 are the same
 shape the draft had. What changed is that every load-bearing fact now carries its measurement, which is the difference
 between a plan and a record.
+
+---
+
+## 14. Amendment A1 (2026-09-14) — the hostname route, and the one §2 decision it reverses
+
+**Why this section exists instead of a silent edit.** §12 B asked *which zone should this app delegate into*. Measurement answered a
+different question — *is there a zone, and can one be bought* — and the owner's constraint (**no payment method can be attached to this
+account**) made the answer "no, and not for this milestone". That removes the premise of `D-M5-3`: with no registrable hostname there is
+no certificate the ALB can present, and the decision that **rejected** "HTTP-only origin hop" now has to be re-read against a route that
+has selected it. Rewriting §2 quietly would have destroyed the only evidence that anyone checked — §0's rule, and §13's. So the superseded
+wording stays where it was written, struck through rather than deleted, and **this is the section a reader arrives at from it.**
+
+Unlike §1–§13, this section's facts are not measurements of a repository. They are readings of AWS's own documentation, taken
+2026-09-14, and each claim names its source — because the claim that decides the security posture here cannot be tested from this
+machine at all, and §13's lesson is precisely what happens when a document asserts a platform fact nobody opened the platform's page for.
+
+### 14.1 The rows this reverses, and where each now lives
+
+| Surface | What it said | What is true under **H-A** | Where the change was made |
+| :--- | :--- | :--- | :--- |
+| **D-M5-3** | *"TLS terminates at the ALB as well as at CloudFront"*, with *"HTTP-only origin hop protected only by a CloudFront-source SG rule"* in its **Rejected** half | **CloudFront validates the origin certificate and refuses a self-signed one** ([CIT-A1-4]), and **ACM cannot issue for `*.elb.amazonaws.com`** ([CIT-A1-3]) — so the origin hop is **HTTP:80** and the rejected option is the deployed one, defended by unreachability + a shared header instead of by encryption | §2 `D-M5-3` amendment block |
+| §3.1 diagram + table | `origin 2: ALB (HTTPS:443, own ACM cert)`; ACM row's *two certificates*; Route 53 row's alias | ACM row → **zero certificates**; Route 53 row → **no record at all**; CloudFront row → `http-only` origin policy; the diagram's "not-cleartext" claim withdrawn (the ASCII is left intact — a diagram edited to match a reversal nobody can re-read is how documents like this start lying) | §3.1 paragraph + three table rows |
+| §3.3 | *"The HTTP:80 listener's only job is `redirect-to-https`; if it is absent, a mistaken HTTP path fails loudly"* | **:80 is the serving listener**; the loudness guarantee is replaced by prefix-list ingress + a default-`403` header rule, so §3.3's sentence stops being the defence it was written to be | §3.3 first and last bullets |
+| §6 `T-02` | request **both** ACM certificates, complete DNS validation | no zone, no certificate, no validation; the task's substance is this section's `[verify-at-apply]` cells + the three console numbers | §6 (amended 2026-09-14) |
+| §6 `T-09` | *"ALB + HTTPS:443 listener"*, proved with `curl -kv https://<alb>/…` | **ALB + HTTP:80 listener + the origin-header check**, proved with header/no-header pairs and a public-internet negative test | §6 (amended here) |
+| §12 B | option (1), a hosted zone already in this account | **option (3) as H-A**, $0; H-B parallel; H-C when a card exists — and option (3)'s own description corrected on two points a deployer would have acted on | §12 B answer cell + correction block |
+| §12 preamble | *"B is the long pole … hours of latency and no retry that fixes them"* | the external wait is **gone**; what remains serialised is provisioning order only | §12 preamble (amended) |
+
+### 14.2 The three routes, priced from a measured source
+
+Prices came off `aws route53domains list-prices` on 2026-09-14 — read-only, logged in
+[`m5-deploy-log.md`](../tasks/m5-deploy-log.md): `.com` **$16**, `.dev` **$17**, `.app` **$20**, `.io` **$71**, `.click` **$3**, with
+**register == renew for every TLD** (no first-year hook to be fooled by), and a hosted zone at **$0.50/month, charged at creation, free
+if deleted within 12 hours**. Two non-price facts in that measurement are load-bearing: **promotional credit cannot pay registration
+fees**, which turns a no-card account from an inconvenience into a hard block; and `aws.exe` calls sharing a `login_session` cache are
+**not concurrency-safe** — ten parallel `list-prices` calls all failed with `CreateOAuth2Token … authorization grant is invalid` while
+serial calls on the *same* token returned `rc=0`, so every AWS call in this milestone is serialised.
+
+| Route | Hostname | Cost | What it keeps | What it costs | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **H-A** | CloudFront's default distribution domain, `d111111abcdef8.cloudfront.net` | **$0** | `__Host-` cookies (they need `Secure` + `Path=/` + **no `Domain`**, never a registrable domain — [CIT-A1-1]), ECS + ECR + S3/OAC, the cache behaviours, SSE through the edge, migrations-at-boot, **and zero certificates to manage** | **the encrypted CloudFront→ALB hop** (§14.4), a public URL that survives recreating the distribution, DNS validation as a lesson, the apex→`app` redirect | **selected** |
+| **H-B** | free third-party subdomain whose **unproxied nested `NS` record delegates into a Route 53 hosted zone** | **$0.50/mo** (the zone) | nearly all of H-A's costs, *including the encrypted origin hop*: a name ACM **can** issue for, DNS validation inside a zone this account controls, the two-region certificate constraint, named exact origins | registrable-domain branding — and it **puts this milestone's cookie boundary on infrastructure a volunteer project can rename or revoke** | **filed in parallel, non-blocking** |
+| **C → H-C** | register a `.dev` / `.com` | **$16–17/yr** + zone | the whole §3 shape, D-M5-3 intact, a hostname that is theirs | nothing but money | **deferred to a card**, and bound by **I-A1-3** to cost a redeploy, not a redesign |
+
+**H-B is now worth more than it looked.** When this route was first priced, H-B was "the same lesson for sixty cents". §14.1 is why
+that understates it: **H-B is the cheapest thing that restores D-M5-3**, because ACM will issue for a delegated subdomain this account
+controls and will not issue for `*.elb.amazonaws.com`. Sixty cents is the price of not reversing a security decision — which is the
+first argument for taking H-B up *before* the first deploy rather than after it. That is an owner call, not an agent call, and it is
+recorded as one in §14.6.
+
+**The price correction that came with the decision (DEBT-26).** Two passes and ~58 read-only calls were spent on a **$17** question
+while `docs/m5-infra-plan.md` §7 — written earlier, never reconciled to ability to pay — priced the planned topology at **~$75/month**,
+of which **~$32 is a NAT gateway** its own footnote permits skipping. The domain was **23 % of one month** of the architecture it sits
+inside. `aws.amazon.com/free` was read the same day: *"up to $200 in credits"*, *"over 90 services for up to 6 months"*, *"no charges and
+no surprise overages"*, credits *"automatically applied"* past always-free limits — so **the credit balance, not the card, may be the
+runway** for compute, since only *registration* is excluded. Whether that is true of *this* account is
+**`UNCERTAINTY-m5-aws-deployment-010-a`**, not a claim, and its resolution is the owner's three console numbers.
+
+### 14.3 Claims, citations, and the one place AWS disagrees with itself
+
+- **`DECISION-m5-aws-deployment-010`** — *M5's public hostname is CloudFront's default distribution domain (**H-A**); no domain
+  registration and no hosted zone in this milestone; the hostname, when it arrives, must be reachable by changing one config value.*
+  **Options considered:** (1) in-account zone — *falsified, the account has none*; (2) buy a domain — *blocked, credit cannot pay registry
+  fees and no card can be attached*; (3) H-A; (4) H-B. **Selected:** (3), with (4) pursued in parallel and (2) retained as the end state.
+  **Decided by:** the human, 2026-09-14, under the stated constraint; the agent priced the routes and verified the AWS behaviour claims,
+  and did not choose among them. **Status:** accepted. **It amends `D-M5-3` rather than deleting it.**
+
+Every Material Claim below links to a Citation or an Uncertainty record. Where AWS's own text does not settle something, the row says so
+instead of borrowing confidence from the surrounding rows.
+
+| ID | Claim | Verdict | Source, as read 2026-09-14 |
+| :--- | :--- | :--- | :--- |
+| **CIT-A1-1** | `__Host-` cookies require `Secure` (set from a secure page), `Path=/`, and **no** `Domain` — none of which needs a registrable domain. | **SUPPORTED twice** | MDN, *Using HTTP cookies → Cookie prefixes*, https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies#cookie_prefixes — *"Cookies with names starting with `__Host-` must be set with the Secure attribute by a secure page (HTTPS). In addition, they must not have a Domain attribute specified, and the Path attribute must be set to /."* **Plus this repository's own measurement**: `docs/spikes/2026-09-12-host-prefix-cookie-jar.md` (Chromium discards `__Host-` over plain `http` at *any* address and accepts it over `https://127.0.0.1` with a self-signed cert — the prefix is gated on the **scheme**, not on the domain's provenance). |
+| **CIT-A1-2** | A distribution is HTTPS-reachable on its default domain with a certificate CloudFront provides; no alternate domain name is needed. | **SUPPORTED, with a nuance worth knowing** | CloudFront Dev Guide, *Require HTTPS for communication between viewers and CloudFront*, https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-https-viewers-to-cloudfront.html — *"If you're using the domain name that CloudFront assigned to your distribution … CloudFront provides the SSL/TLS certificate."* Nuance: the cert is documented as the **default CloudFront certificate `(*.cloudfront.net)`** (*All distribution settings reference*, `DownloadDistValuesGeneral.html`) — a wildcard over all distributions, not one minted for yours. Fine for reachability; it is also why no custom cert exists at all on this route. |
+| **CIT-A1-3** | ACM will not issue a public certificate for the ALB's own `*.elb.amazonaws.com` name. | **SUPPORTED by suffix, not by name** | ACM User Guide, *Troubleshoot certificate requests*, https://docs.aws.amazon.com/acm/latest/userguide/troubleshooting-cert-requests.html — *"You cannot request a certificate for Amazon-owned domain names such as those ending in `amazonaws.com`, `cloudfront.net`, or `elasticbeanstalk.com`."* **Honest limit:** this is a *Note* under one error path, the list is introduced with *"such as"*, and no page names `elb.amazonaws.com` literally. It is the strongest statement AWS publishes, and the empirical form of it is `UNCERTAINTY-…-010-b`. |
+| **CIT-A1-4** | CloudFront **validates** the certificate on an encrypted origin hop and rejects self-signed ones, so an ALB with no valid certificate cannot serve `https-only`. | **SUPPORTED** | CloudFront Dev Guide, *Require HTTPS for communication between CloudFront and your custom origin*, https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-https-cloudfront-to-custom-origin.html — *"When CloudFront uses HTTPS to communicate with your origin, CloudFront verifies that the certificate was issued by a trusted certificate authority"* and *"You can't use a self-signed certificate for HTTPS communication between CloudFront and your origin"*; *Security checklist for marketplace distributions* — *"CloudFront validates the certificate on connection"*. **No ELB/AWS-service validation exemption exists in the Developer Guide** (a search of the guide's pages turned up only *"this isn't required when you use an Amazon S3 origin or certain other AWS origins"*, which is about *installing* a certificate, not about CloudFront skipping validation). Failure mode if this is ignored: `502 Bad Gateway`, per the same page's name-match rule. |
+| **CIT-A1-5** | The documented way to restrict an ALB to CloudFront is a **shared secret custom origin header + a listener rule whose default action returns `403`**; the prefix list is an **optional** network layer, and its AWS-managed name is **global**, not regional. | **SUPPORTED; the regional name in circulation is **not**** | CloudFront Dev Guide, *Restrict access to Application Load Balancers*, https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/restrict-access-to-load-balancer.html (header + `403` default rule primary; *"(Optional) Limit access to origin by using the AWS-managed prefix list for CloudFront"*), and *Locations and IP address ranges of CloudFront edge servers*, https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/LocationsOfEdgeServers.html#managed-prefix-list — `com.amazonaws.global.cloudfront.origin-facing` (IPv4) and `com.amazonaws.global.ipv6.cloudfront.origin-facing`. **`com.amazonaws.<region>.cloudfront.origin` appears nowhere in the current guide.** VPC note: *Working with AWS-managed prefix lists* — the CloudFront list carries **weight 55** against the default 60-rule security-group quota. Caveat to keep: AWS also warns *"Using HTTPS can help prevent an eavesdropper from discovering the header name and value"* — on an HTTP:80 origin hop the shared header travels in cleartext, so it authenticates CloudFront to the ALB against an off-path attacker and **not** against anyone on the path. §14.4 carries that as the residual. |
+| **CIT-A1-6** | Origin protocol policy is per-origin (`http-only \| https-only \| match-viewer`), ELB origins arrive preconfigured to `https-only`, and the API accepts `http-only`. | **SUPPORTED** | *Origin settings*, https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginProtocolPolicy; *Template-preconfigured origin settings (ELB)*, `template-preconfigured-origin-settings.html#elb-origin-preconfiguration`; `API_CustomOriginConfig.html`. **Practical consequence for T-10/T-13:** the CDK/console default must be *changed*, not left alone — a distribution created against an ALB origin and left on its preconfigured `https-only` will `502` against an ALB with no listener certificate. |
+
+- **`UNCERTAINTY-m5-aws-deployment-010-a`** — the three console numbers (plan type, remaining credit, payment methods present or absent).
+  **Impact:** whether any of this is payable at all. **Validation action:** the owner reads them; **no M5 write happens first** (DEBT-26).
+  **Owner:** human. **Status:** open.
+- **`UNCERTAINTY-m5-aws-deployment-010-b`** — CIT-A1-3's suffix-only footing, and one real conflict between two AWS pages: the ELB
+  guide's *Load balancer integrations* says *"CloudFront only supports ACM certificates in the US East (N. Virginia) us-east-1 region …
+  change the CloudFront origin connection from HTTPS to HTTP, or provision an ACM certificate in … us-east-1"*, while the CloudFront guide
+  allows an ELB-origin certificate issued **in any region**. **Unresolved between two primary pages.** It does not bind H-A (there is no
+  origin certificate on this route at all), but it **does** bind H-B/H-C, so whoever restores the 443 listener must settle it empirically:
+  request the workload-region certificate, attach it, and read whether CloudFront's `https-only` origin path works — **one `curl` through the
+  distribution, not a paragraph of prose.** **Owner:** whoever lands H-B or H-C. **Status:** open, deliberately not treated as verified.
+
+### 14.4 The failure mode this amendment introduces, as an FMEA row
+
+| Failure scenario | P / S | Detection | Mitigation / fallback | Recovery |
+| :--- | :--- | :--- | :--- | :--- |
+| **CloudFront→ALB credentials travel the last hop in cleartext**, because :80 replaced 443 (§14.1). An off-path attacker gains nothing; **an on-path attacker inside the VPC sees `__Host-JTSession`, `__Host-JTCsrf`, and the shared origin header** — the header the mitigation depends on | Low (requires a foothold in the VPC or a compromised neighbor task) / **High** (session theft, and the `Secure` flag is a browser-side promise that encrypts nothing — D-M5-3's own words) | (i) ALB access logs + the task SG's flow logs, alerting on any :80 source that is not the ALB SG; (ii) the `403`-default rule's own hit rate, which is the *only* signal that someone is trying to reach the ALB directly; (iii) CloudFront's `502` rate, which is how a mis-set origin policy announces itself (CIT-A1-6) | Layered, and each layer says what it does *not* do: **prefix-list ingress** (`com.amazonaws.global.cloudfront.origin-facing`, CIT-A1-5) = L3/L4 filtering, widen-able by one console edit; **shared origin header + `403` default** = authentication, but see the cleartext caveat in CIT-A1-5; **task SG allows `8080` from the ALB SG only** (§3.3, unchanged); **RDS private, no public IP, TLS:5432** (unchanged). The real mitigation is that this state is **temporary and one config change from ending** | Attach a certificate and flip the origin policy back: **H-B at ~$0.50/mo or H-C at ~$17/yr** buys a name ACM will issue for, then D-M5-3 revives verbatim (I-A1-3). The rollback is a listener + `OriginProtocolPolicy` change, **not** a re-architecture — which is the only reason accepting this row is defensible at all |
+
+### 14.5 Invariants added by this amendment (binding from T-03 onward)
+
+- **I-A1-1 — one config value.** The apex, when it arrives, is **one** setting threaded through CloudFront aliases, the ACM ARNs,
+  `Cors__AllowedOrigins`, and the JWT `iss` / cookie scope. Any design needing more than one edit to attach a domain fails this row.
+- **I-A1-2 — the unregistered apex is in no tracked file.** The repository is PUBLIC, the name is known-unregistered, and availability
+  does not survive being read. It enters the repo **in the commit that registers it**, or not at all.
+- **I-A1-3 — H-C must cost ~30 minutes, not a redesign.** I-A1-1 restated as an acceptance test for whoever pays the $17, and the reason
+  §14.4's recovery column is allowed to say "one config change".
+- **I-A1-4 — every AWS call in this milestone is serial.** Parallel `aws.exe` on a shared `login_session` cache self-revokes (§14.2).
+  Related, and now a **reliability** dependency rather than a hygiene preference: the deploy CLI authenticates as **account root** with
+  **zero IAM users in the account**; `pk:ship` should be asked for a scoped identity before the first write, not after.
+- **I-A1-5 — no M5 write before the three console numbers arrive** (DEBT-26), and none before this amendment is reviewed and merged.
+- **I-A1-6 — no AWS platform fact enters this document without its source and access date.** §13's rule, extended: *"the docs said so"* is
+  a citation only when the page, the sentence and the date are named, and it is an Uncertainty record when two pages disagree (§14.3, `-b`).
+
+### 14.6 What this section does **not** authorise, and the decision it hands back
+
+Not a deploy, not a tag, not a certificate request, not a paid resource, not a provisioning run: §9 and **R-9.2** still forbid a deploy
+ahead of the human's word, and **I-A1-5** still holds. Two things are explicitly **the owner's call**, and the agent chose neither:
+
+1. **Whether to buy H-B's sixty cents before the first deploy rather than after it** — §14.2 argues that restores D-M5-3 and removes
+   §14.4's row, and §14.4's row is the only genuine security regression in this milestone.
+2. **Whether the account's root-only identity is acceptable for the first write** (I-A1-4).
+
+The next executable step is **T-03's stack shape on paper** — priced from the `[verify-at-apply]` cells and this section's citations, not
+from the `m5-infra-plan.md` §7 table that DEBT-26 indicts — and it changes no platform until both gates above are answered.
+
