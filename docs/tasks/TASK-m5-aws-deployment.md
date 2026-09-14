@@ -7,9 +7,10 @@
   authorization; T-06 and T-07 are merged (PRs #81/#82), the checkpoints are merged (#83), and what remains is
   spec §6 **T-02…T-17: T-02 is next**, gated on the two facts named in §"Blockers / Open", not on any decision.
 - **Owner / Actor**: Assistant (agent)
-- **Branch**: `docs/state-m5-deploy-readiness-merged` @ `da04ee4` *(the previously recorded
-  `feat/m5-deploy-readiness` no longer exists; `origin/main` = `80918be` and is contained in HEAD)*
-- **Plan / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` — 1,221 lines, §0–§13, **the authority for every
+- **Branch**: task work lands per-PR on `main` (last merge read at this checkpoint: #84 → `3e2f2fb`,
+  `2026-09-14T06:07:46Z`, `gh pr view` measured); this checkpoint's own commits sit on
+  `docs/m5-checkpoint-002`. *The previously recorded `da04ee4` header was superseded by PRs #81–#84.*
+- **Plan / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` — 1,220 lines (`wc -l` re-measured 2026-09-14; the §12 answer pass grew some lines and the rewrite trimmed others), §0–§13, **the authority for every
   `D-M5-*` ID and task dependency below**
 - **Decision record**: `docs/aws-deployment.md` — cited as ratified, **but §11 of the spec marks five of its rows stale**;
   do not re-derive infra facts from it until T-15 lands.
@@ -218,6 +219,9 @@ unblocked code task in §Next action, and it does not bar read-only measurement.
 zone confirmation + both ACM certificates + DNS validation). It waits on two named facts, not on a decision — the zone's
 apex name (owner) and an `aws` CLI with working credentials on the machine that runs it (measured absent here).
 Provisioning itself stays behind `pk:ship` and human approval; Level 3 is unchanged.
+The decisions PR shipped: **#84 merged at `3e2f2fb` (`2026-09-14T06:07:46Z`)** — §12's answers are in `main`'s
+history, and the live contract for the next session is [`checkpoint-002`](./TASK-m5-aws-deployment.checkpoint-002.md)
+(including its paste-ready handover prompt and T-02's step-0 checklist).
 
 T-06 is done (§ above) and **committed** — the ladder below ran, and both records were merged in PR #81
 (`dfe018c` → merge `b4c2888`, 2026-09-14 03:46:01Z). Its Red → Green is recorded; the Refactor step of the triple was

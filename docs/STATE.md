@@ -10,11 +10,11 @@
 - **Current Milestone / Epic**: **M4 — Authentication delivered and merged** (27-row ladder, 26 EXEC records, 16/17 ACs verified; AC-3 open on owner restrike-or-restate decision), **M5 — AWS Deployment in progress at Level 3** (deploy-readiness code merged PRs #77/#78; infra plan + first Dockerfile merged as PR #80 `80918be`; **the spec has since been rewritten from measurement and that rewrite is uncommitted**). M1 · M2a · M2b · M3 all delivered (**14/14 M3 ACs verified**).
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
-- **Current Working Branch**: `main` @ `0b15c4b` (measured 2026-09-14; `origin/main` identical after
-  `git pull --ff-only`). **PR #83 — the T-07-merged checkpoint — merged as `0b15c4b`** (`5f2c87e` asserted an ancestor
-  via `git merge-base`), so every projection this pass replaces is describing a tree whose last recorded PR was #82;
-  this pass is the second turn of closing that loop. Working tree **clean** apart from `.m5-parts/`
-  (28 files, 212 KB — DEBT-21).
+- **Current Working Branch**: `main` = `origin/main` = `3e2f2fb` (measured 2026-09-14 06:12 UTC; `git pull --ff-only`
+  after `gh pr view 84` → `MERGED 2026-09-14T06:07:46Z`; `5eb76d5` and `5f2c87e` both asserted ancestors via
+  `git merge-base --is-ancestor`). This pass's commits sit on `docs/m5-checkpoint-002`. Working tree **clean** apart
+  from `.m5-parts/` (28 files, 212 KB — DEBT-21, whose delete-after trigger has now *passed*: the ladder it was held
+  through merged in #81).
 - **Last Updated**: 2026-09-13 17:06 UTC (`pk:checkpoint` → [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) ·
   [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md)). Nothing was committed, pushed, tagged, released or deployed
   this session. Verification re-executed here: **`npm run verify` exit 0** (227 tests / 23 files, 61.23 kB gz, build 1.38 s)
@@ -51,6 +51,11 @@
   VPC endpoints over NATs; manual `citext` pre-creation; manual rotation, no automation; human-run deploy per D-M5-8).
   Measured, not recalled: the `aws` CLI is **absent on this machine** (`command not found`), and B's zone apex name is
   still only in chat — both are named as T-02's opening checklist instead of guessed past.
+- **Last Updated (2026-09-14 06:15 UTC, `pk:checkpoint` → [`checkpoint-002`](tasks/TASK-m5-aws-deployment.checkpoint-002.md))**:
+  session-boundary checkpoint with a truth correction in front of it — the decisions pass had written **26 date stamps
+  as 2026-09-15** while `date -u` and every git committer date read **2026-09-14**; `1bbbc8f` fixes digits only,
+  structure re-verified after. #84 merge reconciled (`3e2f2fb`), the workflow's docs-only skip re-read at
+  `ci.yml:142-178` before quoting its green checks, and the handover prompt for **T-02** is embedded in the record.
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -72,10 +77,11 @@
   and **T-06 are merged in PR #81** (`dfe018c` → `b4c2888`, 2026-09-14 03:46:01Z); **T-07 is merged in PR #82**
   (`0986e53` → `7e99d7e`, 2026-09-14 05:33:17Z, CI `verify-api` **210/210**). Open: **T-01…T-17** (spec §6):
   **T-06 and T-07 — the only `Depends: —` code tasks — are delivered**, §12 was
-  **answered seven of seven on 2026-09-14 — T-01's exit criterion is met**, and **T-02 is next**. State: `handoff_ready`. Decision record: `docs/aws-deployment.md` *(exists
+  **answered seven of seven and the answers merged (#84 → `3e2f2fb`) — T-01's exit criterion is met by count**,
+  and **T-02 is next**, gated only on the zone apex name + an `aws` CLI with credentials. State: `handoff_ready`. Decision record: `docs/aws-deployment.md` *(exists
   since `a65f430`, **five rows stale per spec §11**)* · Spec: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` ·
   Task: [`docs/tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) ·
-  Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md)
+  Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md) · [`checkpoint-002`](tasks/TASK-m5-aws-deployment.checkpoint-002.md) *(live pointer)*
 
 Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
@@ -84,7 +90,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - [ ] `TASK-m5-aws-deployment` — **`handoff_ready`** (Level 3). Spec §6 carries the decomposition: **T-01 done and
   clean-room re-proven**, **T-06 merged (PR #81) and T-07 merged (PR #82, CI 210/210)**, **§12 answered 2026-09-14 → T-01 done; next is T-02** (zone name + `aws` CLI are its gates),
   **T-08…T-17 open**. Record: [`tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) ·
-  Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md)
+  Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md) · [`checkpoint-002`](tasks/TASK-m5-aws-deployment.checkpoint-002.md) *(live pointer)*
 - [x] `TASK-m4-authentication` — 27-row ladder, 26 executed and merged, closed at `71fcb3b`; **AC-3** (owner-side browser
   walkthrough) stays open on the M4 record, and it is the only M4 item this boundary inherits
 - [x] `TASK-2026-09-10-onboard`: Brownfield intake — scan manifests, extract commands, populate `PROMPTKIT.md`, generate `DESIGN.md`, reset `STATE.md`
@@ -98,7 +104,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - [x] `TASK-m2b-filters-cross-tab`: status chips + cross-field search + `StorageEvent` reconciliation + fail-closed mid-session version gate — **complete, PR #3 open**
 - [x] `DEBT-03 — lint + CI bootstrap`: eslint 9 + stylelint 17 + GitHub Actions + `npm run verify` — **MERGED as PR #4 (`68db873`)**. No spec or task record — a single-concern `pk:fix`; its canonical statement is the DEBT-03 row in §5 and the reasons written inside `eslint.config.js` / `stylelint.config.js`
 
-**T-01 executed, re-proven clean-room, and exit-met 2026-09-14 (§12 seven of seven on disk); T-06 and T-07 merged (#81, #82); next: T-02; T-17 is this handoff.**
+**T-01 executed, re-proven clean-room, and exit-met 2026-09-14 (§12 seven of seven on `main` via #84); T-06 and T-07 merged (#81, #82); next: T-02; the live contract is `checkpoint-002`.**
 
 ---
 
@@ -180,6 +186,12 @@ PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** 
 > `7e99d7e`. Archive under the ⛔ marker untouched; structure verified after the edit (`^## ` → **8**, §4
 > `cmp`-identical to `HEAD`).
 >
+> **Amendment pass, 2026-09-14 06:15 UTC (checkpoint-002, session boundary) — the four live bullets, and this
+> pass records what the previous one got wrong: its dates were fabricated (26 stamps of 2026-09-15 against a
+> measured 2026-09-14); `1bbbc8f` corrects them, and checkpoint-002 is now the live contract.** Events since
+> §12-answered: #84 merged at `3e2f2fb`; `ci.yml` re-read before quoting docs-only green checks; DEBT-21's
+> delete-after trigger reached.
+>
 > **Amendment pass, 2026-09-14 (§12-answered boundary) — the four live bullets again.** The events since 05:35: #83
 > merged (`0b15c4b`, `5f2c87e` asserted inside it), the owner answered §12 A–G, and the answers were written to spec §12
 > *before* any AWS-adjacent work — the resume condition met in form. The one fact still chat-only is B's zone name, and
@@ -193,11 +205,13 @@ PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** 
   the task record's state switch, and this projection update — published per protocol with the `headRefOid` assertion
   after create. `main` = `origin/main` = `0b15c4b` (#83's merge; `5f2c87e` asserted inside it). The PR number is
   recorded at the next checkpoint, not asserted here before it exists.
-- **Exactly one next action (live)**: **the human merges the decisions PR**, then **T-02 opens** (L1): owner supplies
-  the zone apex name and credentials, first commits install/configure the AWS CLI, then B's `list-hosted-zones-by-name`
-  and A's three region `describe-*`s run into `docs/tasks/m5-deploy-log.md` — and only after those do the two ACM
-  certificate requests go in. T-03…T-05 follow the record's dependency graph. The agent-side queue stands: DEBT-23
-  recovery and DEBT-21's delete-after step, both optional, neither blocking.
+- **Exactly one next action (live)**: **the human merges this checkpoint PR**; the session then stops (sign-off).
+  On resume, **T-02 step 0**: owner supplies the zone apex name and configures the `aws` CLI with their own
+  credentials (keys never enter chat) — then `list-hosted-zones-by-name` and A's three region `describe-*`s run into
+  a new `docs/tasks/m5-deploy-log.md`, and only after those do the two ACM certificate requests go in (DNS validation
+  is the hours-latency item; it runs first and alone). T-03…T-05 follow the record's dependency graph. Agent-side
+  queue: DEBT-23 recovery (optional), DEBT-21's delete-after step (**now due — ask the owner**), branch pruning of
+  #81–#84's merged heads (safe: ancestry-verified).
 - **Verification (live, re-executed at this boundary)**: `git pull --ff-only` clean, `0986e53` an asserted ancestor of
   `main` (`git merge-base --is-ancestor`); CI `verify-api` **Passed! 0 failed / 210 passed** (1 m 12 s, job
   `103865396138`, log re-read whole for warnings/errors — none) and `verify` **pass** (39 s) on PR #82, the same tree
@@ -615,7 +629,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
   land (spec §6: "*T-02..T-05 cannot until §12 B/C/D/E/F are answered*").
   **Amended 2026-09-14: all seven landed** — with their evidence, and with two named residuals instead of a clean sweep:
   B's zone apex name is still chat-only, and the `aws` CLI is measured absent here. Both became T-02's opening
-  checklist; neither was guessed past.
+  checklist; neither was guessed past. The answers are **in `main`'s history** now (PR #84 → `3e2f2fb`, merged
+  06:07:46Z, `gh pr view` measured) — corrections to their wording carry forward from there, not from the branch.
   **Blocking (structural):** the record those answers should extend, `docs/aws-deployment.md`, carries **five stale rows**
   — region `ap-southeast-2` (superseded by **D-M5-4** `us-west-2`), AWS Beanstalk (**D-M5-3** = ECS Fargate), GitHub-push
   deploy (**D-M5-9**), "no CDN" (**D-M5-1**), and a hand-minted data-plane token (§5's signature) — and an ADR is the
@@ -728,6 +743,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
    owner half (§12 B–G) is now the only half still standing.
    **Update, 2026-09-14 (§12-answered):** the standing half sat down — seven of seven answered and written to spec §12
    before any AWS-adjacent work. Item 1 is now fully closed; its successor duty is one human merge, then T-02 starts.
+   **Update 2 (2026-09-14 06:15, checkpoint-002):** that merge happened (`#84` → `3e2f2fb`); item 1 is now closed
+   *and verified closed*, and the successor duty is a fresh-session T-02 per `checkpoint-002` §8.
 2. **Agent, on merge** *(superseded by item 1 on 2026-09-12 — M3 shipped as PRs #5–#30 and M4 is 21 slices in; the* ***reconcile-and-verify-before-starting-the-next-phase*** *duty in this item still stands)*: reconcile (`git checkout main && git pull --ff-only`, then confirm the PR's head is the
    tip you pushed), and only then start **M5 — AWS Deployment** at **Level 3**: `pk:plan` + `pk:ship` first
    (domain model, API envelope, the four open architectural questions in §5 that M2a already answered three of),
@@ -753,7 +770,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
-| 2026-09-14 | Assistant (`pk:fix` on §12 → `pk:pr`) | **Owner decisions A–G recorded on disk; T-01's exit criterion met by count** | A `ap-southeast-1` and B option (1) (in-account Route 53 zone) chosen by the owner interactively; C CDK, D bought `/20` + VPC endpoints, E manual `citext` pre-creation, F manual rotation, G human-run deploy — C–G ratified at the table's recommended defaults. The resume condition's own rule honored: answers on disk *before* AWS-adjacent work. Two residuals named, not papered: **B's zone apex name is still chat-only** (and cannot be applied from chat), and the **`aws` CLI is measured absent** here (`command not found`) — both became T-02's opening checklist. #83 merge asserted (`0b15c4b` ⊇ `5f2c87e`). §1/§2/§3A/§5/§7/§8 regenerated from live commands; structure after edit: `^## ` **8**, §4 `cmp`-identical. Next: human merges the decisions PR; T-02 on CLI + credentials + zone name |
+| 2026-09-14 06:15 UTC | Assistant (`pk:checkpoint`, session boundary → sign-off) | **checkpoint-002 + the date-truth correction: `1bbbc8f` fixes 26 fabricated 2026-09-15 stamps to the measured 2026-09-14** | `date -u` → `2026-09-14 06:09`; #84 merged at `3e2f2fb` (`gh pr view` + `git merge-base --is-ancestor 5eb76d5 main` both asserted); `ci.yml:142-178` re-read before quoting the docs-only `verify-api` skips on #83/#84 — the skip note exists precisely so a green check mark is not misread as a suite pass; `wc -l` re-measured the spec at 1,220 after §12 edits; DEBT-21's delete-after trigger identified as *passed* (ladder merged #81) and named to the owner rather than self-executing the `rm -rf`. `checkpoint-002.md` written with verification table, invariants, single next action, and the paste-ready handover prompt. Structure after edits: `^## ` = 8, §4 `cmp`-identical. **Session ends at sign-off; nothing left uncommitted or unpushed** |
+| 2026-09-14 06:00 UTC | Assistant (`pk:fix` on §12 → `pk:pr`) | **Owner decisions A–G recorded on disk; T-01's exit criterion met by count** | A `ap-southeast-1` and B option (1) (in-account Route 53 zone) chosen by the owner interactively; C CDK, D bought `/20` + VPC endpoints, E manual `citext` pre-creation, F manual rotation, G human-run deploy — C–G ratified at the table's recommended defaults. The resume condition's own rule honored: answers on disk *before* AWS-adjacent work. Two residuals named, not papered: **B's zone apex name is still chat-only** (and cannot be applied from chat), and the **`aws` CLI is measured absent** here (`command not found`) — both became T-02's opening checklist. #83 merge asserted (`0b15c4b` ⊇ `5f2c87e`). §1/§2/§3A/§5/§7/§8 regenerated from live commands; structure after edit: `^## ` **8**, §4 `cmp`-identical. Next: human merges the decisions PR; T-02 on CLI + credentials + zone name |
 | 2026-09-14 05:35 UTC | Assistant (human merge → reconcile → `pk:checkpoint`) | **T-07 merged: PR #82 at `7e99d7e`, CI 210/210 — M5 is now wholly owner-gated** | `git checkout main && git pull --ff-only`; `git merge-base --is-ancestor 0986e53 main` asserted; `gh pr view 82` → `MERGED 2026-09-14T05:33:17Z`; CI job `103865396138` log re-read whole → `Passed! 0 failed / 210 passed` (1 m 12 s) — the DEBT-23 transfer to CI **worked as designed**, confirmed by outcome, so the row stays open only as a local-env defect. §1/§2/§3A/§5/§7/§8 regenerated from those commands; §4 cmp-clean at 8 headings; this checkpoint lands as `docs/state-t07-merged`, one commit, PR'd with the head-sha assertion. Next: nothing an agent may start — **owner §12 B–G** (T-02…T-05), optional DEBT-23/DEBT-21 chores |
 | 2026-09-14 05:05 UTC | Assistant (`pk:pr` → human merge → T-07 L1: Red → Green → `pk:checkpoint`) | **PR #81 merged; T-07 executed as three commits; the local API-suite environment died mid-day and is now DEBT-23** | `dfe018c` → merge `b4c2888`, `mergedAt` `2026-09-14T03:46:01Z`, head-sha assertion held at create; local `main` reconciled `--ff-only`, `dfe018c` asserted in its history. T-07: `a5fc654` `chore(api)` `HealthProbe` seam + 6 config cases → `4799856` `test(api)` red (**2 failed / 8 passed**, both "the bound is not being kept") → `a42070e` `feat(api)` race (ceiling `Task.Delay(bound, None)`, linked abort token, abandon-path fault observed via `ContinueWith`, `boundCts` deliberately undisposed while a probe lives on it, OCE-at-bound caught as a *verdict* with the request-abort filter); focused **10/0**, wiped-`obj/bin` build **0W/0E**. Full local suite dead in Testcontainers bootstrap across five variants (signature predates T-07; manual pg healthy) → **DEBT-23** opened, **DEBT-20** closed by the merge. Structure after edit: `^## ` count **8**, §4 `cmp`-identical to `HEAD`. Next: push `feat/t07-health-probe-bound`, open the PR, assert `headRefOid`; then §12 B–G. |
 | 2026-09-14 03:35 UTC | Assistant (`pk:sync` → `pk:commit` → `pk:checkpoint`) | **PromptKit engine sync landed; §3A regenerated; publication is next** | `pk:sync` audited the engine fresh from disk: 22 workflows / 4 protocols, submodule at `b3c5edf` (`v1.5.1-17`, the v1.6.0 line) vs the gitlink's `c7199c3` — 3 engine commits incl. the new `pk:refactor` workflow, which the re-run `init.sh --balanced` had already written into `AGENTS.md` (+2) and `PROMPTKIT.md` §0 (+9). `pk:commit` landed all three paths as `dd24590` (secret + probe scans clean on the staged diff; full gate re-executed first: `npm run verify` exit 0, 227/23, 61.23 kB gz, whole log read) with the required Maintenance classification — no intentional contract change, SemVer `none`. This `pk:checkpoint` then regenerated §3A's four live bullets, the §1 header, the DEBT-20 row, and §7 item 1 from live commands — the remote head measured at `d11ea6e` and asserted an ancestor of HEAD, so this branch now publishes by fast-forward, not `--force-with-lease` (the 17:06 record's conflicted-head claim expired). **One false claim was caught in this pass's own new prose and fixed before commit:** the regenerated In-flight bullet first named 8 of 10 commits — the count matched, the enumeration did not. Engine records untouched (checkpoint-001/handoff-001 stay canonical for task content). Next: `pk:pr` publish (owner-authorized 2026-09-14), then T-07. |
