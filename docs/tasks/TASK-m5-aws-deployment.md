@@ -239,8 +239,12 @@ which is how "no `aws` CLI on this machine" got caught two hours after it was wr
 `headRefOid` assertion held, and CI's native-Docker `verify-api` ran the full suite the local machine lost:
 **210 passed / 0 failed** (1 m 12 s). T-06 and T-07 — spec §6's only `Depends: —` items — are delivered. **§12 is answered
 (seven of seven, 2026-09-14 — see §"Blockers / Open"): T-01's exit criterion is met, and the next task is T-02** (L1,
-zone confirmation + both ACM certificates + DNS validation). It waits on two named facts, not on a decision — the zone's
-apex name (owner) and an `aws` CLI with working credentials on the machine that runs it (measured absent here).
+zone confirmation + both ACM certificates + DNS validation). What it waited on was written here as *two named facts, not
+a decision* — the zone's apex name (owner) and "an `aws` CLI with working credentials on the machine that runs it
+(measured absent here)". **That second fact was false and the first is now a read, not a question**: the CLI is a Windows
+binary reachable from WSL, the profile is named (`loey`), and `list-hosted-zones` returns the apex. One owner command
+(`aws login --profile loey`) then four reads stand between here and the certificates — see §"Blockers / Open" and the
+checklist below, which is the authoritative version as of 06:50 UTC.
 Provisioning itself stays behind `pk:ship` and human approval; Level 3 is unchanged.
 The decisions PR shipped: **#84 merged at `3e2f2fb` (`2026-09-14T06:07:46Z`)** — §12's answers are in `main`'s
 history, and the live contract for the next session is [`checkpoint-002`](./TASK-m5-aws-deployment.checkpoint-002.md)

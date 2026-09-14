@@ -669,7 +669,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
   B's zone apex name is still chat-only, and the `aws` CLI is measured absent here. Both became T-02's opening
   checklist; neither was guessed past. *(The second residual was wrong and is corrected at the boundary below: that read
   covered the Linux PATH only, and `aws-cli/2.36.44` is reachable from this WSL box through the Windows install. The
-  residuals that survive are the profile choice, a live browser-SSO session, and the apex name — readable once a session
+  residuals that survive are the profile choice **(answered — `loey`, 06:49 UTC)**, a live browser-SSO session **(measured
+  EXPIRED at 06:50 UTC — one `aws login` in the owner's terminal)**, and the apex name — readable once a session
   exists, which is why the checklist now leads with reads and not with an install.)* The answers are **in `main`'s history** now (PR #84 → `3e2f2fb`, merged
   06:07:46Z, `gh pr view` measured) — corrections to their wording carry forward from there, not from the branch.
   **Blocking (structural):** the record those answers should extend, `docs/aws-deployment.md`, carries **five stale rows**
