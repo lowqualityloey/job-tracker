@@ -86,9 +86,9 @@ Do not claim success without reporting what was verified.
 
 ### Commit discipline
 
-Ten rules, each earned by a failure that actually happened on this repository. **The count is the part that goes stale
+Eleven rules, each earned by a failure that actually happened on this repository. **The count is the part that goes stale
 on its own** — a rule was added today, and for one commit the header still said nine while the list carried ten — so
-re-derive it instead of remembering it: `awk '/^### Commit discipline/,/^CI \(/' AGENTS.md | grep -c '^- \*\*'` → **10**.
+re-derive it instead of remembering it: `awk '/^### Commit discipline/,/^CI \(/' AGENTS.md | grep -c '^- \*\*'` → **11**.
 
 - **Gate commits on verification.** Never chain `verify && commit` on one shell line without
   `set -e` — a failing `tsc` does not stop the commit that follows it. A commit was once made
@@ -145,6 +145,14 @@ re-derive it instead of remembering it: `awk '/^### Commit discipline/,/^CI \(/'
   single quotes. **The damage is invisible in `git log` unless you look for it**: the message still reads as fluent prose
   with a hole in the middle, which is why it survived the commit that carried it. Same family as the `pipefail` and
   grep-pattern rules above — **a tool that swallows stderr turns a loud failure into a quiet one.**
+- **Re-measure a PR's state in the same breath as the action that depends on it.** A PR-open claim has a shelf life of
+  **seconds**, not of the turn in which it happened to be measured. `gh pr view 87` returned `OPEN` at 07:39; #87 merged at
+  `07:39:56Z`, and the push at 07:48 landed five commits on a branch whose PR was already closed. That is the second
+  occurrence in 35 minutes — #86 merged while a push was in flight and stranded a commit that never reached `main`. So:
+  read `state` **and** `headRefOid` immediately before any push, merge, or claim that depends on them, assert
+  `headRefOid` again *after* the push, and never write a PR number into a document before the PR exists — measure, then
+  write, in that order. Recorded as DEBT-24, promoted on 2026-09-14 after #88 merged while its own body was still asking
+  whether to promote this rule, which is the recursion this list keeps attracting.
 
 CI (`.github/workflows/ci.yml`) now enforces the **code** half of this list — a commit made over typecheck
 errors can no longer reach `main` unflagged, and neither can a focused test or an orphaned CSS declaration.

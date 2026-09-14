@@ -86,6 +86,10 @@ Mirrored from `AGENTS.md` (canonical) — every rule below came from a failure o
 - **Never put backticks in `git commit -m`** — inside double quotes bash runs them as command substitutions and the
   message quietly loses the quoted text. Use `-F <file>` or single quotes. Earned 2026-09-11, when a commit recording a
   defect lost the exception names that were its evidence.
+- **Re-measure a PR's state in the same breath as the action that depends on it.** #86 and #87 both merged between the
+  `gh pr view → OPEN` read and the push that relied on it — 35 minutes apart, same cause. A PR-open claim lasts seconds,
+  not a turn: read `state` + `headRefOid` right before the push/merge, assert `headRefOid` again right after, and never
+  write a PR number into a doc before the PR exists (DEBT-24, promoted 2026-09-14).
 
 CI (`.github/workflows/ci.yml`) enforces the code half of this list via `npm run verify` on every PR —
 typecheck, eslint, stylelint, tests, build, plus a guard that the build emitted no `vite.config.js`
