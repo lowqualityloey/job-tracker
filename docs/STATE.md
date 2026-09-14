@@ -10,15 +10,13 @@
 - **Current Milestone / Epic**: **M4 — Authentication delivered and merged** (27-row ladder, 26 EXEC records, 16/17 ACs verified; AC-3 open on owner restrike-or-restate decision), **M5 — AWS Deployment in progress at Level 3** (deploy-readiness code merged PRs #77/#78; infra plan + first Dockerfile merged as PR #80 `80918be`; **the spec has since been rewritten from measurement and that rewrite is uncommitted**). M1 · M2a · M2b · M3 all delivered (**14/14 M3 ACs verified**).
 - **Overall Status**: ACTIVE <!-- ACTIVE | PAUSED | STABILIZING | RELEASE_CANDIDATE -->
 - **Target Release / Deadline**: none. No version tag, no remote release, no deadline. `v0.2.0` in `package.json` is nominal only.
-- **Current Working Branch**: `docs/state-m5-deploy-readiness-merged` @ `dd24590` (measured 2026-09-14 03:35 UTC;
-  `origin/main` = `80918be`, PR #80 **merged** 04:40:56Z). HEAD is **ten commits** above `origin/main` — the eight-rung
-  ladder (`c8bd912`…`18ae35f`) plus `d11ea6e` (STATE sync) and `dd24590` (PromptKit engine sync, not a ladder task). The
-  remote branch head already holds the first nine (`d11ea6e`, `ls-remote` == local, an ancestor of HEAD — DEBT-20's
-  conflicted-head half is resolved), so publishing takes a plain fast-forward push; this document's own commit lands
-  **eleventh** and last, because §3/§5/§7 are projections.
-  **0 open PRs** (`gh pr list --state open` → `[]`); the PR URL is recorded at the next checkpoint, not asserted here before
-  it exists. Working tree is **clean** apart from untracked `.m5-parts/` (28 files, 212 KB, deliberately visible — DEBT-21).
-  Local `main` (`7b3bc37`) remains an **ancestor** of `origin/main` — fast-forwardable, not diverged; reconcile pending.
+- **Current Working Branch**: `feat/t07-health-probe-bound` @ `a42070e` (measured 2026-09-14 05:05 UTC;
+  `origin/main` = `main` = `b4c2888`, the merge of **PR #81** (`dfe018c`, `mergedAt` 03:46:01Z), local `main`
+  reconciled by `--ff-only` with `dfe018c` asserted in its history. This branch sits **three commits** ahead of
+  `main` — `a5fc654` `chore(api)` seam, `4799856` `test(api)` red, `a42070e` `feat(api)` green (T-07) — and
+  **not yet pushed**. **0 open PRs** (`gh pr list --state open` → `[]`); the T-07 PR URL is recorded at the next
+  checkpoint, not asserted here before it exists. Working tree is **clean** apart from this checkpoint's docs
+  edits and untracked `.m5-parts/` (28 files, 212 KB, deliberately visible — DEBT-21).
 - **Last Updated**: 2026-09-13 17:06 UTC (`pk:checkpoint` → [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) ·
   [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md)). Nothing was committed, pushed, tagged, released or deployed
   this session. Verification re-executed here: **`npm run verify` exit 0** (227 tests / 23 files, 61.23 kB gz, build 1.38 s)
@@ -35,6 +33,14 @@
   re-executed at exit 0 on that tree, and this `pk:checkpoint` regenerated §3A's live bullets, the §1 header, and the
   DEBT-20 row from the commands quoted there. The T-06/T-07 task content and both M5 records above stand; their branch
   and publication claims were superseded by measurement, not by recollection.
+- **Last Updated (2026-09-14 05:05 UTC, T-07 boundary, post-merge)**: PR #81 **merged** — the ten-commit ladder,
+  the engine sync and both M5 records are on `origin/main` (`b4c2888`), and DEBT-20 is closed by measurement.
+  **T-07 is executed**: seam → red → green as three commits on `feat/t07-health-probe-bound` (focused `--filter
+  HealthProbeBoundTests` **10/0**, 199 ms; wiped-`obj/bin` `TreatWarningsAsErrors` build **0W/0E**). The full API
+  suite could **not** be re-run green on this machine: nested-Docker Testcontainers bootstrap now fails in every
+  variant tried — **DEBT-23** — so CI's `api` job carries the full-suite verdict for this PR, and the task record
+  says so out loud rather than quoting the 01:16 run as if it were current. Next: publish the branch, human
+  reviews and merges, then the owner's §12 B–G.
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -52,9 +58,10 @@
 - [/] **M3 — Backend**: ASP.NET Core Web API, PostgreSQL 18.6, replace the localStorage adapter over HTTP (**Level 2**). Spec **approved** (PR #7) · Task Record **decomposed** (PR #8, `planned`, AC-1…AC-14, `BEHAVIOR-…-026…043`)  · `pk:grill` **done** (12 findings, 4 amendments, PR #9) · `pk:test` **done** (20 intents, mode reconciled, PR #10) · **Slices 0–2a DONE/in review, 2b next** (toolchain + read paths: 2 endpoints, the `applications` table, `revision`/xmin, 10 API tests; PR #11 merged, #12 in review) · next: **Slice 2** (commands), still gated on F-1's shared fixture — **behaviour-complete, 14/14 ACs verified, §6 evidence complete; awaiting the owner's spec §7 sign-off**
 - [x] **M4 — Authentication** (**Level 2**: `pk:auth`) — **spec approved by the merge of PR #34 (`fa4ed7d`); task record [`TASK-m4-authentication`](tasks/TASK-m4-authentication.md) created: 17 ACs (**13 verified: AC-1, 2, 4, 5, 6, 7, 8, 9, 10, 13, 15, 16, 17**), 23 behaviours `-047`…`-069` (**21 executed: `-047`…`-062`, `-066`, `-067`, `-068`, `-069` (21 EXEC records; `-067` is half — Browser seam open)** (gate run early — §5 amendment; `-053` row restated — no problem body here is ever byte-identical) — data routes now 401 anonymously — the ladder is running, PR #38 merged `518f5dd`, #39 merged `006a9b2`) (`-066`/`-067` appended by the grill), the **test plan written** (`pk:test`: 21-row intent register, seam/mock allocation, 2 named blockers), and **grilling done** (PR #35 merged `459d087` authorised it; `[`docs/reviews/2026-09-12-m4-plan-grill.md`](reviews/2026-09-12-m4-plan-grill.md)`, Q1–Q9 — **`DECISION-003` REVERSED** after `Microsoft.Extensions.Identity.Core.dll` was found in the shared framework and the "3 dependencies" premise exposed as an npm count applied to backend code; `002` narrowed to stores; `001`'s "impossible" corrected to "expensive"; `2.4`/AC-3 restated to drop an unmeasured timing bound; and Q4 found that M3's own harness topology is **cross-site**, which would have failed AC-12 for a non-product reason), test plan now written; **ladder still `Pending`**.** **M4 must precede any public exposure of this API** (spec §7 ordering constraint, carried from M3). Its credential format is set by an API fact, not a preference: **`EventSource` cannot send an `Authorization` header**, so M3's own SSE design dictates a cookie session (`DECISION-001`) and therefore CSRF work (`006`). Gap 12's malformed-`id` 500 is assigned here (AC-8).
 - [/] **M5 — AWS Deployment** (**Level 3**: `pk:ship` + human approval) — **deploy-readiness code merged (PRs #77/#78);
-  infra plan + first Dockerfile merged (PR #80, `09bf9b5` → `80918be`); spec rewritten from measurement and that rewrite is
-  UNCOMMITTED.** Open: **T-01…T-17** (spec §6), of which **T-06 is done (2026-09-14, uncommitted) and T-07 is the last code
-  task startable without an owner answer**, and **six of the seven
+  infra plan + first Dockerfile merged (PR #80, `09bf9b5` → `80918be`); the measured spec rewrite, both M5 records
+  and **T-06 are merged in PR #81** (`dfe018c` → `b4c2888`, 2026-09-14 03:46:01Z); **T-07 is executed, committed,
+  not yet published** (`a5fc654` → `4799856` → `a42070e` on `feat/t07-health-probe-bound`). Open: **T-01…T-17**
+  (spec §6): **T-06 and T-07 — the only `Depends: —` code tasks — are done**, and **six of the seven
   §12 owner decisions block everything else**. State: `handoff_ready`. Decision record: `docs/aws-deployment.md` *(exists
   since `a65f430`, **five rows stale per spec §11**)* · Spec: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` ·
   Task: [`docs/tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) ·
@@ -65,7 +72,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 ### Active Task Breakdown
 
 - [ ] `TASK-m5-aws-deployment` — **`handoff_ready`** (Level 3). Spec §6 carries the decomposition: **T-01 done and
-  clean-room re-proven**, **T-06 done (2026-09-14, uncommitted) and T-07 startable now with no owner input**, **T-02…T-05 blocked on spec §12 B–G**,
+  clean-room re-proven**, **T-06 merged (PR #81) and T-07 committed (`a42070e`, awaiting its PR)**, **T-02…T-05 blocked on spec §12 B–G**,
   **T-08…T-17 open**. Record: [`tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) ·
   Evidence: [`checkpoint-001`](tasks/TASK-m5-aws-deployment.checkpoint-001.md) · [`handoff-001`](tasks/TASK-m5-aws-deployment.handoff-001.md)
 - [x] `TASK-m4-authentication` — 27-row ladder, 26 executed and merged, closed at `71fcb3b`; **AC-3** (owner-side browser
@@ -81,7 +88,7 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 - [x] `TASK-m2b-filters-cross-tab`: status chips + cross-field search + `StorageEvent` reconciliation + fail-closed mid-session version gate — **complete, PR #3 open**
 - [x] `DEBT-03 — lint + CI bootstrap`: eslint 9 + stylelint 17 + GitHub Actions + `npm run verify` — **MERGED as PR #4 (`68db873`)**. No spec or task record — a single-concern `pk:fix`; its canonical statement is the DEBT-03 row in §5 and the reasons written inside `eslint.config.js` / `stylelint.config.js`
 
-- [ ] `TASK-m5-aws-deployment` — **`handoff_ready`**, Level 3. Decomposed into **T-01…T-17** in spec §6 (the earlier "not yet authored" claim was stale on both sides of that sentence: M4's 27-row ladder was never decomposed into task files either, it lived in the spec). **T-01 executed and re-proven clean-room; T-06 executed (uncommitted) and T-07 startable now; T-02…T-05 blocked on §12 B–G; T-17 is this handoff.** Record: [`tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md)
+**T-01 executed and re-proven clean-room; T-06 and T-07 executed (T-07 awaits its PR); T-02…T-05 blocked on §12 B–G; T-17 is this handoff.**
 
 ---
 
@@ -89,16 +96,16 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 
 - **Target Workspace / Package**: N/A — standalone repository, no workspaces
 - **Active RFC / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` (Level 3). **Its first edition was merged in
-  PR #80; the version in the working tree is a rewrite of +1,255 / −74 lines that is uncommitted and not yet reviewed**, so
-  "approved and merged" must not be read as true of what is on disk today. §12's seven owner decisions are **open**.
+PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** (`dfe018c` → `b4c2888`), so
+"approved and merged" is again true of what is on disk today. §12's seven owner decisions are **open**.
 - **Active Task Spec**: [`docs/tasks/TASK-m5-aws-deployment.md`](tasks/TASK-m5-aws-deployment.md) — `handoff_ready`,
   reconciled against the spec on 2026-09-13 (branch, state, decision IDs, AC-1, blockers and next action were all stale).
   This is the pointer §3A holds; the two lines used to disagree, which is why the pointer now appears in both places.
-- **Key Source Files in Flight** (measured with `git status --porcelain`, 2026-09-13 17:06 UTC): **modified** —
-  `api/Dockerfile` (restore + port contract, re-proven with `--no-cache-filter build`), `docs/specs/…m5-aws-deployment.md`,
-  `docs/tasks/TASK-m5-aws-deployment.md`, `.promptkit` (gitlink `9ef20b8 → c7199c3`); **untracked** — `api/.dockerignore`,
-  `.m5-parts/` (28 files, 212 KB: the spec-assembly harness, deliberately *not* gitignored — see checkpoint §10), and the
-  two new M5 records. **Committed and merged already**: `docs/releases/m5-aws-deployment.md`, `docs/m5-infra-plan.md`.
+- **Key Source Files in Flight** (measured with `git status --porcelain`, 2026-09-14 05:05 UTC): **nothing dirty
+  but this checkpoint's docs edits** — the whole 09-13/09-14 working set (`api/Dockerfile`, `api/.dockerignore`,
+  the spec rewrite, both M5 records, the `.promptkit` gitlink) is committed and **merged** in PR #81; T-07's code
+  is committed (`HealthProbe.cs`, `HealthProbeBoundTests.cs`, `Program.cs` across `a5fc654`/`4799856`/`a42070e`).
+  **Untracked**: `.m5-parts/` (28 files, 212 KB, deliberately *not* gitignored — DEBT-21).
 - **Verification Commands (correct for this repo)**:
   - Frontend typecheck: `npx tsc -p tsconfig.app.json --noEmit` *(no `typecheck` script; do **not** use bare `npx tsc -b` — see DEBT-11)*
   - Frontend tests: `npm run test:run` · Build: `npm run build` · Dev: `npm run dev`
@@ -149,42 +156,39 @@ Legend: `[x]` Done · `[/]` In Progress · `[ ]` Queued · `[!]` Blocked
 > bullets again.** The ladder finished running and the tree was committed while the bullets below still described it as intent,
 > so they were regenerated from the commands quoted in each one; the archive under the ⛔ marker stays untouched and the live/false
 > boundary stays the 09-13 line.
+>
+> **Amendment pass, 2026-09-14 05:05 UTC (T-07 boundary, post-merge) — the same four live bullets, regenerated
+> again.** The events since 03:35: PR #81 was published and **merged** (`dfe018c` → `b4c2888`), local `main` was
+> reconciled, T-07 ran its Red → Green in three commits, and the local full-suite environment **degraded mid-day**
+> (DEBT-23 — the identical failure signature exists at the seam-only commit, so it predates any T-07 behaviour).
+> Archive under the ⛔ marker untouched; structure verified *after* the edit: `grep -c '^## '` → **8**, §4
+> **byte-identical to `HEAD`**.
 
-- **Active Task (live)**: [`TASK-m5-aws-deployment`](tasks/TASK-m5-aws-deployment.md) — **`handoff_ready`**, pointer held
-  here. **Level 3**, `pk:ship` + human authorization. M4 is delivered (§2 shows `[x]`); its own pointer was never released,
-  which is the failure this bullet exists to prevent repeating. Task Record reconciled against spec §2/§6/§12 today — the
-  `D-M5-*` ID collision (four in the record, nine in the spec, two of them re-meaning'd) was removed by deferring to spec §2.
-- **In flight (live)**: **the commit ladder has run and is committed.** Ten commits sit on
-  `docs/state-m5-deploy-readiness-merged` above `origin/main` (`80918be`, PR #80 merged 04:40:56Z) — `87c2ba2`
-  `fix(api)` Dockerfile + `.dockerignore` · `165e61f` `docs(spec)` measured rewrite · `9d48e7f` `chore(promptkit)`
-  gitlink `9ef20b8 → c7199c3` · `67e5d32` `chore(api)` SSE config seam · `41183bb` `test(api)` red · `18ae35f`
-  `feat(api)` the beat · `c8bd912` `docs(release)` M5 release checklist · `da04ee4` `docs(state)` sync ·
-  `dd24590` `chore(promptkit)` engine `c7199c3 → b3c5edf`
-  + directive re-sync (not a ladder task; it carries the v1.6.0 `pk:refactor` workflow) · `d11ea6e` `docs(state)` sync —
-  and this document's own commit lands **eleventh**, last because §3/§5/§7 are projections. The conflicted remote head
-  this bullet described on 2026-09-13 is
-  **gone**: `git ls-remote` reads `d11ea6e`, an ancestor of HEAD (asserted, not inferred), so publishing is a plain
-  fast-forward push — `--force-with-lease` is no longer the operation this branch needs. After `pk:pr`:
-  `gh pr view --json headRefOid` must equal `git rev-parse HEAD`. The PR URL is recorded at the next checkpoint, not
+- **Active Task (live)**: [`TASK-m5-aws-deployment`](tasks/TASK-m5-aws-deployment.md) — **`handoff_ready`**, pointer
+  held here. **Level 3** for anything infra (`pk:ship` + human authorization); its two unblocked code tasks are both
+  executed — **T-06 merged in PR #81**, **T-07 committed** (`a5fc654` seam → `4799856` red → `a42070e` green). The
+  record's T-07 section carries the evidence table, the three findings that changed the code, and the honest
+  full-suite caveat; its Blockers section now reads *publishing hazard: retired*.
+- **In flight (live)**: the **three-commit T-07 branch, not yet pushed**. `main` = `origin/main` = `b4c2888`; the
+  ten-commit ladder and the engine sync crossed into it with PR #81 (`mergedAt` 2026-09-14T03:46:01Z), and the
+  conflicted-remote-head machinery of the 03:35 bullet is dead history. This checkpoint's docs commit lands as the
+  branch's **fourth**; publication is `git push -u origin feat/t07-health-probe-bound` → `gh pr create` → assert
+  `gh pr view --json headRefOid` == `git rev-parse HEAD`. The PR URL is recorded at the next checkpoint, not
   asserted here before it exists.
-- **Exactly one next action (live)**: **publish the branch** — `pk:pr` per `AGENTS.md` §Branch & PR (the owner authorized
-  publication on 2026-09-14; the ladder and `dd24590` have been sitting on a branch whose remote already holds nine of the
-  ten). **Then T-07 — R-4.4, bound the health endpoint** so `/api/health` returns **503 inside a configured window** against
-  a datasource whose `CanConnectAsync` never returns. Ceremony **L1**, code-only, `Depends: —`; spec §6's ordering note
-  pairs it with T-06 as the two items that "can start immediately" — the label "browser live-contract gate" this bullet
-  once carried for T-07 was corrected on 2026-09-13 from the §6 table, and the gap it gestures at stays unowned and
-  un-renamed. **T-06 is done and committed** (`18ae35f` over the seam `67e5d32` and the red tests `41183bb`) — see
-  [`TASK-m5-aws-deployment` §"T-06 executed"](tasks/TASK-m5-aws-deployment.md) for the Red/Green evidence and the two measured
-  findings (`Task.WhenAny` cannot separate an elapsed interval from a cancelled one; `TestServer` never delivers a client
-  hangup, so disconnects must be played through `IHttpRequestLifetimeFeature.Abort()`).
-- **Verification (live, re-executed at this boundary)**: `npm run verify` → **exit 0** (227 tests / 23 files,
-  `61.23 kB gz`), re-run 2026-09-14 on the post-ladder tree — no `src/` file changed in it, so this is the frontend gate
-  covering the docs/engine diff, not new product evidence · `dotnet test api/tests/JobTracker.Api.Tests` → **0 failed /
-  200 passed** (exit 0, 1 m 44 s) and `dotnet build api/JobTracker.slnx -p:TreatWarningsAsErrors=true` → **0 warnings /
-  0 errors**, both measured 2026-09-14 at the T-06 commits and **not re-run here** — this session changed no `api/` file,
-  and re-quoting an unchanged run would be history dressed as evidence · `docker build --no-cache-filter
-  build -f api/Dockerfile api` → exit 0, `sha256:ed0d92c0…`, zero `NU1015` (2026-09-13; the *incremental* build's exit code was
-  **not** citable evidence, restore step `CACHED`).
+- **Exactly one next action (live)**: **publish the T-07 branch** (owner authorization to publish is standing from
+  2026-09-14; review and merge are the human's). CI's `api` job is now the **first full-suite run of this suite that
+  can be green** — the local nested-Docker environment cannot bootstrap Testcontainers in any of five variants tried
+  (DEBT-23). **After the merge: the owner's §12 B–G.** Every remaining §6 task needs a provisioned platform or one of
+  those six answers; T-06 and T-07 were the spec's last `Depends: —` items, so there is no next code task to start.
+- **Verification (live, re-executed at this boundary)**: T-07 focused — `dotnet test api/tests/JobTracker.Api.Tests
+  --filter HealthProbeBoundTests` inside `dotnet/sdk:10.0` → **10 passed / 0 failed** (199 ms); CI parity — fresh
+  `obj/bin`, `dotnet build api/JobTracker.slnx -p:TreatWarningsAsErrors=true` → **0 warnings / 0 errors**. **Full
+  local API suite: not green, and the cause is the machine, not the code** — five nested-Docker invocations all died
+  in Testcontainers bootstrap (`ResourceReaperException : Initialization has been cancelled.`; logs
+  `/tmp/t07-full-1..5.log`); the signature reproduces at the seam-only commit `a5fc654`, and a manual
+  `postgres:18.6` publishes and answers TCP in ~5 s, so the daemon is healthy around a broken nested client. The
+  01:16 UTC **200/200** stands as that machine's *earlier* state, deliberately not re-quoted as current evidence.
+  `npm run verify` not re-run (no `src/` file changed this session).
 
 > ⛔ **ARCHIVE — everything below this line is the 2026-09-12 M4-era projection, kept as evidence, not as current state.**
 > Do not read its branch names, PR numbers, AC counts or "next action" as live; the live set is the four bullets above.
@@ -650,9 +654,10 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | DEBT-16 | P3 | **`reload.test.tsx` does not unmount; it wipes the DOM.** `unmountAll()` sets `document.body.innerHTML = ''`, which the file's own comment admits is a "simple stand-in". The React root stays mounted, so the second `mount()` runs with the first tree alive — and since M2b every mounted provider subscribes to `storage`. No test in that file dispatches a storage event, so nothing is wrong today; the first person who adds one there will get two live providers answering and a confusing failure | `src/state/reload.test.tsx:71-75`; RTL exposes `unmount()` on the render result, which is unused | `pk:test` — replace with `const { unmount } = mount(); … unmount()`; pair with the `pk:test` seam plan |
 | DEBT-14 | — | **[CLOSED]** ✅ **CLOSED by merge.** `.promptkit` sits at `a1eb608` (`v1.1.1-11-ga1eb608`, clean, detached HEAD as expected) `23ceefd` landed `.gitmodules` and the `160000` gitlink for `a1eb608` in one commit; both are now on `origin/main` (verified `git ls-tree HEAD .promptkit`). The entry pins no branch — acceptable for a read-only tooling submodule, since the gitlink is the pin | `git submodule status`; `.gitmodules` | `pk:commit` → done in `23ceefd` |
 
-| DEBT-20 | P1 | **M5's whole verified payload is unpushed, and the branch's remote head is conflicted.** HEAD `da04ee4` carries two commits above `origin/main` that are in **no pull request**, while `origin/docs/state-m5-deploy-readiness-merged` holds the same two messages under different SHAs | `git log --oneline origin/main..HEAD`; `gh pr list --state open` → `[]`; `gh pr view 80 --json state,mergedAt,headRefOid` — all measured 2026-09-13 17:06 UTC | `pk:pr`: run the four-commit ladder (the ladder table in handoff-001), publish with `--force-with-lease`, then assert `gh pr view --json headRefOid` == `git rev-parse HEAD`. **Corrected by measurement 2026-09-14 03:35 UTC: the conflicted-head half is resolved** — the ladder ran, `git ls-remote` reads `d11ea6e` (asserted an ancestor of HEAD `dd24590`), so publishing is a plain fast-forward push. **The row stays open for its other half: ten commits, no PR** (`gh pr list --state open` → `[]`) |
+| DEBT-20 | P1 | **M5's whole verified payload is unpushed, and the branch's remote head is conflicted.** HEAD `da04ee4` carries two commits above `origin/main` that are in **no pull request**, while `origin/docs/state-m5-deploy-readiness-merged` holds the same two messages under different SHAs | `git log --oneline origin/main..HEAD`; `gh pr list --state open` → `[]`; `gh pr view 80 --json state,mergedAt,headRefOid` — all measured 2026-09-13 17:06 UTC | `pk:pr`: run the four-commit ladder (the ladder table in handoff-001), publish with `--force-with-lease`, then assert `gh pr view --json headRefOid` == `git rev-parse HEAD`. **Corrected by measurement 2026-09-14 03:35 UTC: the conflicted-head half is resolved** — the ladder ran, `git ls-remote` reads `d11ea6e` (asserted an ancestor of HEAD `dd24590`), so publishing is a plain fast-forward push. **The row stays open for its other half: ten commits, no PR** (`gh pr list --state open` → `[]`). **CLOSED 2026-09-14 05:05 UTC**: the ladder published and **PR #81 merged** (`dfe018c` → `b4c2888`, `gh pr view 81 --json state` → `MERGED`); the whole payload is on `origin/main` and the post-create `headRefOid` assertion held |
 | DEBT-21 | P3 | **`.m5-parts/` is untracked and deliberately *not* gitignored** — 28 files / 212 KB of throwaway spec-assembly harness, one `git add -A` away from the committed record, and the spec's §12 table cites two of its files as provenance | `find .m5-parts -type f \| wc -l` → 28 · `du -sh .m5-parts` → 212K · `git check-ignore` → exit 1 | Keep it visible (an ignored artifact is an invisible one); delete after commit 2 of the ladder. Decision: checkpoint §10 |
 | DEBT-22 | P2 | **`docs/aws-deployment.md` went from phantom to stale-and-authoritative.** M4 cited it six times while it did not exist (`-074`); it was created in `a65f430`, and five of its rows are now superseded (region, compute, deploy path, CDN, data-plane token) while it is *still* the cited decision record | spec §11's row-by-row table · `git log --all --diff-filter=A -- docs/aws-deployment.md` → `a65f430` | **T-15** (`pk:fix`) — correct or explicitly scope-mark each row and make `docs/m5-infra-plan.md` the sole live source; this row's closure is that repair |
+| DEBT-23 | P2 | **The local full API suite cannot bootstrap Testcontainers in this nested-Docker session.** Five variants (bridge; `--network=host`; Ryuk on/off; `TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1`) all fail in fixture setup: `ResourceReaperException : Initialization has been cancelled.` (10 m 19 s; 187 failed / 23 passed) or, with Ryuk disabled, `Npgsql … Connection refused` against published ports whose containers were still starting. The identical signature at the **seam-only** commit `a5fc654` proves the breakage predates any T-07 behaviour; a manual `postgres:18.6` publishes and answers TCP in ~5 s, so the daemon itself is healthy around a nested client that is not | `which dotnet` → absent (nested runs are the only local option); `/tmp/t07-full-1..5.log`; focused `--filter HealthProbeBoundTests` → **10/0** (needs no containers); same machine ran the identical suite **200/200** at 01:16 UTC the same day | Recover a nested recipe (candidates: `TESTCONTAINERS_REUSE_ENABLE`, Docker host-routing, or a host `dotnet` install) — until then **API-suite green is a CI-only claim and every PR must say so**; T-07's record table already does |
 
 ---
 
@@ -696,6 +701,10 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
     T-06's Red/Green/seam commits landed, `dd24590` synced the PromptKit engine (v1.6.0 line), and publication itself
     (`pk:pr` + fast-forward push + `headRefOid` assertion) is the single next action, ahead of T-07. See §3A's live
     "exactly one next action" bullet; §7 is not maintained in parallel with it.
+   **Update, 2026-09-14 05:05 UTC (T-07 boundary):** both halves of item 1 are now *history* — publication executed
+   (PR #81 merged at `b4c2888`, DEBT-20 closed) and T-07 followed immediately (seam → red → green, focused 10/10,
+   CI-parity build clean). The single next action is publishing **this** branch; §3A's live bullet owns that sentence
+   and §7 does not compete with it. The full-suite verdict rides on CI while DEBT-23 stands.
 2. **Agent, on merge** *(superseded by item 1 on 2026-09-12 — M3 shipped as PRs #5–#30 and M4 is 21 slices in; the* ***reconcile-and-verify-before-starting-the-next-phase*** *duty in this item still stands)*: reconcile (`git checkout main && git pull --ff-only`, then confirm the PR's head is the
    tip you pushed), and only then start **M5 — AWS Deployment** at **Level 3**: `pk:plan` + `pk:ship` first
    (domain model, API envelope, the four open architectural questions in §5 that M2a already answered three of),
@@ -721,6 +730,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-14 05:05 UTC | Assistant (`pk:pr` → human merge → T-07 L1: Red → Green → `pk:checkpoint`) | **PR #81 merged; T-07 executed as three commits; the local API-suite environment died mid-day and is now DEBT-23** | `dfe018c` → merge `b4c2888`, `mergedAt` `2026-09-14T03:46:01Z`, head-sha assertion held at create; local `main` reconciled `--ff-only`, `dfe018c` asserted in its history. T-07: `a5fc654` `chore(api)` `HealthProbe` seam + 6 config cases → `4799856` `test(api)` red (**2 failed / 8 passed**, both "the bound is not being kept") → `a42070e` `feat(api)` race (ceiling `Task.Delay(bound, None)`, linked abort token, abandon-path fault observed via `ContinueWith`, `boundCts` deliberately undisposed while a probe lives on it, OCE-at-bound caught as a *verdict* with the request-abort filter); focused **10/0**, wiped-`obj/bin` build **0W/0E**. Full local suite dead in Testcontainers bootstrap across five variants (signature predates T-07; manual pg healthy) → **DEBT-23** opened, **DEBT-20** closed by the merge. Structure after edit: `^## ` count **8**, §4 `cmp`-identical to `HEAD`. Next: push `feat/t07-health-probe-bound`, open the PR, assert `headRefOid`; then §12 B–G. |
 | 2026-09-14 03:35 UTC | Assistant (`pk:sync` → `pk:commit` → `pk:checkpoint`) | **PromptKit engine sync landed; §3A regenerated; publication is next** | `pk:sync` audited the engine fresh from disk: 22 workflows / 4 protocols, submodule at `b3c5edf` (`v1.5.1-17`, the v1.6.0 line) vs the gitlink's `c7199c3` — 3 engine commits incl. the new `pk:refactor` workflow, which the re-run `init.sh --balanced` had already written into `AGENTS.md` (+2) and `PROMPTKIT.md` §0 (+9). `pk:commit` landed all three paths as `dd24590` (secret + probe scans clean on the staged diff; full gate re-executed first: `npm run verify` exit 0, 227/23, 61.23 kB gz, whole log read) with the required Maintenance classification — no intentional contract change, SemVer `none`. This `pk:checkpoint` then regenerated §3A's four live bullets, the §1 header, the DEBT-20 row, and §7 item 1 from live commands — the remote head measured at `d11ea6e` and asserted an ancestor of HEAD, so this branch now publishes by fast-forward, not `--force-with-lease` (the 17:06 record's conflicted-head claim expired). **One false claim was caught in this pass's own new prose and fixed before commit:** the regenerated In-flight bullet first named 8 of 10 commits — the count matched, the enumeration did not. Engine records untouched (checkpoint-001/handoff-001 stay canonical for task content). Next: `pk:pr` publish (owner-authorized 2026-09-14), then T-07. |
 | 2026-09-14 01:20 UTC | Assistant (`T-06`, ceremony L1) | **M5's first code task executed: the SSE keep-alive heartbeat. Red → Green, nothing committed.** | `ApplicationCatalog.cs` **+101 / −8**: every `GET /api/applications/events` stream now writes a comment frame `: keep-alive\n\n` on `Sse:KeepAliveSeconds`, default **20 s**, absent/unparseable/≤0 all falling back to the default; the wait for the next owner-scoped change and the wait for the next beat share one `Task.WhenAny`. New `EventStreamKeepAliveTests.cs` (**652 lines, 8 cases**): frames *counted* rather than substring-searched, ≥12 frames in a 900 ms window at a 50 ms interval, exactly one `event: change` for a right-owner write *while beats keep arriving*, foreign-owner silence with its own liveness control, disconnect stops the writes, and the shipped interval pinned against §4.3's proxy ceilings. **Two findings that changed the code, both measured:** (1) `Task.WhenAny` cannot distinguish an elapsed `Task.Delay` from a cancelled one, so the reference comparison that looked like the tidy choice hot-loops a heartbeat on every disconnect — the loop must await the delay; (2) **`TestServer` does not deliver a client hangup**: neither cancelling the response-stream read nor cancelling the token handed to `SendAsync` fired `HttpContext.RequestAborted` inside 5 s, so disconnect is played through `IHttpRequestLifetimeFeature.Abort()` behind an `IStartupFilter` probe, and what the test proves is narrower than what this file's first draft claimed. Evidence: Red **4 failed / 4 passed**, Green `~EventStream` **16/16**, full API suite **0 failed / 200 passed** (1 m 44 s), CI-parity `dotnet build -p:TreatWarningsAsErrors=true` **0 warnings / 0 errors** — logs in `/tmp` (perishable), counts in [`TASK-m5-aws-deployment` §"T-06 executed"](tasks/TASK-m5-aws-deployment.md). **A live mislabel corrected while updating §7:** this file called T-07 "the browser live-contract gate, the evidence AC-9 has asked for since M3"; spec §6's T-07 is the **health-endpoint bound (R-4.4)**, and no M5 task owns a browser gate — recorded as a gap rather than repaired by renaming. §4 verified byte-identical to `HEAD` after the projection edits. Boundary held: **no commit, no push, no PR, no AWS.** Next: **T-07**. |
 | 2026-09-12 15:55 UTC | Assistant (`pk:checkpoint`) | **M4 boundary: `-066`…`-069`, and §3A regenerated whole.** Four
