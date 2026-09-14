@@ -2,7 +2,7 @@
 
 - **Task ID**: `TASK-2026-09-13-m5-aws-deployment`
 - **Milestone**: M5 — AWS Deployment (Level 3, `pk:ship` + human approval)
-- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`; **DEBT-27 closed 15:14:36Z by #92's measured merge (`09b4e0d`)**, and the pass continues with **T-03's paper design** ([`docs/specs/2026-09-14-spec-m5-t03-network.md`](../specs/2026-09-14-spec-m5-t03-network.md)) — design only, because **I-A1-5 still forbids executing it**. And **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
+- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`; **DEBT-27 closed 15:14:36Z by #92's measured merge (`09b4e0d`)**, T-03's paper design written, its §11 filled by the pass that retracted §0's uncited claim, and **the paper half MERGED 18:33:25Z in #93 (`8a10b69`)** — design only, because **I-A1-5 still forbids executing it**, and the queue is now wholly the owner's: **O-1…O-4** before T-03's execution and everything downstream. And **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
   merged (PR #85 → `3121b2d`, `2026-09-14T06:23:49Z`), and the owner's instruction resumed this task at **T-02**, whose
   step 0 executed at 06:31 UTC and **retracted one of this record's own premises**: the `aws` CLI is not absent on this
   machine, it is a Windows binary reachable from WSL (§"Blockers / Open"). The 2026-09-13 stop state ("no commits, no PR,
@@ -10,7 +10,7 @@
   and what remains is spec §6 **T-02…T-17**, gated on three named owner facts — not on any decision, and not on any
   installation.
 - **Owner / Actor**: Assistant (agent)
-- **Branch**: task work lands per-PR on `main`. **Re-measured at 15:20 UTC**: `gh pr view 92` → `MERGED 2026-09-14T15:14:36Z`, merge `09b4e0d`, `merge-base --is-ancestor ed1ed5f main` → **YES**, and `git diff --stat 9f14671..HEAD` → three paths, +290/−80, all under `docs/`. Current work sits on **`docs/m5-t03-network-design`**, cut from `09b4e0d`. **Earlier this boundary: `gh pr view 91` → `MERGED` at
+- **Branch**: task work lands per-PR on `main`. **Re-measured at 15:20 UTC**: `gh pr view 92` → `MERGED 2026-09-14T15:14:36Z`, merge `09b4e0d`, `merge-base --is-ancestor ed1ed5f main` → **YES**, and `git diff --stat 9f14671..HEAD` → three paths, +290/−80, all under `docs/`. **Re-measured at 18:40 UTC**: `gh pr view 93` → **MERGED 2026-09-14T18:33:25Z**, merge `8a10b69`, `merge-base --is-ancestor 7f107ee origin/main` → **YES**; `main` reconciled by `--ff-only`; the boundary sync now sits on **`docs/state-m5-t03-merged`**, cut from `8a10b69`. (Earlier, and now merged: work sat on **`docs/m5-t03-network-design`**, cut from `09b4e0d`.) **Earlier this boundary: `gh pr view 91` → `MERGED` at
   `2026-09-14T14:24:13Z`, merge commit `9f14671`, and `git merge-base --is-ancestor 9f14671 HEAD` → **YES** on the branch carrying this
   edit — so `checkpoint-003` and its projection sync are in `main`'s history, not merely pushed. `main` = `origin/main` at that SHA after
   `git pull --ff-only`; `git status --porcelain` shows only the pre-existing `.m5-parts/` (DEBT-21). **Current work sits on
@@ -606,3 +606,24 @@ The pass also grep-verified that the parent §12 D's `~$0.01105/hr` and `~$32/mo
 executes when **O-1…O-4** clear: H-B before-or-after, root-vs-scoped identity, flow logs, and the three console
 numbers. There is no agent-side task behind it that touches a platform: T-04 and T-05 depend on T-03 being provisioned,
 so the queue belongs to the owner until those four answers arrive.
+
+## T-03 paper merged — #93 (`8a10b69`, 18:33:25Z) — and the race that merge lost to rule eleven
+
+**Merged as measured:** `gh pr view 93` → `MERGED 2026-09-14T18:33:25Z`, merge commit `8a10b69`;
+`merge-base --is-ancestor 7f107ee origin/main` → **YES** — all four ladder commits (engine v1.7.0 sync; design
+spec + §6's link; this record; the 18:35 projection) are on `main`. The task stays `in_progress` because T-03's
+*execution* and T-04…T-17 remain, gated on **I-A1-5** and **O-1…O-4**.
+
+**The race, recorded because AGENTS.md's rule eleven is a list of failures and this is its newest entry.** The head
+assertion ran at *create* — `OPEN`, head `7f107ee` equal to `git rev-parse HEAD`, both true at read time — and then
+the human merged inside the two-minute window in which the next commit was naming #93 in `docs/STATE.md`. That
+commit's push printed **`* [new branch]`** (the merge had deleted the remote head — the exact signal the PR #60
+receipt records) and its post-push assert contradicted: PR head frozen at `7f107ee`, local head `17c366b`, naming
+commit stranded on the recreated orphan branch. **The half of rule eleven that was skipped was the re-read
+immediately before the push; the half that ran is what caught it.** The stranded commit is superseded by STATE.md's
+18:45 entry rather than rescued, and the amended form at future boundaries: **one push per boundary; the PR number
+lives in the PR and enters the projection at the next boundary, never in the branch that carries it.**
+
+**Queue state:** the agent side of M5 is empty. Next actor: the owner — O-1…O-4, in one reply; `m5-deploy-log.md`
+starts filling only after that, with the first reads serial (I-A1-4). This section is the session's checkpoint
+content; the Session-Endurance rule added by v1.7.0 names this boundary as the moment to prefer a fresh session.
