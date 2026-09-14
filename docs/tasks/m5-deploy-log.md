@@ -253,8 +253,17 @@ therefore reported as unknown**, and the gate moved to three console reads inste
    and all four are **GitHub Actions job ids** (`1039…`), not account ids. The “twelve consecutive digits = possible
    account id” rule predates this repo quoting CI ids; it needs a context predicate, because an alarm that always
    fires is an alarm that gets ignored — the same family as a `grep` pattern that hides the one warning that matters.
-3. Restated rather than re-earned: no backticks in `git commit -m` (bash eats them), and multi-line bodies edited
-   through files, never through shell strings.
+3. Restated rather than re-earned: no backticks in `git commit -m` (bash eats them), and multi-line bodies edited through files, never through shell strings.
+4. **The grep mistake from the previous pass recurred within the same session, and a new fact came with it.** Reading
+   this PR’s CI log, a failure pattern again matched two lines that are *test titles* printed to stderr by suites that
+   deliberately exercise error paths (`streamSessionProbe`, `errorRendering`) — second occurrence, minutes after
+   recording the first. The stricter pattern returned **0** failure lines. While chasing it, the real reason the earlier
+   ANSI strip half-worked surfaced: **this machine’s `gh run view --log` output encodes ESC as the literal four-character
+   sequence `^[[`, not as a `\x1b` byte**, so a `\x1b`-only strip leaves every escape in place and quietly breaks
+   fixed-spacing greps — `'Tests  …'` matched nothing while the summary line was sitting in the file. Working strip:
+   `re.sub(r'(\^\[\[|\x1b\[)[0-9;]*[A-Za-z]', '', log)`, i.e. handle **both** forms. Verdict read from the whole log this
+   time: **23 files / 227 tests passed, duration 9.07 s, build 978 ms, 0 failure lines** (run `34833090998`, job
+   `103940707373`), with ids copied in full rather than from memory.
 
 **Lifetime AWS totals after this pass: 59 read-only attempts (one here, which errored), 0 writes, 0 dollars.
 Registrant contact data never requested, and the chosen apex never written to any tracked file.**
