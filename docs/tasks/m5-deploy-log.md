@@ -1,7 +1,9 @@
 # M5 deploy log — T-02 step 0: read-only AWS measurement
 
 **Task:** [`TASK-m5-aws-deployment.md`](./TASK-m5-aws-deployment.md) · **Date:** 2026-09-14 (UTC) · **Level:** L2 (read-only)
-**Writes performed: zero.** Every command below is a `get`/`list`/`describe`. Nothing was created, changed, or deleted.
+**Writes performed: zero, across both passes.** Every command here is a `get`/`list`/`describe`/`check`. Nothing was created,
+changed, or deleted. Pass 1 (§Reads and verdicts) mapped the account; pass 2 (§Second pass) priced the one decision the
+first pass proved was missing.
 
 ## Redaction rule (why the identifiers look like this)
 
@@ -95,5 +97,103 @@ attachment. All three are **writes**, and deviation 1 means the validation route
   for CloudFront. A region flag is not a global constant.
 - `aws login` takes `--region` like any other command, and **without it the command stops to ask**, which in a non-TTY
   shell becomes `No Windows console found`. A CLI that "needs a terminal" was really a CLI that needed an argument.
+
+## Second pass (08:12–08:30 UTC) — pricing the missing decision, and one self-inflicted failure
+
+**Zero writes.** Every operation is `list`/`get`/`describe`/`check`. Worth naming one precisely:
+`check-domain-availability` is a *lookup*, not a reservation — it holds nothing, blocks nobody, and is not the step that
+spends money (`register-domain` is). Pass 1 made 18 reads; this pass made 40, of which **20 produced nothing new and all
+20 were my own doing** — the ledger is at the end of this section.
+
+### The finding that changes how T-03 must be run: `aws.exe` is not concurrency-safe on a `login_session` cache
+
+Ten `route53domains list-prices` calls issued in parallel (`&` + `wait`, one per TLD) returned **rc=254 on all ten**:
+
+```text
+aws: [ERROR]: An error occurred (ValidationException) when calling the CreateOAuth2Token operation:
+The provided authorization grant is invalid, expired, revoked, or malformed
+```
+
+The same TLDs, issued **serially** minutes later, returned `rc=0` — and `sts get-caller-identity` was `rc=0` at
+**08:20:24Z** and again at **08:21:57Z** throughout, in both regions and both profiles. So the failure was never the
+session. It was ten processes sharing one `login_session` refresh path, where the loser of that race abandoned the cached
+grant and tried to mint a fresh OAuth2 token non-interactively, which cannot succeed in a shell.
+
+- **The trap in it:** the error names `CreateOAuth2Token`, which reads exactly like "your login expired." I recorded "the
+  session is dead" in working notes at 08:14 and retracted it at 08:21 after the serial re-run — the third claim caught
+  between writing and measuring in one session, and the reason the retraction is in this file rather than the guess in it.
+- **What it costs M5:** any step that fans out AWS calls — a shell loop with `&`, a batch of ECR pushes, an IaC `apply` at
+  default parallelism — can revoke its own credentials mid-ladder, at whatever hour the apply happens to be running. Two
+  mitigations, in order of preference: **serialise every AWS CLI call**, or **stop refreshing through a browser** by using a
+  scoped IAM identity with a long-lived credential. The second is the least-privilege question already on the owner's table
+  for T-03, and this finding upgrades it from "good hygiene" to "also the thing that makes the ladder reliable."
+- **Not measured:** the bearer token's actual TTL. Minted 07:21:13Z, still valid 08:22:57Z, so **≥ 61 min** with no known
+  upper bound. A ladder longer than an hour still needs a renewal plan, and `aws login` remains the only one in this harness.
+
+### Measured cost of a hostname — the number §12 B's `Answer` column needs
+
+`route53domains list-prices --tld X` via `us-east-1`, USD per year, read 08:22Z:
+
+| TLD | Register | Renew | | TLD | Register | Renew |
+| :-- | ---: | ---: | :-- | :-- | ---: | ---: |
+| `.com` | **16.00** | 16.00 | | `.xyz` | 19.00 | 19.00 |
+| `.org` | 16.00 | 16.00 | | `.me` | 31.00 | 31.00 |
+| `.net` | 17.00 | 17.00 | | `.co` | 38.00 | 38.00 |
+| `.dev` | **17.00** | 17.00 | | `.io` | **71.00** | 71.00 |
+| `.app` | 20.00 | 20.00 | | `.click` | 3.00 | 3.00 |
+
+- **`register` == `renew` for every TLD measured.** There is no first-year hook, so the recurring number *is* the number —
+  and the spec's `~$12/yr` assumption is **$16 for `.com`, $17 for `.dev`**, i.e. 33–42% above what §12 B priced it at.
+  Corrected in the task record rather than quietly re-quoted.
+- **`.io` — the reflex choice for a developer project — costs 4× `.dev`.** `.click` at $3 is the floor if the name matters
+  more than the suffix.
+- **Credits cannot pay for registration.** Quoted from the pricing page: *"You may not use Promotional Credit for any fees
+  or charges for Route 53 domain name registration."* Credits will pay for the zone, the compute and the traffic; the
+  domain is the one line in M5 that reaches a real card. This is the specific reason a blanket "do what you recommend"
+  cannot, on its own, complete this step.
+- **Hosted zone: `$0.50`/month, charged at creation and again on the first of each month, not prorated** — but *"a hosted
+  zone that is deleted within 12 hours of creation is not charged."* So a throwaway experiment is free and a surviving one
+  is $6/yr.
+- Default account ceiling is **20 domain registrations**. Irrelevant at one domain; relevant the day M5 grows a staging apex.
+- **Availability, measured and deliberately not written here:** `get-domain-suggestions` returned 8 candidates all
+  `AVAILABLE`, and four `check-domain-availability` calls showed two obvious-form names **UNAVAILABLE** and two shorter
+  personal-form `.dev` names **AVAILABLE**. The names stay out of this file under the redaction rule at the top; they are in
+  the session record, and they become a deliberate literal only once the owner chooses one.
+
+### Command-form lessons, pass 2 — three of mine, each avoidable for free
+
+- **`--generate-cli-skeleton input` is a local command.** It prints the exact parameter shape and touches no API. Two of my
+  three usage errors would not have happened: `get-domain-suggestions` wants `--only-available` as a *flag* (not
+  `--only-available true`) and `--suggestion-count` ≤ 8, and it rejects a bare keyword — `--domain-name jobtracker` fails
+  `InvalidInput: Give domain name must contain more than 1 label`, because the parameter takes a **full domain** and
+  suggests variants of it.
+- **The availability operation is `check-domain-availability`, not `check-domain`.** `aws route53domains check-domain`
+  raises `ParamValidation: found invalid choice` at parse time — rc=252, zero network calls, which is why four wasted
+  attempts cost nothing at all. Learn to separate **252 (my command was malformed) from 254 (AWS rejected a valid request)
+  from 0-but-empty (my filter was wrong)**: three different failures, three different fixes, and only the last one is
+  invisible unless you print the raw payload.
+- **`AssetDetails` is the shape of `aws pricing get`, not of `route53domains list-prices`.** My first extraction returned
+  empty for all eight TLDs and I very nearly logged "Route 53 publishes no prices". The real shape is
+  `{"Prices":[{"Name","RegistrationPrice","TransferPrice","RenewalPrice","ChangeOwnershipPrice","RestorationPrice"}]}`,
+  each `{Price, Currency}`. Same failure class as read 11 in pass 1 — that one was a regex narrower than the answer, this
+  one was a JSONPath borrowed from a different service — and the fix is identical both times: **`jq keys` or `cat` the raw
+  response before extracting from it.** The second time in one session that a filter, not the cloud, was what hid the
+  evidence; the difference is that this time the filter was wrong *and* the command succeeded, so nothing signalled.
+
+### Call ledger for this pass, so the count is auditable rather than remembered
+
+| Group | API calls | rc | Informative |
+| :--- | ---: | :--- | ---: |
+| `list-prices`, ten TLDs in parallel | 10 | all 254 | 1 — the concurrency finding |
+| `sts` ×2 regions, `acm`, `route53`, `route53domains list-domains` re-confirmation | 5 | 0 | 5 (2 of them re-confirmations) |
+| `list-prices` serial, wrong jq path | 8 | 0 | 0 |
+| `list-prices` raw dump + serial with correct extraction | 10 | 0 | 10 |
+| `get-domain-suggestions` (+2 parse failures, 2 `InvalidInput`, 1 ok) | 3 | mixed | 1 |
+| `check-domain-availability` (+1 parse-failure group, 4 ok) | 4 | 0 | 4 |
+| **Total** | **40** | | **21** |
+
+**Cumulative for T-02 step 0: 58 read-only API calls, 0 write calls, 2 account states unchanged.** Twenty of the forty
+calls in this pass bought nothing, all twenty traceable to three mistakes of mine, recorded at the ratio they happened
+rather than at the ratio that flatters the pass.
 
 
