@@ -178,7 +178,30 @@ grant and tried to mint a fresh OAuth2 token non-interactively, which cannot suc
   each `{Price, Currency}`. Same failure class as read 11 in pass 1 — that one was a regex narrower than the answer, this
   one was a JSONPath borrowed from a different service — and the fix is identical both times: **`jq keys` or `cat` the raw
   response before extracting from it.** The second time in one session that a filter, not the cloud, was what hid the
-  evidence; the difference is that this time the filter was wrong *and* the command succeeded, so nothing signalled.
+  evidence — and the difference is that this time the command *succeeded*, so nothing signalled it.
+- **`cut -c1-100` destroyed an identifier, and I completed it from memory.** The checks table truncated the job id to
+  `.../job/10391594`; I then fetched logs for `10391594976`, a number whose tail I had *invented*. It errored, a `||`
+  fallback saved the call, and the tell was a suspiciously small byte count. Rule: when a field is truncated, re-print it
+  untruncated (`--json jobs --jq '.jobs[] | .databaseId'`) — never widen a value that a `cut` narrowed. **The second
+  time today, after the jq path, that a filter of mine produced a plausible-looking identifier out of nothing.**
+- **A wider grep manufactured a failure out of a passing test's name.** Adding `|cannot` to the failure pattern produced
+  `fail=1`, and the hit was `[stderr] applicationFormValidation.test.tsx > application form — rejection > cannot be talked
+  into storing an impossible date by the native control` — **a test title, on stderr, from a green run.** The `stderr`
+  prefix is React's `act()` warning plumbing, not a failure channel. Narrow pattern: hides the evidence (read 11). Wide
+  pattern: invents evidence (this one). Both errors are mine, both in the same hour, and the only defense in either case
+  is reading the matched line whole.
+
+### CI verdict for this branch, read whole rather than filtered
+
+Run `34825303606`, job `103915942673` (`verify`), completed `08:56:49Z → 08:57:29Z` at head `764d82b`:
+**Test Files 23 passed (23) · Tests 227 passed (227) · Duration 9.00 s**, build chunks `0.33 / 1.56 / 61.23 kB` gzipped,
+`tsc -b`, `eslint`, `stylelint`, `vitest run` and `vite build` all present in the step stream, the DEBT-11 config-shadow
+assertion executed, and **0** lines matching `failed|FAIL|✖|error TS|npm ERR` after stripping ANSI properly
+(`tr -d '\033'` — `sed 's/\u001b…//'` silently does nothing, because GNU sed has no `\u` escape; that dead end cost two
+re-reads). `verify-api` passed in **7 s**, which is the docs-only skip, not a .NET run.
+
+*(Recorded here rather than in the AWS section above because the harness differs and the root cause does not: three of the
+five misreads in this session were my own filters, and one of them was on this repository's CI log rather than on JSON.)*
 
 ### Call ledger for this pass, so the count is auditable rather than remembered
 
