@@ -216,40 +216,61 @@ PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** 
 > a PR that no longer exists — the exact aggregate-drift failure this file's own rule names, so the four live bullets were
 > regenerated from live commands. **The retraction: this block asserted "no `aws` CLI on this machine" twice, and the
 > measurement behind it looked only at the Linux PATH of a WSL box.** `aws-cli/2.36.44` is installed on the Windows side
-> and executes from here; the surviving gate is a profile choice plus a live browser-SSO session, both owner-only, and an
-> apex name that a read-only `list-hosted-zones` can now settle by measurement. Structure checked *after* the edit, not
+> and executes from here; the surviving gate was then a profile choice plus a live browser-SSO session, both owner-only,
+> and an apex name that a read-only `list-hosted-zones` "can now settle by measurement". **That last clause is itself now
+> corrected by the measurement it promised: the profile was answered, the session went live at 07:21 UTC, and the read
+> returned `"HostedZones": []` — there is no apex to settle.** The `owner-only` framing of the session was wrong too
+> (`aws login --region …` starts the browser flow from this shell; the human supplies the sign-in, not the launch).
+> Structure checked *after* the edit, not
 > inferred from it: `grep -c '^## '` → **8** against `HEAD`'s 8, and §4 remains `cmp`-identical at 56 lines; the ⛔
 > archive marker below and everything under it are untouched, so the live/false boundary is still the 09-13 one.
 
 - **Active Task (live)**: [`TASK-m5-aws-deployment`](tasks/TASK-m5-aws-deployment.md) — **`in_progress`**, pointer held
-  here. **Level 3.** T-01 is closed and merged (spec §12 seven of seven, #84 → `3e2f2fb`), both unblocked code tasks are
-  merged (T-06 #81, T-07 #82), checkpoint-002 is merged (#85), and **T-02 is open** — step 0 ran read-only and corrected
-  this block's own premise. It gated on **three owner facts**; after 06:49–06:50 UTC it gates on **one**: profile
-  **answered — `loey`**, apex name **demoted to a read** (`list-hosted-zones` returns it), and what is left is a
-  **`login_session` that measured EXPIRED** — renewal opens a browser, so it is the owner's terminal, not this shell.
-- **In flight (live)**: this branch, `docs/m5-t02-step0-measurement` — the step-0 measurement, the task record's
-  corrected blocker and next-action checklist, and this projection update. `main` = `origin/main` = **`3121b2d`** (#85's
-  merge of `585121b`, `2026-09-14T06:23:49Z`, read from `gh pr view`; `3e2f2fb` and `585121b` each re-asserted with
-  `git merge-base --is-ancestor`). The PR number is not written here — the 09-12 note above is about this file retracting
-  three that were named before they existed.
-- **Exactly one next action (live)**: **the human runs `aws login --profile loey` in their own terminal** (a browser
-  opens; no credential passes through chat), then merges this docs-only PR. The agent's half after that is four read-only
-  commands already written into the task record's §Next action — **each carrying `--region ap-southeast-1`, because the
-  first execution proved the profile sets no region and even global endpoints abort without it** — `sts
-  get-caller-identity` → `list-hosted-zones` → A's three `describe-*`s into a new `docs/tasks/m5-deploy-log.md`. **Only
-  after all four read clean** do the two ACM requests go in: DNS validation is the hours-latency item, it runs first and
-  alone, and those are AWS *writes*, so `pk:ship` plus an explicit owner go-ahead still stands in front of them. T-03…T-05
-  follow the record's dependency graph. Agent-side queue: DEBT-23 recovery (optional), DEBT-21's delete-after step (**due
-  — ask the owner**), branch pruning of #81–#85's merged heads (safe: ancestry-verified).
-- **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 06:31 UTC**, re-read at **06:50** and again at **07:01**;
+  here. **Level 3.** T-01 closed and merged (§12 seven of seven, #84 → `3e2f2fb`), both unblocked code tasks merged
+  (T-06 #81, T-07 #82), checkpoint-002 merged (#85), and **T-02 is open with step 0 finished**: eighteen read-only calls
+  across two regions, logged in [`m5-deploy-log.md`](tasks/m5-deploy-log.md). It is **half-blocked, on something nobody
+  predicted** — the session went live at 07:21:13Z and the reads came back rc=0, but `route53 list-hosted-zones` and
+  `route53domains list-domains` both return empty lists, so **spec §12 B ("a Route 53 zone already in this account") is
+  falsified** and T-02's DNS-validation half has no destination. **Zero AWS writes; the account is greenfield.**
+- **In flight (live)**: branch **`docs/m5-t02-step0-results`**, carrying the step-0 record as four commits — the deploy
+  log, its read-11 correction, the task-record rewrite, and this projection update — cherry-picked clean onto
+  `origin/main` = **`20ce0a8`**. **The race that produced this branch is DEBT-24, and it is the second one in 35 minutes:**
+  #87 merged at `07:39:56Z` between the `gh pr view 87 → OPEN` measurement that went into the previous version of this
+  bullet and the push that followed it, so `9030b3c` reached `main` alone and four commits landed on a branch whose PR had
+  already closed. Nothing was lost (the remote branch held them), and the recovery is this rebuild — the same move that
+  rescued #86's orphan, this time performed before the claim was written rather than after. Per the 09-12 note above, **no
+  PR number is written here**: it is created by the push and asserted by `headRefOid` in the same step, not predicted.
+  Measured at this boundary: #86 `MERGED 07:05:51Z` → `9e054e1`; #87 `MERGED 07:39:56Z` → `20ce0a8`, `9030b3c` confirmed in
+  `main` by `merge-base --is-ancestor`. Still on the remote: `docs/m5-t02-step0-measurement` and
+  `docs/m5-t02-retraction-close` — both owner's to delete now that their content is in `main` or in this branch (DEBT-22
+  discipline; no branch deletion by the agent).
+- **Exactly one next action (live)**: **the owner decides where this app's hostname lives.** The reads are finished, so the
+  gate is no longer a credential or a command. Four candidates sit in the task record: register a domain in this account (a
+  zone arrives with it); delegate an existing third-party domain to a new hosted zone here; create the zone in whichever
+  account really owns the domain and validate there; or drop the custom hostname and take ALB/CloudFront default DNS names —
+  which breaks the `__Host-` cookie shape decision B existed to protect. **Agent-side, nothing else is pending but the
+  merge of this PR**: the two ACM certificate requests are AWS *writes* (behind `pk:ship` plus explicit go-ahead) and a
+  certificate cannot be validated before this decision exists anyway. Second, quieter owner call: **every M5 write would run
+  as account root** (`iam::<ACCOUNT>:root` in both profiles, zero IAM users), so a least-privilege deploy identity is worth
+  deciding *before* T-03 rather than during it. T-03…T-05 follow the record's dependency graph. Agent-side queue: DEBT-23
+  recovery (optional), DEBT-21's delete-after step (**due — ask the owner**), branch pruning of #81–#85's merged heads
+  (safe: ancestry-verified).
+- **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 06:31 UTC**, re-read at **06:50**,
+  **07:01**, and **07:39**; the three commits after the CI job below are docs-only and CI re-runs on push — quoted as
+  *pending*, not as the 06:59 verdict carried forward;
   `git status --porcelain` → only `.m5-parts/` (DEBT-21, untracked by decision); `gh pr view 85` → `MERGED 06:23:49Z`,
   `headRefOid` `585121b`, merge `3121b2d`; `command -v aws` → nothing **but** `aws.exe --version` → **aws-cli/2.36.44**;
   `aws configure list-profiles` → `loey`, `jonell`, both `login_session`-based, with **no `credentials` file on either
   side** and **no `region` key on either**; `gh repo view --json visibility` → **PUBLIC** (hence the deploy-log redaction
-  rule). **First AWS calls: two, both read-only `sts get-caller-identity` on the owner's named profile, both errored** —
-  `(NoRegion)` at 06:49:55, then `Your session has expired` at 06:50:10. Nothing was provisioned and no credential was
-  exercised; an errored STS call is not a session. **The full gate has now run on this head via CI** — job
-  `103885886584` at 06:59:12Z: **Test Files 23 passed (23) · Tests 227 passed (227)**, build `61.23 kB` gz, the DEBT-11
+  rule). **AWS calls: eighteen, all read-only, all region-qualified, all on the owner's named profile** — the first two
+  errored (`(NoRegion)` at 06:49:55, then `Your session has expired` at 06:50:10; an errored STS call is not a session),
+  and from **07:21:13Z** every one returned `rc=0`. `sts` resolves to `arn:aws:iam::<ACCOUNT>:root` in **both** profiles,
+  which are the **same account** (compared by hashing the digits, not by eye); S3, CloudFront, ECS, Secrets Manager,
+  CloudFormation, ECR in two regions, ACM in two regions, Route 53 and Route 53 Domains are **all empty**; one VPC
+  (`IsDefault: True`, three public subnets across 1a/1b/1c — the ALB's two-AZ rule is satisfiable); RDS offers Postgres
+  **18.6**, exact parity with `api/docker-compose.yml`. **Nothing was provisioned and no write API was invoked.**
+  **The full gate ran on the PR's then-head via CI** — job `103885886584` at 06:59:12Z: **Test Files 23 passed (23) ·
+  Tests 227 passed (227)**, build `61.23 kB` gz, the DEBT-11
   config-shadow assertion green, and **0** lines matching `failed|FAIL|✖` across the whole job log (read unfiltered, then
   counted). `npm run verify` itself was **not** re-run locally. `verify-api` on the same head reports *pass* in **5 s**,
   and that is the skip, not a test run: its two real steps — build-with-warnings-as-errors and test-against-a-real-
@@ -670,8 +691,11 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
   checklist; neither was guessed past. *(The second residual was wrong and is corrected at the boundary below: that read
   covered the Linux PATH only, and `aws-cli/2.36.44` is reachable from this WSL box through the Windows install. The
   residuals that survive are the profile choice **(answered — `loey`, 06:49 UTC)**, a live browser-SSO session **(measured
-  EXPIRED at 06:50 UTC — one `aws login` in the owner's terminal)**, and the apex name — readable once a session
-  exists, which is why the checklist now leads with reads and not with an install.)* The answers are **in `main`'s history** now (PR #84 → `3e2f2fb`, merged
+  EXPIRED at 06:50, live from 07:21:13Z — and startable from this shell once `--region` is supplied, so not the
+  owner-terminal-only act this record assumed)**, and the apex name — **which the read did not return: `list-hosted-zones`
+  and `list-domains` both came back empty, so §12 B is falsified and the hostname is an open owner decision again, this one
+  with a cost attached.** Eighteen logged reads later the account is still greenfield: see
+  [`m5-deploy-log.md`](tasks/m5-deploy-log.md).)* The answers are **in `main`'s history** now (PR #84 → `3e2f2fb`, merged
   06:07:46Z, `gh pr view` measured) — corrections to their wording carry forward from there, not from the branch.
   **Blocking (structural):** the record those answers should extend, `docs/aws-deployment.md`, carries **five stale rows**
   — region `ap-southeast-2` (superseded by **D-M5-4** `us-west-2`), AWS Beanstalk (**D-M5-3** = ECS Fargate), GitHub-push
@@ -733,6 +757,7 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 | DEBT-21 | P3 | **`.m5-parts/` is untracked and deliberately *not* gitignored** — 28 files / 212 KB of throwaway spec-assembly harness, one `git add -A` away from the committed record, and the spec's §12 table cites two of its files as provenance | `find .m5-parts -type f \| wc -l` → 28 · `du -sh .m5-parts` → 212K · `git check-ignore` → exit 1 | Keep it visible (an ignored artifact is an invisible one); delete after commit 2 of the ladder. Decision: checkpoint §10 |
 | DEBT-22 | P2 | **`docs/aws-deployment.md` went from phantom to stale-and-authoritative.** M4 cited it six times while it did not exist (`-074`); it was created in `a65f430`, and five of its rows are now superseded (region, compute, deploy path, CDN, data-plane token) while it is *still* the cited decision record | spec §11's row-by-row table · `git log --all --diff-filter=A -- docs/aws-deployment.md` → `a65f430` | **T-15** (`pk:fix`) — correct or explicitly scope-mark each row and make `docs/m5-infra-plan.md` the sole live source; this row's closure is that repair |
 | DEBT-23 | P2 | **The local full API suite cannot bootstrap Testcontainers in this nested-Docker session.** Five variants (bridge; `--network=host`; Ryuk on/off; `TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1`) all fail in fixture setup: `ResourceReaperException : Initialization has been cancelled.` (10 m 19 s; 187 failed / 23 passed) or, with Ryuk disabled, `Npgsql … Connection refused` against published ports whose containers were still starting. The identical signature at the **seam-only** commit `a5fc654` proves the breakage predates any T-07 behaviour; a manual `postgres:18.6` publishes and answers TCP in ~5 s, so the daemon itself is healthy around a nested client that is not | `which dotnet` → absent (nested runs are the only local option); `/tmp/t07-full-1..5.log`; focused `--filter HealthProbeBoundTests` → **10/0** (needs no containers); same machine ran the identical suite **200/200** at 01:16 UTC the same day | Recover a nested recipe (candidates: `TESTCONTAINERS_REUSE_ENABLE`, Docker host-routing, or a host `dotnet` install) — until then **API-suite green is a CI-only claim and every PR must say so**; T-07's record table already does. **Transit worked on PR #82: `verify-api` Passed! 210/210 (1 m 12 s) on native Docker — diagnosis confirmed by outcome. The row stays open as a local-environment defect until a nested recipe or host `dotnet` returns.** |
+| DEBT-24 | P2 | **A PR's state is a measurement with a shelf life of seconds, and this file has now written a false one twice.** #86 merged while a push was in flight (the orphan that `docs/m5-t02-retraction-close` recovered); #87 merged at `20ce0a8` **07:39:56Z** — between the `gh pr view 87 → OPEN` read that went into §3A's In-flight bullet and the push that followed it, so four commits landed on a branch whose PR no longer existed and the bullet asserted a review that was already history. *Proposed* AGENTS.md rule (owner's call, since the list is its own and currently ten): **re-read `gh pr view <n> --json state,headRefOid` in the same breath as the push, never in the same turn** — a claim that a PR is open is only good until the next human click, so it must be re-measured at the moment it is written *and* at the moment it is acted on. Not self-applied to `AGENTS.md` because the canonical list is maintained by its own rule and mirrored into `.agents/rules/`; recorded here for the owner to promote. |
 
 ---
 
@@ -787,6 +812,12 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
    before any AWS-adjacent work. Item 1 is now fully closed; its successor duty is one human merge, then T-02 starts.
    **Update 2 (2026-09-14 06:15, checkpoint-002):** that merge happened (`#84` → `3e2f2fb`); item 1 is now closed
    *and verified closed*, and the successor duty is a fresh-session T-02 per `checkpoint-002` §8.
+   **Update 3 (2026-09-14 07:39 UTC, T-02 step 0):** that T-02 half ran and closed — eighteen logged reads, **zero
+   writes**, in [`m5-deploy-log.md`](tasks/m5-deploy-log.md). It returned a **falsified decision instead of a hostname**:
+   §12 B's "a Route 53 zone already in this account" is not true of this account, which holds nothing but AWS defaults
+   (one default VPC, three public subnets, two service-linked roles). The successor duty is therefore not "then T-02
+   starts" — it is **the owner's hostname decision**, next to a quieter one this file never expected to raise: the deploy
+   CLI authenticates as **account root**, with zero IAM users in the account.
 2. **Agent, on merge** *(superseded by item 1 on 2026-09-12 — M3 shipped as PRs #5–#30 and M4 is 21 slices in; the* ***reconcile-and-verify-before-starting-the-next-phase*** *duty in this item still stands)*: reconcile (`git checkout main && git pull --ff-only`, then confirm the PR's head is the
    tip you pushed), and only then start **M5 — AWS Deployment** at **Level 3**: `pk:plan` + `pk:ship` first
    (domain model, API envelope, the four open architectural questions in §5 that M2a already answered three of),
@@ -812,6 +843,8 @@ Agreed decisions that survive any refactor. Deviating requires a new ADR.
 
 | Date | Engineer / Agent | Milestone / Focus | Key Changes & Artifacts |
 | :--- | :--- | :--- | :--- |
+| 2026-09-14 07:52 UTC | Assistant (`pk:fix` on the merge race, second occurrence) | **#87 merged underneath this session; four commits rebuilt, and the pattern became DEBT-24** | `git push` to `docs/m5-t02-retraction-close` landed `21da62f` on a branch whose PR had already closed eight minutes earlier: #87 merged `9030b3c` → `20ce0a8` at `07:39:56Z`, between the `gh pr view 87 → OPEN` measurement written into §3A's In-flight bullet and the push that bullet described. Measured before rebuilding — `merge-base --is-ancestor`: `9030b3c` **in** `main`, `32c8991`/`432bd5b`/`e3ba9c5`/`21da62f` **orphaned**; nothing lost, because the remote branch held all four (unlike #86, where the orphan was the emergency). Recovery is the same shape, applied before the claim rather than after: new branch off `origin/main`, `git cherry-pick 9030b3c..21da62f` → clean, four commits, `+203/-64` across three docs files, no conflict and no code touched. §3A's bullet rewritten to name the race instead of a review that never came, and **no PR number is written into this file** — the file's own 09-12 note is about retracting numbers named before they existed, so the number gets asserted by `headRefOid` after the push, not predicted before it. The generalisable rule is proposed as **DEBT-24** rather than installed into `AGENTS.md`: a claim that a PR is open is measured in seconds, not minutes, and it must be re-read at the moment it is acted on — promotion to the ten-rule list is the owner's call, because that list is mirrored into `.agents/rules/` and edits to it re-sync in the same commit. Local full-suite verification still not re-run: `npm run verify` remains DEBT-23-broken locally, and CI on this PR is the gate that will speak. **Zero AWS writes in this session, and the hostname decision is still the only thing gating T-02's second half.** |
+| 2026-09-14 07:39 UTC | Assistant (T-02 step 0, executed read-only) | **The reads finished; what they falsified was an owner decision, not a missing credential** | Owner refreshed SSO and **eighteen logged read-only calls across two regions** ran, all region-qualified, **zero writes**, recorded in [`m5-deploy-log.md`](tasks/m5-deploy-log.md). Three outcomes. **(1) The session gate was narrower than believed and the fix was an argument:** `aws login --profile loey` from this shell died on `No Windows console found` because it *wanted a region*; `aws login --profile loey --region ap-southeast-1` opened the browser from here and `sts` returned `rc=0` at **07:21:13Z** — agent-initiated, human-authenticated, not owner-terminal-only. **(2) `route53 list-hosted-zones` → `[]` in both profiles and `route53domains list-domains` → `[]`: §12 B ("a Route 53 zone already in this account") is falsified**, and this file's own 07:03 row — which asserted the read "returns the apex" — had written an expectation as a result. T-02's DNS-validation half now has no destination, so the gate is an owner hostname decision with four costed candidates in the task record, not a login. **(3) The account is greenfield and its identity is root:** ACM ×2, ECR ×2, S3, CloudFront, ECS, Secrets Manager, CloudFormation, Route 53 and Route 53 Domains all empty; one default VPC with three public subnets across 1a/1b/1c (the ALB two-AZ rule holds); RDS offers **18.6**, exact parity with `api/docker-compose.yml`; both profiles hash to the **same account** and authenticate as `iam::<ACCOUNT>:root` with **zero IAM users**. Caught mid-write: the first version of read 11 reported "17.11 newest, parity is a decision" because its `grep` character class `1[67]` could not see major 18 — **the filter destroyed the evidence**, the same class of failure AGENTS.md already names twice, and corrected in `432bd5b` before commit. Self-inflicted and retracted in the same pass: a recalled `C:\Users\thean\` path that never existed (the real one is `jonel`; the docs on disk were right, the working memory was not). Redaction verified after writing rather than intended: **0** 12-digit sequences, **0** `vpc-` ids, **0** domain strings in the committed log, against a repo measured `PUBLIC`. Structure after these edits: `^## ` **8**, §4 untouched at **56** lines. Now: PR #87 waits on owner review, which by the time this row was committed had already merged at `07:39:56Z` — see the row above and DEBT-24 |
 | 2026-09-14 06:50 UTC | Assistant (T-02 reads, on the owner's answer) | **The profile question closed; the checklist's first two commands did not run** | Owner picked **`loey`**, so the first authenticated attempt in this project's history executed — and errored twice, both times informatively. **(1) `(NoRegion)`**: neither profile carries a `region` key, and `sts get-caller-identity` / `route53 list-hosted-zones` abort without one *even though both are global endpoints*, so the pasted checklist (whose `--region` sat only on the three `describe-*` lines) was unrunnable as written and is now corrected with `--region` on every call. **(2) `Your session has expired. Please reauthenticate using 'aws login'`** — the gate is therefore **one owner command**, not three facts: profile answered, apex demoted to a read, session renewal left. Recorded honestly as *two errored read-only calls, zero credentials exercised, nothing provisioned* — an errored STS call is not a session, and the row above's "zero AWS calls" stays true for the 06:31 boundary it describes |
 | 2026-09-14 06:31 UTC | Assistant (T-02 step 0, read-only) | **T-02 opened, and its first measurement retracted the premise it was handed** | #85 merged (`585121b` → `3121b2d`, asserted via `gh pr view` and `merge-base --is-ancestor`), so the task moved `handoff_ready` → **`in_progress`**. Step 0 found the recorded blocker **"no `aws` CLI on this machine" to be false**: that read tested the **Linux PATH of a WSL box**, while `aws-cli/2.36.44` sits on the Windows side and executes from here. The gate that survives is narrower — **which profile** (`loey`/`jonell`, both `login_session`, **no `credentials` file on either side**) plus a **live browser-SSO session** (owner's terminal; renewal opens a browser) plus the **apex name**, which `route53 list-hosted-zones` can settle by reading instead of recall — the spec's `-by-name` form takes as its argument the very string it exists to confirm, so the checklist deviates and says why. Newly measured constraint: `gh repo view --json visibility` → **PUBLIC**, so `m5-deploy-log.md` carries commands, verdicts and `<placeholder>` identifiers; real zone names or account IDs are an explicit owner choice, never a default. **Zero AWS calls, nothing provisioned.** §3A's four live bullets regenerated and §1/§2/§3/§5 synced, with the retraction marked at each site rather than erased; structure after edit: `^## ` **8**, §4 `cmp`-identical at **56** lines. Next: owner names the profile and logs in → the four reads → only then, behind `pk:ship`, the two ACM requests. Surfaced for the owner and deliberately not self-executed: **DEBT-21**'s `.m5-parts/` delete-after (now due) and pruning #81–#85's merged heads |
 | 2026-09-14 06:15 UTC | Assistant (`pk:checkpoint`, session boundary → sign-off) | **checkpoint-002 + the date-truth correction: `1bbbc8f` fixes 26 fabricated 2026-09-15 stamps to the measured 2026-09-14** | `date -u` → `2026-09-14 06:09`; #84 merged at `3e2f2fb` (`gh pr view` + `git merge-base --is-ancestor 5eb76d5 main` both asserted); `ci.yml:142-178` re-read before quoting the docs-only `verify-api` skips on #83/#84 — the skip note exists precisely so a green check mark is not misread as a suite pass; `wc -l` re-measured the spec at 1,220 after §12 edits; DEBT-21's delete-after trigger identified as *passed* (ladder merged #81) and named to the owner rather than self-executing the `rm -rf`. `checkpoint-002.md` written with verification table, invariants, single next action, and the paste-ready handover prompt. Structure after edits: `^## ` = 8, §4 `cmp`-identical. **Session ends at sign-off; nothing left uncommitted or unpushed** |
