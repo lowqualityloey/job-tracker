@@ -208,12 +208,15 @@ which is how "no `aws` CLI on this machine" got caught two hours after it was wr
   This box is WSL and AWS CLI v2 is installed on the Windows side and callable from here:
   `"/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe" --version` → `aws-cli/2.36.44 Python/3.14.6 Windows/11`. The gate is
   therefore not a missing tool but **three facts, none of which an agent may supply**:
-  **(1) Which profile holds this project's account.** `aws configure list-profiles` → `loey`, `jonell`; both carry a
-  `login_session` key in `C:\Users\jonel\.aws\config`, and there is **no `credentials` file on either side** (both
-  paths measured absent) — so there is no access-key path here, and no raw secret to keep out of chat either.
-  **(2) A live session.** `login_session` is a browser-login artifact with an expiry, and the caches around it were last
-  written Jun 2 / Sep 13 (`ls -la`, names and mtimes only, contents unread). Renewing it opens a browser, so it is the
-  **owner's terminal**, not this shell.
+  **(1) Which profile holds this project's account — ANSWERED by the owner at 06:49 UTC: `loey`.** `aws configure
+  list-profiles` → `loey`, `jonell`; both carry a `login_session` key in `C:\Users\jonel\.aws\config`, and there is
+  **no `credentials` file on either side** (both paths measured absent) — so there is no access-key path here, and no raw
+  secret to keep out of chat either. Neither profile sets `region`, which is the second thing the first attempt
+  measured (§Next action's `NoRegion` note).
+  **(2) A live session — measured EXPIRED at 06:50 UTC.** `login_session` is a browser-login artifact with an expiry; the
+  first authenticated attempt returned `Your session has expired. Please reauthenticate using 'aws login'`. Renewal opens
+  a browser, so it is the **owner's terminal** (`aws login --profile loey`), not this shell — which makes this the single
+  remaining gate before the reads, not one of three.
   **(3) The zone's apex name** — B fixed the shape of the hostname story, not the literal. It *can be read* rather than
   recalled once (2) exists, which is exactly why (1) and (2) come first: `route53 list-hosted-zones` returns every apex
   in the account, so the agent should answer (3) by measurement instead of by asking the owner to remember it.
@@ -250,14 +253,23 @@ Linux `aws`), and **`--profile` has no default to fall back to here** — both p
 
 ```text
 AWS="/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"        # measured: aws-cli/2.36.44, reachable from WSL
-"$AWS" --profile <loey|jonell> sts get-caller-identity   # proves the session before anything else runs
-"$AWS" --profile <…> route53 list-hosted-zones           # settles the apex name by reading, not by recall
-"$AWS" --profile <…> ec2 describe-availability-zones --region ap-southeast-1   # the ALB needs 2
-"$AWS" --profile <…> rds  describe-db-engine-versions --engine postgres --region ap-southeast-1  # postgres:18.6 parity
-"$AWS" --profile <…> ecr  describe-repositories --region ap-southeast-1        # A's third read, spec §12
+R="--region ap-southeast-1"                              # NOT optional — see the NoRegion note below
+"$AWS" --profile loey $R sts get-caller-identity         # proves the session before anything else runs
+"$AWS" --profile loey $R route53 list-hosted-zones       # settles the apex name by reading, not by recall
+"$AWS" --profile loey $R ec2 describe-availability-zones          # the ALB needs 2 AZs
+"$AWS" --profile loey $R rds  describe-db-engine-versions --engine postgres   # postgres:18.6 parity
+"$AWS" --profile loey $R ecr  describe-repositories               # A's third read, spec §12
 # …and only after all four read clean: the two ACM certificate requests (us-east-1 + ap-southeast-1).
 # Those are AWS *writes*, so they sit behind pk:ship and an explicit owner go-ahead — not behind this list.
 ```
+
+**`--region` is on every line because the first execution of this list failed without it** (2026-09-14 06:50 UTC). The
+`loey` profile's config section carries only `login_session` — no `region` key — so even `sts get-caller-identity` and
+`route53 list-hosted-zones`, both of which are *global* endpoints, abort with `An error occurred (NoRegion)`. `ap-
+southeast-1` is A's answer, so passing it explicitly is not a new decision; the earlier draft of this list carried
+`--region` only on the three `describe-*` calls and its first two commands were therefore unrunnable as written. The
+second attempt, with the region supplied, returned `Your session has expired. Please reauthenticate using 'aws login'`
+— so the gate is now exactly one owner command in the owner's terminal, and the apex name is one read behind it.
 
 `list-hosted-zones` rather than the spec's `list-hosted-zones-by-name` is a deliberate one-command deviation: the
 `-by-name` form takes the apex as an argument, which is the very thing it exists to confirm. Read-only, paginated, and it
