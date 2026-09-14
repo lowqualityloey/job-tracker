@@ -1,3 +1,4 @@
+using System.Globalization;
 using JobTracker.Api.Auth;
 using JobTracker.Api.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,50 @@ namespace JobTracker.Api;
 /// </summary>
 public static class ApplicationCatalog
 {
+    /// <summary>
+    /// R-4.2's heartbeat interval, in seconds, read from configuration. Public because the name is the deployment knob's
+    /// contract and not an implementation detail: the test host sets it through this symbol instead of restating the
+    /// string — the rule <c>ApplicationsApiFixture</c> states for <c>AllowedOrigin</c>, that a test which spells a
+    /// contract from memory is only testing its own memory — and a future <c>appsettings.Production.json</c> needs the
+    /// same name to exist in one place.
+    /// </summary>
+    public const string KeepAliveConfigKey = "Sse:KeepAliveSeconds";
+
+    /// <summary>
+    /// Twenty seconds, a number derived rather than chosen (spec §4.2): it has to sit under the shortest idle ceiling in
+    /// the deployed path with margin, and §4.3 puts that ceiling at CloudFront's origin-response timeout (largest
+    /// documented value 60 s, still <c>[verify-at-apply]</c>) with the ALB's 120 s idle timeout behind it. The inequality
+    /// is asserted in <c>EventStreamKeepAliveTests</c> rather than trusted to this comment, because the failure it
+    /// prevents is a stream that dies quietly at a proxy in someone's browser, not a test that goes red.
+    /// </summary>
+    public static readonly TimeSpan DefaultKeepAliveInterval = TimeSpan.FromSeconds(20);
+
+    /// <summary>The frame that opens every stream (BEHAVIOR-m3-backend-api-046). A comment, so clients never dispatch it.</summary>
+    private const string OpenFrame = ": open\n\n";
+
+    /// <summary>
+    /// The heartbeat frame. A line beginning with a colon is a comment, which SSE defines as ignorable: it refreshes the
+    /// idle clock of every proxy in the path without reaching the client's <c>onmessage</c>. The mistake this shape is
+    /// written against is the plausible-looking <c>event: keep-alive</c>, which every browser would deliver as a named
+    /// message and the adapter would have to learn to ignore.
+    /// </summary>
+    private const string KeepAliveFrame = ": keep-alive\n\n";
+
+    /// <summary>
+    /// The heartbeat interval this stream will use. Read per connection rather than cached at startup, so a scaled-out
+    /// instance cannot disagree with its neighbours about how often the pipe beats.
+    ///
+    /// The guard is the point. A non-positive or unparseable value falls back to <see cref="DefaultKeepAliveInterval"/>
+    /// rather than being obeyed, because <c>Task.Delay(0)</c> inside this loop is not a fast heartbeat — it is a hot loop
+    /// writing a frame as fast as the socket drains, on every open stream in the process, which turns one operator typo in
+    /// one environment variable into saturating the single instance that holds them all. Absent and unusable are
+    /// therefore the same answer, and the answer is the documented default.
+    /// </summary>
+    private static TimeSpan KeepAliveInterval(IConfiguration config) =>
+        double.TryParse(config[KeepAliveConfigKey], CultureInfo.InvariantCulture, out var seconds) && seconds > 0
+            ? TimeSpan.FromSeconds(seconds)
+            : DefaultKeepAliveInterval;
+
     public static IEndpointRouteBuilder MapApplicationCatalog(this IEndpointRouteBuilder endpoints)
     {
                 // BEHAVIOR-m3-backend-api-026. AsNoTracking because this list is never edited in place, and tracking it would
@@ -69,7 +114,7 @@ public static class ApplicationCatalog
         // not know that should not have to find out by experiment, and the test asserts the media type for the same
         // reason.
         endpoints.MapGet("/api/applications/events", async (HttpContext http, ApplicationEventBus bus,
-            CancellationToken ct) =>
+            IConfiguration config, CancellationToken ct) =>
         {
             // Headers set directly rather than negotiated: `EventSource` will not move out of CONNECTING until the
             // response starts streaming, and a buffered JSON-shaped start would leave every client silently
