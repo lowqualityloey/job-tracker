@@ -358,8 +358,7 @@ no `Domain` attribute, and none of those three requirements needs a registrable 
 distribution terminates TLS on a valid AWS certificate, so a host-only cookie is settable there. What option (4) actually
 destroys is **this milestone's subject matter**: no ACM DNS validation, no two-region certificate constraint, no named exact
 Origin allowlist, and a public URL that changes when the distribution is recreated. M5 exists to teach that machinery. Option
-(4) keeps the bill at $0 and deletes the lesson — a legitimate trade, but it should be chosen *as* a scope cut, not sold as
-a cookie problem.
+(4) keeps the bill at $0 and deletes the lesson — **that clause was wrong, and part (b) of it was wrong too**: option (4) zeroes only the *domain*, while `docs/m5-infra-plan.md` §7 prices the topology the domain sits inside at **~$75/month**, so the honest framing is a **scope cut worth ~$75/mo of avoided spend, not a $0 deployment** (see “T-02, part 3” below and DEBT-26). It should still be chosen *as* a scope cut, not sold as a cookie problem.
 
 ### What remains the owner's, and why delegation cannot close it
 
@@ -427,3 +426,87 @@ of minting a second one, and step 6 must read `ISSUED` — not `PENDING` — bef
 the ARN. `register-domain` is also the point at which the **root-identity** question stops being theoretical: it is a
 `route53domains:*` action taken as account root, on a billing-bearing account, and the least-privilege answer is cheaper to
 apply one step earlier than one step later.
+
+---
+
+## T-02, part 3 — the owner has no card: the $0 answer (2026-09-14 10:04 UTC)
+
+Owner: apex **chosen**, “**i dont have money to attach real card is there alternative free???**”, “**go with your
+recommendations**”. One sentence moved the binding constraint from *information* to *money* — and the money was never
+in the domain.
+
+### The correction, before anything else
+
+The section above asserts option (4) “keeps the bill at $0”. **False as written**, and now corrected in place: it
+zeroes the $17 registration and $0.50 zone while the same plan calls for ~$75/month of always-on resources. The $17/yr
+domain that consumed two passes and ~58 read-only calls is **23% of a single month** of the architecture it enables.
+Recorded as **DEBT-26 (P1)** — a cost table nobody was ever asked whether it could pay.
+
+| §7 line | as written | proposed | why |
+| :--- | :--- | :--- | :--- |
+| NAT gateway | ~$32 | **$0** | the table’s own footnote three lines below already permits public subnets |
+| ECS Fargate (0.25 vCPU / 512 MB, 1 task) | ~$12 | ~$9–12 **[verify-at-apply]** | scale desired-count to 0 between sessions |
+| RDS `db.t3.micro` | ~$13 | **~$2** **[verify-at-apply]** | `stop-db-instance` suspends compute for up to 7 days; storage keeps billing |
+| ALB | ~$16 + data | ~$0.02/hr **[verify-at-apply]** | cannot be stopped — delete it between sessions, or accept it |
+| Secrets Manager | ~$0.40 | **$0** | SSM Parameter Store `SecureString`, same `secrets` block in the task definition |
+| CloudFront + S3 | ~$1.50 | ~$0 | 1 TB + 10M requests always-free; the bundle is 61 kB gzipped |
+| **Total** | **~$75/mo** | **~$43/mo always-on, or ~$1–3 per practice session** | teardown discipline, not a cheaper region |
+
+**The caveat that governs that whole column:** the CLI session died at the re-probe (`sts get-caller-identity` →
+`INVALID_REQUEST`), so **no unit price in it was measured.** Every row is a thing to measure next, not a number to
+believe — which is the same discipline that caught §12 B’s $12 estimate being 33–42% low.
+### The three hostname routes, priced and named
+
+|  | route | cost/yr | keeps | deletes |
+| :-- | :--- | :--- | :--- | :--- |
+| **H-A** | CloudFront default domain `dxxxxxxxxxxxxx.cloudfront.net` | **$0** | `__Host-` cookies (`Secure`+`Path=/`+
+no `Domain` — none of the three ever needed a registrable domain), ECS + ECR + S3/OAC, cache behaviours, SSE through the
+edge, origin allowlisting **via the CloudFront managed prefix list**, migrations-at-boot | ACM DNS validation; the
+us-east-1-vs-workload-region cert split; apex→app redirect; Route 53 delegation; **a public URL that survives recreating
+the distribution** |
+| **H-B** | free third-party subdomain whose **nested `NS` record delegates into a Route 53 hosted zone** | **$6** | H-A
+’s deletions, nearly all of them: real ACM DNS validation inside a zone this account controls, the two-region cert
+constraint, named exact origins, stable public hostname | the registrable-domain branding — and it **puts this
+milestone’s cookie boundary on infrastructure a volunteer project can revoke or rename** |
+| **H-C** | register a `.dev` | **$23** | everything | **blocked**: promotional credit cannot pay registry fees, and
+there is no card |
+
+H-B is not a guess about somebody’s marketing copy — it was checked against their generator. `is-a.dev`’s
+`dnsconfig.js` emits `A AAAA CAA CNAME DS MX NS SRV TLSA TXT URL`, and records are proxied only if the registration JSON
+asks: `var proxyState = data.proxied ? CF_PROXY_ON : CF_PROXY_OFF`. **An unproxied nested `NS` therefore resolves
+publicly**, which is exactly what ACM DNS validation requires. Two unknowns remain and both are cheap: whether a
+*nested* file name (`app.<mine>`) is accepted by their human reviewers at all, and whether a login-capable app fits
+their “personal websites” framing — their README also warns “*Do not use AI to generate your request, it WILL
+always get it wrong and will delay you getting a domain*”, which is an instruction to the owner and not something to
+outsource. **`eu.org` — the other classic free option — could not be verified this pass**: `help.eu.org` refused to
+connect and `eu.org` served an **expired certificate**, so it stays a candidate and not a recommendation.
+
+### The decision, taken under “go with your recommendations”
+
+**H-A now** so T-01 → T-03 proceed with $0 committed. **H-B filed in parallel as a non-blocking side quest**, because
+its wait time is somebody else’s calendar and it must not sit on the critical path. **H-C the moment a card exists**
+— and then it must be a ~30-minute change, not a migration. That last clause is now a requirement on T-01 rather than
+a hope: **the apex lives in exactly one config value**, threaded through CloudFront aliases’ origin behaviour, the ACM
+ARNs, `Cors__AllowedOrigins`, and the JWT `iss`/cookie scope, so that paying $17 later is a redeploy and not a redesign.
+
+### Two things deliberately not done
+
+1. **The chosen apex is not written into this repository.** `gh repo view --json visibility` → **PUBLIC**, the name is
+   **unregistered**, and `check-domain-availability` output does not survive being read. Committing the string would
+   advertise a $17 snipe to whoever reads the repo — the one failure mode here that is cheaper to avoid than to
+   recover, since recovery costs the money that is the whole reason for the decision. The name lives in the session
+   record; it enters the repo in the commit that registers it.
+2. **No AWS write, and steps 2–6 of the ladder are withdrawn** (step 3 was their only irreversible line). Related, and
+   unresolved by me on purpose: `aws.amazon.com/free` states the Free plan carries “**up to $200 in credits**” for
+   “**up to 6 months**” with “**no charges and no surprise overages**”, and that beyond always-free limits
+“**credits are automatically applied to cover the costs**” — which means **existing credit may already pay for
+   H-A/H-B compute with no card attached**, since only *registration* is credit-excluded. Whether that is this account’s
+   reality is **not something to assert**: the AWS billing user-guide 404’d on three attempted URLs this pass, so the
+   gate is now three console reads — **plan type, remaining credit balance, payment methods present or absent**.
+
+### Revised ladder status
+
+Steps 0–1 (re-auth, prove session) stay. **New step 2, before any resource is created:** read the three console numbers,
+then measure every `[verify-at-apply]` figure above with serial `aws pricing` calls — serially, because `aws.exe` calls
+sharing a `login_session` cache are not concurrency-safe and a fanned-out ladder self-revokes mid-deploy.
+

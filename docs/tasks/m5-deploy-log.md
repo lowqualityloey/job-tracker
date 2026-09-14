@@ -219,4 +219,52 @@ five misreads in this session were my own filters, and one of them was on this r
 calls in this pass bought nothing, all twenty traceable to three mistakes of mine, recorded at the ratio they happened
 rather than at the ratio that flatters the pass.
 
+## Third pass (10:04 UTC) — the owner has no card: re-probe, public-doc reads, **zero writes**
+
+| # | command | region | verdict |
+| :-- | :------ | :----- | :------ |
+| 59 | `"$AWS" --profile loey --region us-east-1 sts get-caller-identity` | us-east-1 | `error: INVALID_REQUEST` — the
+  SSO session expired between passes. **Re-probed before deciding anything, and the answer was recorded as an error, not
+  as an assumption**: no command in this pass could have reached a write API, and none tried |
+
+**Non-AWS reads (public sources, no credentials).** `aws.amazon.com/free` → free plan “**up to $200 in credits**”,
+“over 90 services for **up to 6 months**”, “**no charges and no surprise overages**”, and “Always free …
+if you go beyond these limits or access paid features, **credits are automatically applied to cover the costs**”; the
+product grid names EC2, S3, RDS, DynamoDB, Aurora Serverless, SageMaker and Bedrock as “Available on both plans” and
+Bedrock AgentCore as “Paid plan exclusive”. **ECS, Elastic Load Balancing, CloudFront and Route 53 are not named**,
+so their credit eligibility stays unverified. `raw.githubusercontent.com/is-a-dev/register/main/dnsconfig.js` → the
+record types a free `is-a.dev` subdomain can carry (`A AAAA CAA CNAME DS MX NS SRV TLSA TXT URL`) and `proxyState = data.proxied ? CF_PROXY_ON : CF_PROXY_OFF` — unproxied unless asked, which is what makes an H-B style nested `NS`
+delegation resolvable in public. In-repo: `docs/m5-infra-plan.md:200-213`, the ~$75/mo table and its own skip-the-NAT
+footnote.
+
+**Dead ends, logged because a failed read is evidence about the source, not the conclusion.** Four attempts on
+`docs.aws.amazon.com/awsaccount/latest/billing/*.html` returned **404** (the guide’s URL space has moved), `eu.org`
+served an **expired TLS certificate**, and `help.eu.org` / `doc.eu.org` refused to connect. Stopped guessing URLs after
+the third 404 rather than manufacturing a citation for the card question — **“does the Free plan need a card” is
+therefore reported as unknown**, and the gate moved to three console reads instead.
+
+**Mistakes made and caught in this pass.**
+1. **An assertion caught my own defect before it reached a file.** The §8 row was formatted as
+   `'| %s | %s | %s | %s'` — missing the trailing pipe every sibling row carries — so `row.count('|') == 5` failed and
+   the script died without writing. Without that assert the ragged row would have joined the table’s existing
+   `{4:1, 5:62, 6:1}` distribution and looked perfectly green in a `git diff`, because a markdown table renders badly
+   rather than loudly.
+2. **A redaction check that now cries wolf.** `grep -cE '[0-9]{12}'` reports four hits across `STATE.md` and this file,
+   and all four are **GitHub Actions job ids** (`1039…`), not account ids. The “twelve consecutive digits = possible
+   account id” rule predates this repo quoting CI ids; it needs a context predicate, because an alarm that always
+   fires is an alarm that gets ignored — the same family as a `grep` pattern that hides the one warning that matters.
+3. Restated rather than re-earned: no backticks in `git commit -m` (bash eats them), and multi-line bodies edited through files, never through shell strings.
+4. **The grep mistake from the previous pass recurred within the same session, and a new fact came with it.** Reading
+   this PR’s CI log, a failure pattern again matched two lines that are *test titles* printed to stderr by suites that
+   deliberately exercise error paths (`streamSessionProbe`, `errorRendering`) — second occurrence, minutes after
+   recording the first. The stricter pattern returned **0** failure lines. While chasing it, the real reason the earlier
+   ANSI strip half-worked surfaced: **this machine’s `gh run view --log` output encodes ESC as the literal four-character
+   sequence `^[[`, not as a `\x1b` byte**, so a `\x1b`-only strip leaves every escape in place and quietly breaks
+   fixed-spacing greps — `'Tests  …'` matched nothing while the summary line was sitting in the file. Working strip:
+   `re.sub(r'(\^\[\[|\x1b\[)[0-9;]*[A-Za-z]', '', log)`, i.e. handle **both** forms. Verdict read from the whole log this
+   time: **23 files / 227 tests passed, duration 9.07 s, build 978 ms, 0 failure lines** (run `34833090998`, job
+   `103940707373`), with ids copied in full rather than from memory.
+
+**Lifetime AWS totals after this pass: 59 read-only attempts (one here, which errored), 0 writes, 0 dollars.
+Registrant contact data never requested, and the chosen apex never written to any tracked file.**
 
