@@ -68,6 +68,7 @@
 - **Last Updated (2026-09-14 14:05 UTC, `pk:checkpoint` → [`checkpoint-003`](tasks/TASK-m5-aws-deployment.checkpoint-003.md))**: reached by `pk:route` — the owner picked route 1 from the decision matrix. A **documentation-only** boundary pass: **zero AWS calls of any kind**, no source file touched, and `npm run verify` re-executed on this tree anyway because the gate is this repository's rule rather than CI's — **exit 0**, 23 files / **227 tests**, build **61.23 kB** gz, 1.42 s, 0 failure lines in the unfiltered log. What it records: **five PRs merged under the last projection** (#86 → #90, all states re-read at this boundary), **T-02 measured and decided** (§12 B falsified — the account holds no hosted zone and no domain; the owner has no payment method; the route is **H-A, CloudFront's default domain, $0**, with H-B parallel and H-C blocked), and **one divergence this pass refuses to repair quietly**: spec §6's `T-02` row and §12 B still describe the pre-decision plan while the task record carries the new one — opened as **DEBT-27**, routed to `pk:plan`. Task state is `handoff_ready`, so the stop condition is written down rather than implied.
 - **Last Updated (2026-09-14 14:45 UTC, `pk:plan` — the DEBT-27 reconciliation)**: the checkpoint's §8 resume condition was validated before editing (task ID, state, branch, next action), and that first act found a **second divergence of the same species**: `checkpoint-003` declared `handoff_ready` in this file and in its own record **but never wrote the stop state into the Local Task Source**, which still read `in_progress` — the declaration was the incomplete artifact, and it is now reconciled in the record with the asymmetry named rather than smoothed. Then the divergence this pass exists for was repaired: **spec §12 B and §6's `T-02`/`T-03`/`T-09` rows were aligned to the owner's H-A answer, and a new §14 (Amendment A1) was written against AWS's own text** — six citation records with publisher, title, URL and access date, two `UNCERTAINTY` records, one FMEA row, invariants I-A1-1…6. **The headline is a reversal, not a tidy-up: `D-M5-3`'s rejected option is now its deployed design** — CloudFront validates the origin certificate and refuses a self-signed one, ACM cannot issue for `*.elb.amazonaws.com`, so under H-A the CloudFront→ALB hop is **HTTP:80** — and the prefix-list mechanism §12 B named to defend it **is not documented in the form given** (the AWS-managed list is `com.amazonaws.global.cloudfront.origin-facing`, weight 55 of 60, and AWS's primary control is a shared origin header with a default-`403` listener rule). Spec now **1,379 lines, §0–§14**; `npm run verify` **exit 0**; **zero AWS calls — zero reads**. Two decisions are handed back to the owner in §14.6 and neither was taken here.
 - **Last Updated (2026-09-14 15:20 UTC, post-#92 reconcile)**: #92 merged at `15:14:36Z` → `09b4e0d`; reconciled by `git pull --ff-only`, ancestry asserted before writing anything, and **DEBT-27 is closed by measurement rather than by assertion**. `git diff --stat 9f14671..HEAD` → three paths, +290/−80, all under `docs/` — no source file reached `main` today apart from the `AGENTS.md` rule-eleven promotion. **The reconciliation pass then found a second, smaller divergence of the same family, in the spec's own §3.1 table: its VPC row still specified `private with NAT (tasks)` and still said §12 "leaves default VPC vs bought CIDR to the owner"** — both superseded by §12 D's answer (bought `/20`, **VPC endpoints instead of NATs**), and repaired on this branch. Working tree clean apart from `.m5-parts/` (DEBT-21). Next: **T-03 on paper** — the network design that can be written without a session or a card.
+- **Last Updated (2026-09-14 18:35 UTC, `pk:sync` → T-03-paper boundary)**: this session opened on `pk:sync` and found the engine sync **already on disk but uncommitted** — submodule `b3c5edf → ebfd67e` (v1.7.0: `pk:profile` split from `pk:perf`, Lite/Balanced/Turbo profiles), the `AGENTS.md` block re-injected to match, `PROMPTKIT.md` profile **balanced → turbo** — and adopted the new rules from the disk read rather than the past turn (the added Session-Endurance, STATE-untrusted-until-read and telemetry-provenance lines were live for this pass). The sync was committed as its own concern; then the pass continued where the last one stopped: **T-03's paper design was on disk with one dangling promise** — §11 said "filled from the primary-source pass; see §11.1" and §11.1 did not exist. The primary-source pass was then **actually run**, and it failed honestly: both AWS pricing pages returned HTTP 200 with zero server-rendered numbers (client-side tables; two follow-up doc reads hit the session's web ceiling), so §0's claim that the prices "came off AWS's own pages on 2026-09-14" was an uncited citation and is **retracted at its line**; every price row became `[verify-at-apply]` with its serial read, and §11.2 argues why no number forms the design. Two web pages read, **zero AWS control-plane calls**, the session is still not claimed live.
 - **Intake passes**: pass 1 scanned manifests/config/src and wrote the profiles; **pass 2 swept the directories pass 1 never opened** (`.agents/`, `.kilo/`, `.fallow/`, `.git/info/exclude`) and audited this file's own claims. Two P1 findings came out of it: DEBT-12, DEBT-13.
 - **Baseline at intake**: `npx tsc -p tsconfig.app.json --noEmit` → **exit 0** · `npm run test:run` → **2/2 passed (1.10s, 1 file)** · no known defect, no broken state, no active blocker
 - **Shape of the app**: single-package React 18 SPA, 12 TS/TSX files in `src/`, 3 routes, **in-memory mock data only** — no persistence, no backend, no auth.
@@ -234,36 +235,43 @@ PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** 
 
 > **Amendment pass, 2026-09-14 15:20 UTC (post-#92 reconcile) — §3A's four live bullets regenerated whole again, the ninth regeneration dated today (`grep -o 'Amendment pass, 2026-09-14 [0-9:]* UTC' docs/STATE.md` → nine distinct stamps).** The cadence is not busyness: every merge invalidates the block, and DEBT-24's rule is that a claim is only good until the next human click. **No head SHA and no PR number for the current branch appear below** (DEBT-25); §14's citation records remain the authority for every AWS-behaviour claim in these bullets.
 
-- **Active Task (live)**: [`TASK-m5-aws-deployment`](tasks/TASK-m5-aws-deployment.md) — **`in_progress`** (Level 3), pointer held here,
-  `checkpoint-003` still the live contract record. **PR #92 merged 15:14:36Z → `09b4e0d`, so DEBT-27 is closed by measurement**: spec
-  Amendment A1 (§14) is the authority on `main`, `D-M5-3` stands partly reversed with its expiry condition attached, and §12 B now records
-  the owner's actual answer. Three paths landed, **+290/−80, all under `docs/`**. **The reconcile then caught the next one:** spec §3.1's
-  VPC row still specified `private with NAT (tasks)` and still said §12 *"leaves default VPC vs bought CIDR to the owner"* — two claims
-  superseded by §12 D's own answer (bought `/20`, **interface endpoints instead of the ~$32 NAT**), repaired on this branch. Same failure
-  family, smaller size: an answer cell was written and the requirement row was never re-read against it. What M5 has left is **T-03…T-17**,
-  and every write among them is still gated by **I-A1-5** (the owner's three console numbers) plus §14.6's two open decisions — H-B before
-  deploy, and whether root-only identity is acceptable for the first write.
-- **In flight (live)**: **`docs/m5-t03-network-design`**, cut from `09b4e0d` — a paper task by construction: the §3.1 row repair plus
-  **T-03's network design spec** (CIDR plan, route/SG matrix, the endpoint set ECR-API + ECR-DKR + Secrets Manager + Logs + STS, and the
-  CDK shape §12 C chose, including the `devDependencies` each component brings and why). **No PR number or head SHA is written here**
-  (DEBT-25) — both are added by the commit after `gh pr create` returns them, and rule eleven re-reads them at the moment of any action.
-  Still on the remote and the owner's to delete: `docs/m5-t02-step0-measurement`, `docs/m5-t02-retraction-close`,
-  `chore/state-m5-post-90-checkpoint`, `docs/m5-debt27-t02-reconciliation`.
-- **Exactly one next action (live)**: **write T-03 on paper and open its PR** — it is the only M5 task that needs no credential, no card, and
-  no owner answer, which is exactly why it is next. It provisions nothing: the CDK project is not scaffolded, no dependency is installed,
-  and no `cdk deploy` is implied by a design document. **Then the owner's half, in one reply:** §14.6's two decisions (H-B before the first
-  deploy vs. after; root vs. a scoped IAM identity) and **the three console numbers** — plan type, remaining credit, payment methods. Until
-  those arrive, **I-A1-5 holds and T-03's execution cannot begin**; the design can.
-- **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 15:2x UTC**. `gh pr view 92` → `MERGED 15:14:36Z`, merge
-  `09b4e0d`; `git pull --ff-only` clean; `merge-base --is-ancestor ed1ed5f HEAD` → **YES**; `git diff --stat 9f14671..HEAD` → 3 files,
-  +290/−80. Spec: **1,379 lines, `^## ` 15**, §14 present on `main` (grep `^## 14\.` → 1). **`npm run verify` → exit 0** on the tree this
-  branch starts from: **23 files / 227 tests**, build **61.23 kB** gz, **0** lines matching `failed|FAIL|✖|error TS|npm ERR` unfiltered.
-  `docs/STATE.md` after this edit: `^## ` **8**, §4 **56** lines `cmp`-identical to `HEAD`, ⛔ archive identical at **346**, §3A live bullets
-  **4**. Standing CI verdicts unchanged: frontend green on `09b4e0d` (CI runs `npm run verify` on every PR), **API suite still CI-only and
-  DEBT-23-broken locally**, and `verify-api` on a docs-only head is `ci.yml:142-178`'s **skip**. Hygiene: runtime deps **3** / dev **19**,
-  `AGENTS.md` rules re-derived **11**. **AWS calls this pass: zero** — the pricing and endpoint-capability research behind the T-03 design is
-  documentation reading, and every platform fact the design will assert names its page and its access date (I-A1-6). The session is still not
-  claimed live.
+> **Amendment pass, 2026-09-14 18:35 UTC (`pk:sync` → T-03-paper boundary) — the four bullets below, regenerated
+> whole again, tenth dated regeneration today.** The events since 15:20: the engine sync (submodule to v1.7.0,
+> `AGENTS.md` block re-injection, profile to turbo) was found **on disk uncommitted** and adopted from the disk read;
+> T-03's design document was completed — including the §11 pass that read two AWS pricing pages, got HTTP 200 and no
+> numbers, and retracted §0's uncited claim at its line. **No head SHA and no PR number for the current branch appear
+> below** (DEBT-25); they arrive with the commit after `gh pr create` returns them.
+
+- **Active Task (live)**: [`TASK-m5-aws-deployment`](tasks/TASK-m5-aws-deployment.md) — **`in_progress`** (Level 3), pointer
+  held here. **T-03's paper half is complete**: [`2026-09-14-spec-m5-t03-network.md`](specs/2026-09-14-spec-m5-t03-network.md)
+  carries the address plan (`10.0.0.0/20`, six `/24`s, four held), three route tables with the fail-closed claim as a test,
+  the four-SG matrix with the **55-of-60 rule-weight trap**, the eight-row endpoint set and the one row that decides it
+  (ECS-agent registration), the CDK shape with each dependency justified or refused, eight synth-template assertions, the
+  serial `[verify-at-apply]` reads, and a cost section written as a **retraction**: the 18:2x UTC pricing pass read two AWS
+  pages that render client-side, so §0's "came off AWS's own pages" claim is corrected at its line and every price is
+  `[verify-at-apply]` — §11.2's argument being that **no number forms this design**. What M5 has left is **T-04…T-17**, every
+  write gated on **I-A1-5** plus T-03 §12's owner items **O-1…O-4**: H-B timing, root-vs-scoped identity, flow logs, and the
+  three console numbers. The Engineering OS is synced on this branch too: engine `b3c5edf → ebfd67e` (v1.7.0), block
+  re-injected, profile **balanced → turbo** — a separate commit, a separate concern.
+- **In flight (live)**: **`docs/m5-t03-network-design`**, cut from `09b4e0d` — four commits by design: the engine sync, the
+  T-03 design spec (with §6's `T-03` row linking to it), the task-record reconciliation, and this projection. **No PR number
+  or head SHA is written here** (DEBT-25) — both are added by the commit after `gh pr create` returns them, and rule eleven
+  re-reads `headRefOid` at the moment anything acts on it. Still on the remote and the owner's to delete:
+  `docs/m5-t02-step0-measurement`, `docs/m5-t02-retraction-close`, `chore/state-m5-post-90-checkpoint`,
+  `docs/m5-debt27-t02-reconciliation`.
+- **Exactly one next action (live)**: **`pk:pr` for this branch** — run the gate, land the ladder, push, `gh pr create`,
+  assert `gh pr view --json headRefOid` equals `git rev-parse HEAD`, then report the URL and stop: review and merge are
+  human. **Then the owner's half, in one reply:** O-1…O-4 (the two §14.6 decisions, the flow-logs appetite, the three console
+  numbers). Until they arrive, **I-A1-5 holds**: T-03's design is done, its execution cannot start, and no agent-side M5
+  task remains that needs no credential, no card, and no owner answer.
+- **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 18:2x–18:3x UTC**. Engine audit:
+  `git -C .promptkit status --porcelain` clean, tip `ebfd67e` (v1.7.0 APPROVED release record + changelog in
+  `git -C .promptkit log`), workflow count from the listing → **23**, and the working `AGENTS.md` block matches the injected
+  directives of this session — the sync is adopted, not assumed. `gh auth status` → logged in. **AWS control-plane calls:
+  zero** — four web reads on aws.com documentation pages (two returned 200 with no numbers, two met the session's web
+  ceiling), the session is still not claimed live. `npm run verify` → recorded by the commit ladder below, exit status
+  quoted there rather than here. Hygiene: runtime deps **3** / dev **19** — the design justifies CDK's dependencies on paper
+  and installs none; `.m5-parts/` stays untracked per DEBT-21.
 
 > ⛔ **ARCHIVE — everything below this line is the 2026-09-12 M4-era projection, kept as evidence, not as current state.**
 > Do not read its branch names, PR numbers, AC counts or "next action" as live; the live set is the four bullets above.
