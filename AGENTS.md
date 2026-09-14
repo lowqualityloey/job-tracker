@@ -211,6 +211,7 @@ Activate workflows anytime with these namespaced triggers:
 - `pk:pr`: High-signal PR descriptions, verification evidence compilation, and GitHub CLI creation.
 - `pk:debug`: Hypothesis-driven scientific debugging & root cause analysis (5-Whys).
 - `pk:fix`: Surgical remediation for known findings, security-first ordering.
+- `pk:refactor`: Structural debt remediation, Golden Master pinning, Mikado method.
 - `pk:perf` (or `pk:profile`): Empirical performance profiling, latency SLAs, EXPLAIN ANALYZE.
 - `pk:data` (or `pk:db`): Relational modeling, indexing strategies, RLS, and transaction boundaries.
 - `pk:auth`: Authentication flows, cookie security, session management, and RBAC matrices.
@@ -237,6 +238,7 @@ You do not need to memorize triggers. If a prompt lacks an explicit `pk:` trigge
 - **Protocol Auto-Route (Substantive Tasks)**: For multi-file changes or architecture, announce briefly (e.g. `[PromptKit OS: Auto-routed to pk:plan]`) and adopt the matching workflow:
   - Defects, bugs, crashes, test failures -> `pk:debug`
   - Known defects, review findings, security patches -> `pk:fix`
+  - Code refactoring, structural cleanup -> `pk:refactor`
   - Performance regressions, latency -> `pk:perf`
   - New features, redesigns -> `pk:plan`
   - Repo intake, setup, audit -> `pk:onboard`
