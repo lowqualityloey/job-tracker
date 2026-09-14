@@ -2,7 +2,7 @@
 
 - **Task ID**: `TASK-2026-09-13-m5-aws-deployment`
 - **Milestone**: M5 — AWS Deployment (Level 3, `pk:ship` + human approval)
-- **State**: **`in_progress`** — T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
+- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`, and **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
   merged (PR #85 → `3121b2d`, `2026-09-14T06:23:49Z`), and the owner's instruction resumed this task at **T-02**, whose
   step 0 executed at 06:31 UTC and **retracted one of this record's own premises**: the `aws` CLI is not absent on this
   machine, it is a Windows binary reachable from WSL (§"Blockers / Open"). The 2026-09-13 stop state ("no commits, no PR,
@@ -10,12 +10,14 @@
   and what remains is spec §6 **T-02…T-17**, gated on three named owner facts — not on any decision, and not on any
   installation.
 - **Owner / Actor**: Assistant (agent)
-- **Branch**: task work lands per-PR on `main` (last merge read at this boundary: #85 → `3121b2d`,
-  `2026-09-14T06:23:49Z`, `gh pr view` measured, with `3e2f2fb` and `585121b` both re-asserted as ancestors by
-  `git merge-base --is-ancestor`); the current work sits on `docs/m5-t02-step0-measurement`.
-  *The previously recorded `da04ee4` header was superseded by PRs #81–#85.*
-- **Plan / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` — 1,220 lines (`wc -l` re-measured 2026-09-14; the §12 answer pass grew some lines and the rewrite trimmed others), §0–§13, **the authority for every
-  `D-M5-*` ID and task dependency below**
+- **Branch**: task work lands per-PR on `main`. **Re-measured at 14:35 UTC for this pass**: `gh pr view 91` → `MERGED` at
+  `2026-09-14T14:24:13Z`, merge commit `9f14671`, and `git merge-base --is-ancestor 9f14671 HEAD` → **YES** on the branch carrying this
+  edit — so `checkpoint-003` and its projection sync are in `main`'s history, not merely pushed. `main` = `origin/main` at that SHA after
+  `git pull --ff-only`; `git status --porcelain` shows only the pre-existing `.m5-parts/` (DEBT-21). **Current work sits on
+  `docs/m5-debt27-t02-reconciliation`** — the DEBT-27 reconciliation, spec-side first.
+  *Earlier headers recorded #85 → `3121b2d` (PRs #81–#85) and, before that, `da04ee4`; each was superseded by measurement, and the
+  superseding line is kept because a branch claim that is only ever overwritten is a branch claim nobody can audit.*
+- **Plan / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` — **1,379 lines** (`wc -l`, re-measured 2026-09-14 14:45 UTC; the 09-13 rewrite and the §12 answer pass grew it to 1,220, and **Amendment A1 (§14) grew it by a further 159**), §0–**§14**, **the authority for every `D-M5-*` ID and task dependency below** — with this qualification, written where a reader will hit it: **§14 reverses part of `D-M5-3` and supersedes §3.1/§3.3's TLS and listener statements**, so those sections must be read with the amendment, not instead of it
 - **Decision record**: `docs/aws-deployment.md` — cited as ratified, **but §11 of the spec marks five of its rows stale**;
   do not re-derive infra facts from it until T-15 lands.
 - **Checkpoint / Handoff**: `TASK-m5-aws-deployment.checkpoint-001.md` · `TASK-m5-aws-deployment.handoff-001.md`
@@ -330,6 +332,11 @@ item 0.
 residual is therefore not "a fact that cannot be applied from chat" but **three decisions only the owner can make**, named in
 the section below. The sentence stands as written *about the 07:03 state of the record*, and is annotated rather than deleted.
 
+**Correction 3 (2026-09-14 14:45 UTC, the reconciliation pass):** the three owner decisions named there have now *collapsed into two*,
+ because the payment constraint settled the hostname itself. What remains owned by the human is §14.6's list — buy H-B's $0.50/mo
+ **before** the first deploy (it is the cheapest thing that restores `D-M5-3`), and whether root-only identity is acceptable for the
+ first write — plus **the three console numbers**, which are not a decision but a read this session cannot perform.
+
 ## T-02 hostname: the recommendation, under the owner's blanket delegation (2026-09-14 08:30 UTC)
 
 The instruction was "do what you recommend", so the four candidates in §12 B are resolved here rather than re-asked. Two of
@@ -510,3 +517,44 @@ Steps 0–1 (re-auth, prove session) stay. **New step 2, before any resource is 
 then measure every `[verify-at-apply]` figure above with serial `aws pricing` calls — serially, because `aws.exe` calls
 sharing a `login_session` cache are not concurrency-safe and a fanned-out ladder self-revokes mid-deploy.
 
+## DEBT-27 reconciliation pass (2026-09-14 14:45 UTC) — the spec and the record were made to agree, and one security decision came back reversed
+
+**Why this section is a record and not just a diff.** The pass was routed from `checkpoint-003` §8 as *"merge, then `pk:plan` the DEBT-27
+divergence"*. The merge happened (**#91** → `9f14671`, `2026-09-14T14:24:13Z`, re-read before the pull and asserted an ancestor of this
+branch afterwards), and the divergence was real: §12 B recorded a hosted zone the account does not have, §6's `T-02` row asked for two
+certificates nobody can request, and the owner's actual answer lived only here.
+
+**What was checked before anything was written, and what it changed.** The claim worth attacking was not *"is the spec stale"* — it was
+*"does H-A really cost the encrypted origin hop, or was that an unexamined inference?"* The optimistic hypothesis (CloudFront exempts ELB
+origins from certificate validation, so TLS-to-the-target survives with a self-signed cert and no domain) was researched against AWS's own
+Developer Guide and is **false**: CloudFront *"verifies that the certificate was issued by a trusted certificate authority"*, *"You can't use
+a self-signed certificate for HTTPS communication between CloudFront and your origin"*, no ELB exemption exists anywhere in the guide, and
+`https-only` against a certificate-less ALB returns **502**. So the reversal stands, and §14.4 exists because of it. The second finding cut
+the other way — the mechanism §12 B named for keeping the ALB closed was **wrong in detail**: the AWS-managed list is
+`com.amazonaws.global.cloudfront.origin-facing` (global, weight 55 of 60 rules), the regional `com.amazonaws.<region>.cloudfront.origin`
+form is **not documented**, and AWS's primary restriction method is a **shared secret custom-origin header with a default-`403` listener
+rule** — with AWS's own warning that HTTPS is what protects the header's value, which HTTP:80 does not provide. Both are written into
+§14.3's citation records with publisher, title, URL and access date, per I-A1-6.
+
+**Spec surfaces amended (two commits, `7e2060b` then `776732b`):** §0's forward pointer · `D-M5-3` (struck-through amendment block with its
+expiry condition) · §3.1's paragraph and its Route 53 / ACM / CloudFront rows · §3.3's first and last bullets · §6 `T-02` (restated, not
+deleted) and `T-09` (HTTP:80 + header check, with the proof rewritten as header/no-header pairs) and `T-03` (endpoints, not NAT) ·
+§12's heading, its *"B is the long pole"* preamble, and B's Answer cell + mechanism correction · **new §14** (Amendment A1: decision
+record `DECISION-m5-aws-deployment-010`, six citations, two `UNCERTAINTY` records including the region contradiction between the ELB guide
+and the CloudFront guide, the FMEA row, invariants **I-A1-1…6**).
+
+| Item | Status at this boundary | Evidence |
+| :--- | :--- | :--- |
+| **DEBT-27** | **closed on disk, `main`-pending** — this row's own closure condition is the amendment *merging*, not existing | both spec commits above; CI on this branch's head carries the gate verdict |
+| **T-02 step 0** (measure the account) | **done**, merged (#86–#88) | `m5-deploy-log.md`, 58 read-only calls, zero writes |
+| **T-02 decision** (hostname) | **done** — H-A, $0, H-B parallel, H-C on a card | §14.2/§14.3, owner 2026-09-14 |
+| **T-02 remaining substance** | the three `[verify-at-apply]` price cells **re-measured serially behind a live session**, and `UNCERTAINTY-010-b`'s region question is deferred to whoever lands H-B/H-C | §14.2's caveat: no unit price in the earlier table was measured, because the CLI session died at the re-probe |
+| **M5 writes** | **still forbidden.** `pk:ship`, the human merge gate, and **I-A1-5** (no write before the three console numbers) all stand, unchanged by §14 | §9/R-9.2, I-A1-5 |
+
+**Exactly one next action:** **T-03 on paper** — the CDK stack shape for VPC + ECR + log group under §12 D (bought `/20`, endpoint egress,
+**no NAT**), priced from `[verify-at-apply]` cells and §14's citations rather than from `docs/m5-infra-plan.md` §7, which DEBT-26 indicts.
+It changes no platform, asks for no credential, and is the first task that can start without an owner answer. **The owner's two §14.6
+decisions are requested alongside it and do not block it.**
+
+**Zero AWS calls in this pass** — zero reads, not merely zero writes: a citation pass needs no session, and the standing instruction is
+that the session is not claimed live. No source file, no config, no dependency: `runtime deps 3 / dev deps 19`, unchanged since M0.
