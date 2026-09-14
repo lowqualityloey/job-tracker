@@ -134,8 +134,54 @@ job's own `timeout-minutes: 15` before it finished, so it would never run. What 
 failure — a heartbeat that stalls after four minutes — and that residual is named rather than waved at: this measures the loop's
 structure, and the real timeout relationship stays a `[verify-at-apply]` item for T-09 and T-13.
 
-**Not done:** nothing committed, pushed, or PR'd — the boundary below still holds, and `git status` shows both files dirty.
+**Not done at the time of writing** (superseded below): nothing was committed, pushed, or PR'd when this section was
+first drafted, and the boundary still held. **It has since been overtaken by fact** — the ladder ran, and T-06's three
+commits (`67e5d32` seam, `41183bb` red, `18ae35f` green) are merged in PR #81.
 The `/tmp` logs are local and perishable; the counts in this table are the citable record.
+
+## T-07 executed — R-4.4 bounded health probe (2026-09-14, **committed on this branch**)
+
+Level **L1**, as routed. Three commits, Red / Green kept apart per `AGENTS.md`:
+`a5fc654` `chore(api)` (the `HealthProbe` seam: config key, default, guarded reader, pass-through probe + 6 config cases) ·
+`4799856` `test(api)` (the 4 bound cases; **2 failed / 8 passed**) · `a42070e` `feat(api)` (the race; handler rewired).
+
+**What ships.** Spec §4.4's option (2): the probe answers *"still thinking"* as unhealthy at its own ceiling, so the ALB
+reads a verdict, never a silence. `HealthProbe.ProbeAsync` links the request token with a `CancelAfter(bound)` source, hands
+the callee that token, and races the probe against `Task.Delay(bound, CancellationToken.None)` — the bound is a promise this
+method keeps regardless of whether `CanConnectAsync` obeys a cancellation, which is exactly the black-holed-route case §4.4
+measures (refused answers in 0.09 s; *dropped* packets leave the call inside Npgsql's connect timeout). The timeout is
+`Health:ProbeTimeoutSeconds`, default 5 s, and the guard's blast radius is bigger than T-06's: a bound of `0` would make
+every probe answer unhealthy immediately, emptying the target group, so absent/unparseable/non-positive all fall back to
+the documented default.
+
+**Three findings, each of which changed the code.**
+
+1. T-06's lesson generalises: the bound cannot be a token the callee may ignore, so the ceiling is a *separate delay task*,
+   and "which reason fired" is decided afterwards by asking the sources — never by comparing completed tasks.
+2. The linked source is deliberately **not** disposed on the abandon path: a `using` there would deregister the cancellation
+   the still-alive probe is registered on — disposing the walkaway's own escape hatch. Every path where the probe completed
+   disposes as usual. The abandoned task's eventual fault is observed by a `ContinueWith`, so a late cancellation cannot
+   resurface at finalizer time as an `UnobservedTaskException` log line for a request already answered.
+3. An *obedient* probe that throws `OperationCanceledException` at the bound is also a health verdict, not a crash: without
+   the catch, it reaches `UseExceptionHandler` as a 500 where the ALB expects a 503. The catch filter is
+   `when (!requestAborted.IsCancellationRequested)` — a genuine client hangup still propagates, because nobody is left to
+   read the 503.
+
+**One exit criterion met by equivalence, named not waved at.** §6's clause is about the endpoint's behaviour, but no
+`TestServer` case can drive a black-holed datasource through the HTTP pipeline: boot's `db.Database.Migrate()` consumes the
+same connection string first, so a hang kills startup, not the probe. The bound is therefore pinned at the probe seam with a
+never-returning fake; the live relationship to the ALB's 10 s target-group timeout stays `[verify-at-apply]` with §4.3
+(T-09/T-13).
+
+**Evidence** — focused tests and the CI-parity build passed locally; **the full API suite did not, and the reason is the
+machine's Docker nesting, not this code**:
+
+| Step | Command | Result |
+| :--- | :--- | :--- |
+| Red | `dotnet test api/tests/JobTracker.Api.Tests --filter HealthProbeBoundTests` at the pass-through stub | **2 failed / 8 passed** — both failures "did not answer within the test budget — the bound is not being kept" |
+| Green, focused | same filter, full tree | **10 passed / 0 failed** (199 ms), exit 0 |
+| CI parity | fresh `obj/bin`, `dotnet build api/JobTracker.slnx -p:TreatWarningsAsErrors=true` | **0 warnings / 0 errors** |
+| Green, full API | `dotnet test api/tests/JobTracker.Api.Tests` | **NOT RUN GREEN.** Five invocations (host bridge × Ryuk on/off × `TESTCONTAINERS_HOST_OVERRIDE`) all fail inside Testcontainers bootstrap: `ResourceReaperException : Initialization has been cancelled.` (60 s × collections, 10 m 19 s per run) or, with Ryuk disabled, `Npgsql … Connection refused` to a mapped port whose container the daemon had not finished starting. The identical signature appears at `a5fc654` — a seam-only commit that changes no fixture code — so the failure enters before this branch's behaviour does. Manual control: a bare `postgres:18.6` container published here in ~5 s and answered TCP. Same machine, 01:16 UTC the *same suite* ran 200/200; the daemon/image state degraded mid-day. Tracked as **DEBT-23**; full-suite verification transfers to CI's `api` job (native Docker) on this PR |
 
 ## State boundary (Level 3)
 
@@ -150,21 +196,22 @@ unblocked code task in §Next action, and it does not bar read-only measurement.
 - **A = workload region** gates the `us-east-1` ACM pairing and every `describe-*` measurement.
   **B = domain / DNS host / zone owner** is the long pole: DNS validation costs minutes-to-hours that no retry shortens.
   **C = IaC tool** decides the *form* of every task in §6, and everything downstream of it is rework if it flips.
-- **Publishing hazard**: `da04ee4` and `c8bd912` are in **no pull request**, and `HEAD..origin/<branch>` returns `2e088a6`
-  + `4909b03` — the same two commit messages under different SHAs. Publishing needs `--force-with-lease`, and
-  `gh pr view <n> --json headRefOid` must then be checked against `git rev-parse HEAD`.
+- **Publishing hazard: retired 2026-09-14.** The `da04ee4`/`c8bd912` orphan-SHA pair was superseded by the ladder, which
+  ran and merged as PR #81 (`dfe018c` → `b4c2888`); `origin/main` now contains all ten commits. The discipline the hazard
+  taught survives in `AGENTS.md`: assert `headRefOid` after every `gh pr create`.
 - Not blockers: **T-06 and T-07** depend on nothing (`Depends: —` in spec §6) and touch no AWS surface.
 
 ## Next action
 
-**T-07 — implement R-4.4, the health-endpoint bound** (spec §6: `/api/health` must return **503 inside a configured window**
-against a datasource whose `CanConnectAsync` never returns). Ceremony **L1**, code-only, `Depends: —` — the spec's own ordering
-note says T-06 and T-07 are "the only code changes and can start immediately", so this is the next thing an agent can do without
-an owner answer. It also lands as a Red / Green / Refactor triple, and §6's suggested commit ladder puts it directly after
-T-06's `feat(api): SSE keep-alive heartbeat`.
+**Publish this branch** (`pk:pr`): push `feat/t07-health-probe-bound`, open the PR, assert
+`gh pr view --json headRefOid` equals `git rev-parse HEAD`, and let CI's `api` job — native Docker, where the
+Postgres/Testcontainers suites are not nested — carry the full-suite verdict the local machine can no longer produce
+(DEBT-23). Then **the human reviews and merges.** T-06 and T-07 are done and committed; every remaining §6 task now
+waits on a provisioned platform or a §12 answer.
 
-T-06 is done (§ above) and **uncommitted**. Its Red → Green is recorded; the Refactor step of the triple was taken *during*
-Green rather than as a fourth commit-shaped pass — the frame strings became named constants and the interval read became one
+T-06 is done (§ above) and **committed** — the ladder below ran, and both records were merged in PR #81
+(`dfe018c` → merge `b4c2888`, 2026-09-14 03:46:01Z). Its Red → Green is recorded; the Refactor step of the triple was
+taken *during* Green rather than as a fourth commit-shaped pass — the frame strings became named constants and the interval read became one
 private helper while the tests were being written, so there is no pending cleanup left in that handler. One pre-existing wart
 was found and deliberately **not** touched: a stray over-indentation at `ApplicationCatalog.cs:98`, present in HEAD, unrelated
 to this change.
