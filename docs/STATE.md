@@ -253,24 +253,25 @@ PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** 
   write gated on **I-A1-5** plus T-03 §12's owner items **O-1…O-4**: H-B timing, root-vs-scoped identity, flow logs, and the
   three console numbers. The Engineering OS is synced on this branch too: engine `b3c5edf → ebfd67e` (v1.7.0), block
   re-injected, profile **balanced → turbo** — a separate commit, a separate concern.
-- **In flight (live)**: **`docs/m5-t03-network-design`**, cut from `09b4e0d` — four commits by design: the engine sync, the
-  T-03 design spec (with §6's `T-03` row linking to it), the task-record reconciliation, and this projection. **No PR number
-  or head SHA is written here** (DEBT-25) — both are added by the commit after `gh pr create` returns them, and rule eleven
-  re-reads `headRefOid` at the moment anything acts on it. Still on the remote and the owner's to delete:
+- **In flight (live)**: **`docs/m5-t03-network-design`**, cut from `09b4e0d` — the four-commit ladder (engine sync; T-03 design
+  spec with §6's `T-03` row linking to it; task-record reconciliation; this projection) is **published and open as PR #93**,
+  named here only after `gh pr create` returned it and after `gh pr view 93 --json headRefOid` was asserted equal to
+  `git rev-parse HEAD` at that moment (DEBT-25 holds: no head SHA is written below; rule eleven re-reads the invariant at
+  every action, and PR-open claims have a shelf life of seconds). Still on the remote and the owner's to delete:
   `docs/m5-t02-step0-measurement`, `docs/m5-t02-retraction-close`, `chore/state-m5-post-90-checkpoint`,
   `docs/m5-debt27-t02-reconciliation`.
-- **Exactly one next action (live)**: **`pk:pr` for this branch** — run the gate, land the ladder, push, `gh pr create`,
-  assert `gh pr view --json headRefOid` equals `git rev-parse HEAD`, then report the URL and stop: review and merge are
-  human. **Then the owner's half, in one reply:** O-1…O-4 (the two §14.6 decisions, the flow-logs appetite, the three console
-  numbers). Until they arrive, **I-A1-5 holds**: T-03's design is done, its execution cannot start, and no agent-side M5
+- **Exactly one next action (live)**: **the owner's reply — T-03 §12's O-1…O-4** (the two §14.6 decisions, H-B timing and
+  root-vs-scoped identity; the flow-logs appetite; the three console numbers). `pk:pr` is discharged; review and merge of #93
+  are human. Until O-1…O-4 arrive, **I-A1-5 holds**: T-03's design is done, its execution cannot start, and no agent-side M5
   task remains that needs no credential, no card, and no owner answer.
 - **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 18:2x–18:3x UTC**. Engine audit:
   `git -C .promptkit status --porcelain` clean, tip `ebfd67e` (v1.7.0 APPROVED release record + changelog in
   `git -C .promptkit log`), workflow count from the listing → **23**, and the working `AGENTS.md` block matches the injected
   directives of this session — the sync is adopted, not assumed. `gh auth status` → logged in. **AWS control-plane calls:
   zero** — four web reads on aws.com documentation pages (two returned 200 with no numbers, two met the session's web
-  ceiling), the session is still not claimed live. `npm run verify` → recorded by the commit ladder below, exit status
-  quoted there rather than here. Hygiene: runtime deps **3** / dev **19** — the design justifies CDK's dependencies on paper
+  ceiling), the session is still not claimed live. `npm run verify` → **exit 0** on the exact content this branch carries
+  (all edits preceded the run): **227 tests / 23 files**, build **61.23 kB** gz — identical to the 15:20 boundary's figures.
+  Hygiene: runtime deps **3** / dev **19** — the design justifies CDK's dependencies on paper
   and installs none; `.m5-parts/` stays untracked per DEBT-21.
 
 > ⛔ **ARCHIVE — everything below this line is the 2026-09-12 M4-era projection, kept as evidence, not as current state.**
