@@ -139,7 +139,7 @@ first drafted, and the boundary still held. **It has since been overtaken by fac
 commits (`67e5d32` seam, `41183bb` red, `18ae35f` green) are merged in PR #81.
 The `/tmp` logs are local and perishable; the counts in this table are the citable record.
 
-## T-07 executed — R-4.4 bounded health probe (2026-09-14, **committed on this branch**)
+## T-07 executed — R-4.4 bounded health probe (2026-09-14, **merged in PR #82**)
 
 Level **L1**, as routed. Three commits, Red / Green kept apart per `AGENTS.md`:
 `a5fc654` `chore(api)` (the `HealthProbe` seam: config key, default, guarded reader, pass-through probe + 6 config cases) ·
@@ -182,6 +182,7 @@ machine's Docker nesting, not this code**:
 | Green, focused | same filter, full tree | **10 passed / 0 failed** (199 ms), exit 0 |
 | CI parity | fresh `obj/bin`, `dotnet build api/JobTracker.slnx -p:TreatWarningsAsErrors=true` | **0 warnings / 0 errors** |
 | Green, full API | `dotnet test api/tests/JobTracker.Api.Tests` | **NOT RUN GREEN.** Five invocations (host bridge × Ryuk on/off × `TESTCONTAINERS_HOST_OVERRIDE`) all fail inside Testcontainers bootstrap: `ResourceReaperException : Initialization has been cancelled.` (60 s × collections, 10 m 19 s per run) or, with Ryuk disabled, `Npgsql … Connection refused` to a mapped port whose container the daemon had not finished starting. The identical signature appears at `a5fc654` — a seam-only commit that changes no fixture code — so the failure enters before this branch's behaviour does. Manual control: a bare `postgres:18.6` container published here in ~5 s and answered TCP. Same machine, 01:16 UTC the *same suite* ran 200/200; the daemon/image state degraded mid-day. Tracked as **DEBT-23**; full-suite verification transfers to CI's `api` job (native Docker) on this PR |
+| CI, on PR #82 | `verify-api` job (native Docker, full suite) | **Passed! 0 failed / 210 passed** (1 m 12 s) — the transfer worked; the DEBT-23 row records the outcome |
 
 ## State boundary (Level 3)
 
@@ -203,11 +204,11 @@ unblocked code task in §Next action, and it does not bar read-only measurement.
 
 ## Next action
 
-**Publish this branch** (`pk:pr`): push `feat/t07-health-probe-bound`, open the PR, assert
-`gh pr view --json headRefOid` equals `git rev-parse HEAD`, and let CI's `api` job — native Docker, where the
-Postgres/Testcontainers suites are not nested — carry the full-suite verdict the local machine can no longer produce
-(DEBT-23). Then **the human reviews and merges.** T-06 and T-07 are done and committed; every remaining §6 task now
-waits on a provisioned platform or a §12 answer.
+**Published, green, merged.** PR #82 (`0986e53` → merge `7e99d7e`, `2026-09-14T05:33:17Z`); the post-create
+`headRefOid` assertion held, and CI's native-Docker `verify-api` ran the full suite the local machine lost:
+**210 passed / 0 failed** (1 m 12 s). T-06 and T-07 — spec §6's only `Depends: —` items — are delivered. **Every
+remaining task in this record waits on the owner's §12 answers (B–G) or a provisioned platform; there is no next
+code task to start, and this boundary now holds as written.**
 
 T-06 is done (§ above) and **committed** — the ladder below ran, and both records were merged in PR #81
 (`dfe018c` → merge `b4c2888`, 2026-09-14 03:46:01Z). Its Red → Green is recorded; the Refactor step of the triple was
