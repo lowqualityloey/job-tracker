@@ -134,15 +134,63 @@ public static class ApplicationCatalog
                 // on the wire the moment the connection opens, and it is what the "a dropped stream reconnects" row in
                 // §4.3 depends on: without an initial flush the client's `open` event waits for the first write, so a
                 // quiet catalog means a client that never learns it is connected.
-                await http.Response.WriteAsync(": open\n\n", System.Text.Encoding.UTF8, ct);
+                await http.Response.WriteAsync(OpenFrame, System.Text.Encoding.UTF8, ct);
 
-                // `event: change` and not the default `message`: the adapter listens for a named event, so a frame
-                // that carries a correct id and the wrong event name is delivered to no one. Both lines and the
-                // terminating blank line are the wire format, not formatting.
-                await foreach (var id in changes.Reader.ReadAllAsync(ct))
+                // R-4.2 — the keep-alive heartbeat. The event bus is in-process and LISTEN/NOTIFY arrives on it within
+                // 2 ms, so a quiet catalog is the normal case, not the edge: on a deployed URL that means the response
+                // body carries nothing for as long as nobody edits, and every idle timeout in the path — ALB, CloudFront,
+                // and whatever the browser's own stack decides — starts counting from the last byte written. §4.2's
+                // measurement is that an EventSource which is killed and reconnects is *not* a stale-data failure: it
+                // reconnects within the retry window, refetches the list, and looks healthy while costing a refetch every
+                // few minutes. The stale-data bug would be a stream that survives too long. This closes the one that
+                // would not survive at all.
+                //
+                // The shape below is a race rather than a System.Threading.Timer, and that is the part worth reading. A
+                // timer hands a callback a HttpContext that outlives its own request the moment a client disconnects, and
+                // writing to a completed response throws ObjectDisposedException — on a thread pool thread, where the
+                // `catch (OperationCanceledException)` under this loop is not on the stack to help. Racing
+                // WaitToReadAsync against Task.Delay instead means the interval and the event queue share one await, the
+                // cancellation token reaches both, and there is exactly one way out of this loop.
+                var keepAlive = KeepAliveInterval(config);
+                Task<bool> changeArrived = changes.Reader.WaitToReadAsync(ct).AsTask();
+                while (true)
                 {
-                    await http.Response.WriteAsync($"event: change\ndata: {{\"id\":\"{id}\"}}\n\n",
-                        System.Text.Encoding.UTF8, ct);
+                    if (!changeArrived.IsCompleted)
+                    {
+                        var intervalElapsed = Task.Delay(keepAlive, ct);
+                        if (await Task.WhenAny(changeArrived, intervalElapsed) == intervalElapsed)
+                        {
+                            // Awaited rather than trusted. WhenAny cannot tell "the interval elapsed" from "the request
+                            // was cancelled", and a cancelled token makes Task.Delay return at once — so a bare reference
+                            // comparison turns every disconnect into a loop that writes a heartbeat as fast as it can, the
+                            // hot-loop failure the config guard above exists to prevent, arriving by a different route.
+                            // This line rethrows OperationCanceledException, which the catch below already understands;
+                            // on a real beat it completes synchronously and costs nothing.
+                            await intervalElapsed;
+                            await http.Response.WriteAsync(KeepAliveFrame, System.Text.Encoding.UTF8, ct);
+                            continue;
+                        }
+                    }
+
+                    // `event: change` and not the default `message`: the adapter listens for a named event, so a frame
+                    // that carries a correct id and the wrong event name is delivered to no one. Both lines and the
+                    // terminating blank line are the wire format, not formatting.
+                    //
+                    // The channel completing rather than delivering is the cross-instance path: another instance saw this
+                    // subscriber's pipe break and closed its queue (§4.1), which is the one case where ending the stream
+                    // is right — the client's retry does a full refetch, so it loses nothing but the connection.
+                    if (!await changeArrived)
+                    {
+                        break;
+                    }
+
+                    while (changes.Reader.TryRead(out var id))
+                    {
+                        await http.Response.WriteAsync($"event: change\ndata: {{\"id\":\"{id}\"}}\n\n",
+                            System.Text.Encoding.UTF8, ct);
+                    }
+
+                    changeArrived = changes.Reader.WaitToReadAsync(ct).AsTask();
                 }
             }
             catch (OperationCanceledException)
