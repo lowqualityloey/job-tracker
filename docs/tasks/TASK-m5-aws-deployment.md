@@ -324,3 +324,106 @@ SHA cannot appear in its own message, so it is the tip of this branch rather tha
 T-02, and this record is the vehicle. Provisioning did not begin on answers held only in chat — they were written first.
 The one chat-only fact that remains, B's zone apex name, *cannot* be applied from chat at all; it is T-02's checklist
 item 0.
+
+**Correction at the boundary (08:30 UTC, same day):** that last sentence is now false in its premise. Item 0 has run —
+96 seconds of reads, 58 calls — and what it returned was not an apex name but **the absence of one**, plus a price list. The
+residual is therefore not "a fact that cannot be applied from chat" but **three decisions only the owner can make**, named in
+the section below. The sentence stands as written *about the 07:03 state of the record*, and is annotated rather than deleted.
+
+## T-02 hostname: the recommendation, under the owner's blanket delegation (2026-09-14 08:30 UTC)
+
+The instruction was "do what you recommend", so the four candidates in §12 B are resolved here rather than re-asked. Two of
+the four were eliminated by measurement, not taste.
+
+**Recommended: option (1) — register a `.dev` in this account, ~$23/yr all-in.**
+
+| | |
+| :--- | :--- |
+| Domain | `$17.00`/yr, register == renew (`.dev`); `.com`/`.org` `$16.00`, `.app` `$20.00`, `.io` `$71.00` |
+| Hosted zone | `$0.50`/mo = `$6.00`/yr, charged at creation, free if deleted inside 12 h |
+| **Total** | **≈ `$23.00`/yr**, of which **$17 cannot be paid with promotional credits** |
+| Two ACM certificates | `$0` — public certificates are free; the cost is the DNS validation wait, not money |
+| Excluded from the recommendation | `.io` at 4× `.dev` for the same job; `.click` at $3, cheapest but a spam-associated suffix |
+
+Why (1) over (2) and (3), *measured*: this account has no zone and no domain (reads 3, 5), and **the repository shows no
+evidence that any owned domain exists anywhere** — a repo-wide scan for domain-shaped literals returned only third-party
+strings (`mcr.microsoft.com`, `tsconfig.app.json`), `gh api repos/…` has no `homepage`, and there is no Pages custom domain
+(the Pages endpoint 404s). Options (2)/(3) both presuppose a domain that nobody has yet demonstrated. **If one does exist**
+at Namecheap/Cloudflare/Gandi or in a second AWS account, say so and (2) or (3) immediately beats (1): the $17 disappears and
+only the $0.50 zone remains.
+
+Why not (4) — and a retraction worth its own line. I previously recorded that dropping the custom hostname "breaks the
+`__Host-` cookie shape that decision B was protecting." **That was overstated.** `__Host-` requires `Secure` + `Path=/` +
+no `Domain` attribute, and none of those three requirements needs a registrable domain; a CloudFront default-domain
+distribution terminates TLS on a valid AWS certificate, so a host-only cookie is settable there. What option (4) actually
+destroys is **this milestone's subject matter**: no ACM DNS validation, no two-region certificate constraint, no named exact
+Origin allowlist, and a public URL that changes when the distribution is recreated. M5 exists to teach that machinery. Option
+(4) keeps the bill at $0 and deletes the lesson — a legitimate trade, but it should be chosen *as* a scope cut, not sold as
+a cookie problem.
+
+### What remains the owner's, and why delegation cannot close it
+
+1. **The apex name.** Two obvious-form names measured `UNAVAILABLE`; two shorter personal-form `.dev` names measured
+   `AVAILABLE` (names held out of the repo by the redaction rule; they are in the session record). Choosing a name is
+   choosing a brand and a WHOIS identity — not a judgement an agent can make *for* someone.
+2. **The card.** Registration is excluded from promotional credit. Spending real money on someone else's account is not
+   inside any "do what you recommend" reading that survives inspection.
+3. **`pk:ship` + the explicit write go-ahead.** Still required, unchanged by this document.
+4. **Root vs scoped identity.** Reinforced by a new finding: `aws.exe` calls are not concurrency-safe against a
+   `login_session` cache, so a fanned-out ladder self-revokes. A long-lived scoped identity fixes that *and* answers the
+   least-privilege question. Recommendation: **create the scoped deploy identity before T-03, not during it** — that is an
+   IAM write, so it waits for the same go-ahead.
+
+### What registration asks that a hosted zone does not
+
+Beyond money: `register-domain` requires **real registrant contact data** (name, postal address, phone, email) that is
+transmitted to the registry and, depending on TLD, displayed in WHOIS — it must therefore be supplied by the owner and is
+deliberately not templated into this record. ICANN requires a **registrant email verification click**, and an unverified
+contact can lead to suspension; `.dev` additionally sits on the Chromium **HSTS preload list**, so browsers will refuse
+plain HTTP for it before this app decides anything (documented registry property, *not* measured in this pass — verify at
+apply). Availability from `get-domain-suggestions` is cached and approximate: `check-domain-availability` immediately before
+`register-domain` is the gate, and availability does not survive being read.
+
+### Prepared ladder — **do not execute a line of it** before owner items 1–4 above are answered
+
+Every step is **serialised**: no `&`, no `wait`, no fan-out — see the `login_session` concurrency finding. Step 3 is the
+only irreversible, money-spending line; everything after it is reprovisionable or deletable.
+
+```text
+AWS="/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"
+APEX=<owner's chosen apex>            # e.g. something.dev — never committed before the owner picks it
+
+# 0. re-auth (owner completes the browser; region is required or the command hangs on a prompt)
+"$AWS" login --profile loey --region ap-southeast-1
+"$AWS" login --profile loey --region us-east-1        # registrar + the CloudFront cert both live here
+
+# 1. prove the session before the first write, then re-prove it after any gap > ~1 h
+"$AWS" --profile loey --region ap-southeast-1 sts get-caller-identity
+
+# 2. availability LAST, immediately before registration — cached suggestions lie
+"$AWS" --profile loey --region us-east-1 route53domains check-domain-availability --domain-name "$APEX"
+
+# 3. SPEND ~$17/yr, IRREVERSIBLE without repurchase; needs registrant contact fields (owner-supplied, not templated)
+"$AWS" --profile loey --region us-east-1 route53domains register-domain \
+  --domain-name "$APEX" --auto-renew <registrant/admin/tech/contacts>   # confirm before running
+
+# 4. hosted zone ($0.50/mo, charged at creation) — registration does not create it for you; verify at apply
+"$AWS" --profile loey --region us-east-1 route53 create-hosted-zone \
+  --name "$APEX". --caller-reference "$(date -u +%Y%m%dT%H%M%SZ)-t02"
+
+# 5. two certificates, two regions, one SAN each — D-M5-10's shape; both free, both DNS-validated
+"$AWS" --profile loey --region us-east-1     acm request-certificate --domain-name "$APEX" \
+  --validation-method DNS --key-algorithm RSA_2048 --idempotency-token t02-cf
+"$AWS" --profile loey --region ap-southeast-1 acm request-certificate --domain-name "$APEX" \
+  --validation-method DNS --key-algorithm RSA_2048 --idempotency-token t02-alb
+
+# 6. one CNAME record per cert (change-resource-record-sets, 2 writes), then poll until both read ISSUED
+"$AWS" --profile loey --region us-east-1 acm describe-certificate --certificate-arn <ARN> \
+  --query 'DomainValidationOptions[0].{n:ResourceRecordName,v:ValidationRecord}' --output json
+```
+
+Two guardrails inside the ladder itself: `--idempotency-token` makes a retried step 5 reuse the pending certificate instead
+of minting a second one, and step 6 must read `ISSUED` — not `PENDING` — before T-04's CloudFront distribution may reference
+the ARN. `register-domain` is also the point at which the **root-identity** question stops being theoretical: it is a
+`route53domains:*` action taken as account root, on a billing-bearing account, and the least-privilege answer is cheaper to
+apply one step earlier than one step later.
