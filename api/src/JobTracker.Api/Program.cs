@@ -199,11 +199,14 @@ app.MapApplicationCatalog();
 
 // M5: unauthenticated health probe for the ALB. It is outside the session/antiforgery protected scopes
 // (SessionGate.IsProtected covers /api/applications* and /api/auth/*; this is neither), so it is reachable
-// without a session cookie. Reports DB reachability so a sick instance fails its health check.
-app.MapGet("/api/health", async (JobTrackerDb db, CancellationToken ct) =>
+// without a session cookie. Reports DB reachability so a sick instance fails its health check — and since
+// R-4.4, reports it BOUNDED: HealthProbe answers "unhealthy" at its own ceiling even when CanConnectAsync
+// is stuck in a black-holed network path, so the ALB reads a verdict, never a silence (spec §4.4).
+app.MapGet("/api/health", async (JobTrackerDb db, IConfiguration config, HttpContext http) =>
 {
-    var healthy = await db.Database.CanConnectAsync(ct);
-    return healthy
+    var reachable = await HealthProbe.ProbeAsync(
+        ct => db.Database.CanConnectAsync(ct), HealthProbe.ProbeTimeout(config), http.RequestAborted);
+    return reachable
         ? Results.Ok(new { status = "ok", database = "reachable" })
         : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
 });

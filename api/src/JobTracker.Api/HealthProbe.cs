@@ -66,8 +66,49 @@ public static class HealthProbe
     public static async Task<bool> ProbeAsync(
         Func<CancellationToken, Task<bool>> canConnect, TimeSpan bound, CancellationToken requestAborted)
     {
-        // Seam commit, deliberately today's behaviour: unbounded. R-4.4's failing tests drive the race out of
-        // the next commit; shipping the signature first keeps Red and Green separately provable.
-        return await canConnect(requestAborted);
+        // One token for both reasons to stop: the bound (this task's ceiling) and the caller hanging up. The
+        // callee gets it so an obedient probe releases its socket at the bound; the race below is what makes
+        // the bound true for callees that are not obedient. Deliberately not `using`: on the abandon path the
+        // probe is still alive and registered on this source — disposing it there would deregister the very
+        // cancellation the abandoned callee might still obey. On every path where the probe completed, the
+        // registrations are gone and Dispose below is safe.
+        var boundCts = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
+        boundCts.CancelAfter(bound);
+
+        var probe = canConnect(boundCts.Token);
+
+        // The ceiling is a separate timer rather than the token: Task.WhenAny cannot tell "the bound elapsed"
+        // from "someone cancelled" (T-06's measured lesson), and here the distinction must survive even a
+        // probe that never completes — so the race is against a delay the probe cannot influence, and which
+        // token fired is decided afterwards by asking the sources directly.
+        var ceiling = Task.Delay(bound, CancellationToken.None);
+        if (await Task.WhenAny(probe, ceiling) != probe)
+        {
+            // Still thinking at the bound: unhealthy, whatever the probe decides later. The continuation
+            // observes its eventual fault — an abandoned probe that throws on cancellation would otherwise
+            // surface at finalizer time as an UnobservedTaskException, a log line from a request already
+            // answered.
+            _ = probe.ContinueWith(
+                static t => _ = t.Exception, CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return false;
+        }
+
+        try
+        {
+            return await probe;
+        }
+        catch (OperationCanceledException) when (!requestAborted.IsCancellationRequested)
+        {
+            // The bound fired and the probe obeyed: that is a health verdict, not a failure. Re-thrown, it
+            // would reach UseExceptionHandler as a 500 and the ALB would read a crash where it expects an
+            // unhealthy target. A genuine request abort still propagates (filter declined) — nobody is left
+            // to read a 503.
+            return false;
+        }
+        finally
+        {
+            boundCts.Dispose();
+        }
     }
 }
