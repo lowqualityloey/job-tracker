@@ -2,7 +2,7 @@
 
 - **Task ID**: `TASK-2026-09-13-m5-aws-deployment`
 - **Milestone**: M5 — AWS Deployment (Level 3, `pk:ship` + human approval)
-- **State**: **decisions recorded 2026-09-15 — spec §12 is seven of seven answered, so T-01's exit criterion is met.**
+- **State**: **decisions recorded 2026-09-14 — spec §12 is seven of seven answered, so T-01's exit criterion is met.**
   The 2026-09-13 stop state ("no commits, no PR, no AWS, no IaC") was lifted in order by the owner's publication
   authorization; T-06 and T-07 are merged (PRs #81/#82), the checkpoints are merged (#83), and what remains is
   spec §6 **T-02…T-17: T-02 is next**, gated on the two facts named in §"Blockers / Open", not on any decision.
@@ -193,13 +193,13 @@ unblocked code task in §Next action, and it does not bar read-only measurement.
 
 ## Blockers / Open
 
-- **Spec §12 carried seven owner decisions, A–G — all answered 2026-09-15** (A `ap-southeast-1`; B option (1), zone in
+- **Spec §12 carried seven owner decisions, A–G — all answered 2026-09-14** (A `ap-southeast-1`; B option (1), zone in
   this account; C CDK; D bought `/20` + VPC endpoints; E manual `citext` pre-creation; F manual rotation; G human-run
   deploy), written into spec §12's Answer cells *before* any AWS-adjacent work, which is what the resume condition
   demanded. "Six of them block T-02…T-05" was true until this pass.
 - **What now gates T-02, in place of §12:** (i) the zone's **apex name** — B decided the shape, not the literal, and unlike
   the decisions it cannot be applied from chat; (ii) **no `aws` CLI on this machine** (`command not found`, measured
-  2026-09-15) and no credential path proven — T-02's first commits are installing and proving that, before any
+  2026-09-14) and no credential path proven — T-02's first commits are installing and proving that, before any
   `describe-*` or certificate request.
 - **A = workload region** gates the `us-east-1` ACM pairing and every `describe-*` measurement.
   **B = domain / DNS host / zone owner** is the long pole: DNS validation costs minutes-to-hours that no retry shortens.
@@ -214,7 +214,7 @@ unblocked code task in §Next action, and it does not bar read-only measurement.
 **Published, green, merged.** PR #82 (`0986e53` → merge `7e99d7e`, `2026-09-14T05:33:17Z`); the post-create
 `headRefOid` assertion held, and CI's native-Docker `verify-api` ran the full suite the local machine lost:
 **210 passed / 0 failed** (1 m 12 s). T-06 and T-07 — spec §6's only `Depends: —` items — are delivered. **§12 is answered
-(seven of seven, 2026-09-15 — see §"Blockers / Open"): T-01's exit criterion is met, and the next task is T-02** (L1,
+(seven of seven, 2026-09-14 — see §"Blockers / Open"): T-01's exit criterion is met, and the next task is T-02** (L1,
 zone confirmation + both ACM certificates + DNS validation). It waits on two named facts, not on a decision — the zone's
 apex name (owner) and an `aws` CLI with working credentials on the machine that runs it (measured absent here).
 Provisioning itself stays behind `pk:ship` and human approval; Level 3 is unchanged.
@@ -245,7 +245,7 @@ The four failing cases at step 5 are precisely the four that need a beat on the 
 own answers (the 20 s default, the proxy-ceiling inequality, and the three unusable-interval rows). Commit 7's own
 SHA cannot appear in its own message, so it is the tip of this branch rather than a row here.
 
-**Resume condition — met in form 2026-09-15**: the seven answers are on disk in spec §12, the owner chose to proceed to
+**Resume condition — met in form 2026-09-14**: the seven answers are on disk in spec §12, the owner chose to proceed to
 T-02, and this record is the vehicle. Provisioning did not begin on answers held only in chat — they were written first.
 The one chat-only fact that remains, B's zone apex name, *cannot* be applied from chat at all; it is T-02's checklist
 item 0.
