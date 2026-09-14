@@ -241,18 +241,21 @@ PR #80, and **the rewrite itself was committed, reviewed and merged in PR #81** 
   alone, and those are AWS *writes*, so `pk:ship` plus an explicit owner go-ahead still stands in front of them. T-03…T-05
   follow the record's dependency graph. Agent-side queue: DEBT-23 recovery (optional), DEBT-21's delete-after step (**due
   — ask the owner**), branch pruning of #81–#85's merged heads (safe: ancestry-verified).
-- **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 06:31 UTC**, re-read at **06:50**;
+- **Verification (live, re-executed at this boundary)**: `date -u` → **2026-09-14 06:31 UTC**, re-read at **06:50** and again at **07:01**;
   `git status --porcelain` → only `.m5-parts/` (DEBT-21, untracked by decision); `gh pr view 85` → `MERGED 06:23:49Z`,
   `headRefOid` `585121b`, merge `3121b2d`; `command -v aws` → nothing **but** `aws.exe --version` → **aws-cli/2.36.44**;
   `aws configure list-profiles` → `loey`, `jonell`, both `login_session`-based, with **no `credentials` file on either
   side** and **no `region` key on either**; `gh repo view --json visibility` → **PUBLIC** (hence the deploy-log redaction
   rule). **First AWS calls: two, both read-only `sts get-caller-identity` on the owner's named profile, both errored** —
   `(NoRegion)` at 06:49:55, then `Your session has expired` at 06:50:10. Nothing was provisioned and no credential was
-  exercised; an errored STS call is not a session. The standing full-suite verdict is unchanged: CI `verify-api` **0
-  failed / 210 passed** (1 m 12 s, job `103865396138`, log read whole for warnings — none) on #82, with the local suite
-  still DEBT-23-broken. `npm run verify` not re-run: this PR changes markdown only — no `src/`, `api/`, config or workflow
-  path — so CI's `verify-api` step will **skip** on it, and per `ci.yml:164-178` that skip must be quoted as a skip, not
-  read as a pass.
+  exercised; an errored STS call is not a session. **The full gate has now run on this head via CI** — job
+  `103885886584` at 06:59:12Z: **Test Files 23 passed (23) · Tests 227 passed (227)**, build `61.23 kB` gz, the DEBT-11
+  config-shadow assertion green, and **0** lines matching `failed|FAIL|✖` across the whole job log (read unfiltered, then
+  counted). `npm run verify` itself was **not** re-run locally. `verify-api` on the same head reports *pass* in **5 s**,
+  and that is the skip, not a test run: its two real steps — build-with-warnings-as-errors and test-against-a-real-
+  PostgreSQL — both read **skipped** in the step-level API, exactly the trap `ci.yml:164-178` and grill F-10 name. The
+  standing API verdict remains CI #82's **0 failed / 210 passed** (1 m 12 s, job `103865396138`), with the local suite
+  still DEBT-23-broken.
 
 > ⛔ **ARCHIVE — everything below this line is the 2026-09-12 M4-era projection, kept as evidence, not as current state.**
 > Do not read its branch names, PR numbers, AC counts or "next action" as live; the live set is the four bullets above.
