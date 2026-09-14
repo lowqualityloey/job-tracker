@@ -2,7 +2,7 @@
 
 - **Task ID**: `TASK-2026-09-13-m5-aws-deployment`
 - **Milestone**: M5 — AWS Deployment (Level 3, `pk:ship` + human approval)
-- **State**: **`in_progress`** — T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
+- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`, and **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
   merged (PR #85 → `3121b2d`, `2026-09-14T06:23:49Z`), and the owner's instruction resumed this task at **T-02**, whose
   step 0 executed at 06:31 UTC and **retracted one of this record's own premises**: the `aws` CLI is not absent on this
   machine, it is a Windows binary reachable from WSL (§"Blockers / Open"). The 2026-09-13 stop state ("no commits, no PR,
@@ -10,10 +10,13 @@
   and what remains is spec §6 **T-02…T-17**, gated on three named owner facts — not on any decision, and not on any
   installation.
 - **Owner / Actor**: Assistant (agent)
-- **Branch**: task work lands per-PR on `main` (last merge read at this boundary: #85 → `3121b2d`,
-  `2026-09-14T06:23:49Z`, `gh pr view` measured, with `3e2f2fb` and `585121b` both re-asserted as ancestors by
-  `git merge-base --is-ancestor`); the current work sits on `docs/m5-t02-step0-measurement`.
-  *The previously recorded `da04ee4` header was superseded by PRs #81–#85.*
+- **Branch**: task work lands per-PR on `main`. **Re-measured at 14:35 UTC for this pass**: `gh pr view 91` → `MERGED` at
+  `2026-09-14T14:24:13Z`, merge commit `9f14671`, and `git merge-base --is-ancestor 9f14671 HEAD` → **YES** on the branch carrying this
+  edit — so `checkpoint-003` and its projection sync are in `main`'s history, not merely pushed. `main` = `origin/main` at that SHA after
+  `git pull --ff-only`; `git status --porcelain` shows only the pre-existing `.m5-parts/` (DEBT-21). **Current work sits on
+  `docs/m5-debt27-t02-reconciliation`** — the DEBT-27 reconciliation, spec-side first.
+  *Earlier headers recorded #85 → `3121b2d` (PRs #81–#85) and, before that, `da04ee4`; each was superseded by measurement, and the
+  superseding line is kept because a branch claim that is only ever overwritten is a branch claim nobody can audit.*
 - **Plan / Spec**: `docs/specs/2026-09-13-spec-m5-aws-deployment.md` — 1,220 lines (`wc -l` re-measured 2026-09-14; the §12 answer pass grew some lines and the rewrite trimmed others), §0–§13, **the authority for every
   `D-M5-*` ID and task dependency below**
 - **Decision record**: `docs/aws-deployment.md` — cited as ratified, **but §11 of the spec marks five of its rows stale**;
