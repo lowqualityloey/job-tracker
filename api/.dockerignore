@@ -1,0 +1,23 @@
+# Exclude host build output from the Docker build context.
+#
+# Why this file exists: the Dockerfile's `COPY . .` had no filter, so every host `bin/` and `obj/` tree was
+# uploaded into the build context and merged into the image's source directory before `dotnet publish`. Two
+# concrete consequences, both of which this repository has already been bitten by in the *general* case
+# (docs/STATE.md DEBT-11: emitted artifacts shadowing real inputs):
+#
+#   1. The build is no longer a clean-room build. A stale `obj/project.assets.json` produced by a different
+#      SDK/NuGet version on a laptop can resolve differently than CI, which is the exact class of failure
+#      Central Package Management exists to prevent (api/Directory.Packages.props, DECISION-m3-backend-api-003).
+#   2. The context is tens of megabytes larger, and BuildKit transfers it on every build.
+#
+# `tests/` is excluded because the image publishes only src/JobTracker.Api; the test project is a
+# *verification* artifact, and it is also where the largest host-built binaries live.
+**/bin/
+**/obj/
+**/*.user
+**/.vs/
+**/.vscode/
+tests/
+docker-compose.yml
+README.md
+dotnet-tools.json

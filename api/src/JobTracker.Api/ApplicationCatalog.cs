@@ -1,3 +1,4 @@
+using System.Globalization;
 using JobTracker.Api.Auth;
 using JobTracker.Api.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,50 @@ namespace JobTracker.Api;
 /// </summary>
 public static class ApplicationCatalog
 {
+    /// <summary>
+    /// R-4.2's heartbeat interval, in seconds, read from configuration. Public because the name is the deployment knob's
+    /// contract and not an implementation detail: the test host sets it through this symbol instead of restating the
+    /// string — the rule <c>ApplicationsApiFixture</c> states for <c>AllowedOrigin</c>, that a test which spells a
+    /// contract from memory is only testing its own memory — and a future <c>appsettings.Production.json</c> needs the
+    /// same name to exist in one place.
+    /// </summary>
+    public const string KeepAliveConfigKey = "Sse:KeepAliveSeconds";
+
+    /// <summary>
+    /// Twenty seconds, a number derived rather than chosen (spec §4.2): it has to sit under the shortest idle ceiling in
+    /// the deployed path with margin, and §4.3 puts that ceiling at CloudFront's origin-response timeout (largest
+    /// documented value 60 s, still <c>[verify-at-apply]</c>) with the ALB's 120 s idle timeout behind it. The inequality
+    /// is asserted in <c>EventStreamKeepAliveTests</c> rather than trusted to this comment, because the failure it
+    /// prevents is a stream that dies quietly at a proxy in someone's browser, not a test that goes red.
+    /// </summary>
+    public static readonly TimeSpan DefaultKeepAliveInterval = TimeSpan.FromSeconds(20);
+
+    /// <summary>The frame that opens every stream (BEHAVIOR-m3-backend-api-046). A comment, so clients never dispatch it.</summary>
+    private const string OpenFrame = ": open\n\n";
+
+    /// <summary>
+    /// The heartbeat frame. A line beginning with a colon is a comment, which SSE defines as ignorable: it refreshes the
+    /// idle clock of every proxy in the path without reaching the client's <c>onmessage</c>. The mistake this shape is
+    /// written against is the plausible-looking <c>event: keep-alive</c>, which every browser would deliver as a named
+    /// message and the adapter would have to learn to ignore.
+    /// </summary>
+    private const string KeepAliveFrame = ": keep-alive\n\n";
+
+    /// <summary>
+    /// The heartbeat interval this stream will use. Read per connection rather than cached at startup, so a scaled-out
+    /// instance cannot disagree with its neighbours about how often the pipe beats.
+    ///
+    /// The guard is the point. A non-positive or unparseable value falls back to <see cref="DefaultKeepAliveInterval"/>
+    /// rather than being obeyed, because <c>Task.Delay(0)</c> inside this loop is not a fast heartbeat — it is a hot loop
+    /// writing a frame as fast as the socket drains, on every open stream in the process, which turns one operator typo in
+    /// one environment variable into saturating the single instance that holds them all. Absent and unusable are
+    /// therefore the same answer, and the answer is the documented default.
+    /// </summary>
+    private static TimeSpan KeepAliveInterval(IConfiguration config) =>
+        double.TryParse(config[KeepAliveConfigKey], CultureInfo.InvariantCulture, out var seconds) && seconds > 0
+            ? TimeSpan.FromSeconds(seconds)
+            : DefaultKeepAliveInterval;
+
     public static IEndpointRouteBuilder MapApplicationCatalog(this IEndpointRouteBuilder endpoints)
     {
                 // BEHAVIOR-m3-backend-api-026. AsNoTracking because this list is never edited in place, and tracking it would
@@ -69,7 +114,7 @@ public static class ApplicationCatalog
         // not know that should not have to find out by experiment, and the test asserts the media type for the same
         // reason.
         endpoints.MapGet("/api/applications/events", async (HttpContext http, ApplicationEventBus bus,
-            CancellationToken ct) =>
+            IConfiguration config, CancellationToken ct) =>
         {
             // Headers set directly rather than negotiated: `EventSource` will not move out of CONNECTING until the
             // response starts streaming, and a buffered JSON-shaped start would leave every client silently
@@ -89,15 +134,63 @@ public static class ApplicationCatalog
                 // on the wire the moment the connection opens, and it is what the "a dropped stream reconnects" row in
                 // §4.3 depends on: without an initial flush the client's `open` event waits for the first write, so a
                 // quiet catalog means a client that never learns it is connected.
-                await http.Response.WriteAsync(": open\n\n", System.Text.Encoding.UTF8, ct);
+                await http.Response.WriteAsync(OpenFrame, System.Text.Encoding.UTF8, ct);
 
-                // `event: change` and not the default `message`: the adapter listens for a named event, so a frame
-                // that carries a correct id and the wrong event name is delivered to no one. Both lines and the
-                // terminating blank line are the wire format, not formatting.
-                await foreach (var id in changes.Reader.ReadAllAsync(ct))
+                // R-4.2 — the keep-alive heartbeat. The event bus is in-process and LISTEN/NOTIFY arrives on it within
+                // 2 ms, so a quiet catalog is the normal case, not the edge: on a deployed URL that means the response
+                // body carries nothing for as long as nobody edits, and every idle timeout in the path — ALB, CloudFront,
+                // and whatever the browser's own stack decides — starts counting from the last byte written. §4.2's
+                // measurement is that an EventSource which is killed and reconnects is *not* a stale-data failure: it
+                // reconnects within the retry window, refetches the list, and looks healthy while costing a refetch every
+                // few minutes. The stale-data bug would be a stream that survives too long. This closes the one that
+                // would not survive at all.
+                //
+                // The shape below is a race rather than a System.Threading.Timer, and that is the part worth reading. A
+                // timer hands a callback a HttpContext that outlives its own request the moment a client disconnects, and
+                // writing to a completed response throws ObjectDisposedException — on a thread pool thread, where the
+                // `catch (OperationCanceledException)` under this loop is not on the stack to help. Racing
+                // WaitToReadAsync against Task.Delay instead means the interval and the event queue share one await, the
+                // cancellation token reaches both, and there is exactly one way out of this loop.
+                var keepAlive = KeepAliveInterval(config);
+                Task<bool> changeArrived = changes.Reader.WaitToReadAsync(ct).AsTask();
+                while (true)
                 {
-                    await http.Response.WriteAsync($"event: change\ndata: {{\"id\":\"{id}\"}}\n\n",
-                        System.Text.Encoding.UTF8, ct);
+                    if (!changeArrived.IsCompleted)
+                    {
+                        var intervalElapsed = Task.Delay(keepAlive, ct);
+                        if (await Task.WhenAny(changeArrived, intervalElapsed) == intervalElapsed)
+                        {
+                            // Awaited rather than trusted. WhenAny cannot tell "the interval elapsed" from "the request
+                            // was cancelled", and a cancelled token makes Task.Delay return at once — so a bare reference
+                            // comparison turns every disconnect into a loop that writes a heartbeat as fast as it can, the
+                            // hot-loop failure the config guard above exists to prevent, arriving by a different route.
+                            // This line rethrows OperationCanceledException, which the catch below already understands;
+                            // on a real beat it completes synchronously and costs nothing.
+                            await intervalElapsed;
+                            await http.Response.WriteAsync(KeepAliveFrame, System.Text.Encoding.UTF8, ct);
+                            continue;
+                        }
+                    }
+
+                    // `event: change` and not the default `message`: the adapter listens for a named event, so a frame
+                    // that carries a correct id and the wrong event name is delivered to no one. Both lines and the
+                    // terminating blank line are the wire format, not formatting.
+                    //
+                    // The channel completing rather than delivering is the cross-instance path: another instance saw this
+                    // subscriber's pipe break and closed its queue (§4.1), which is the one case where ending the stream
+                    // is right — the client's retry does a full refetch, so it loses nothing but the connection.
+                    if (!await changeArrived)
+                    {
+                        break;
+                    }
+
+                    while (changes.Reader.TryRead(out var id))
+                    {
+                        await http.Response.WriteAsync($"event: change\ndata: {{\"id\":\"{id}\"}}\n\n",
+                            System.Text.Encoding.UTF8, ct);
+                    }
+
+                    changeArrived = changes.Reader.WaitToReadAsync(ct).AsTask();
                 }
             }
             catch (OperationCanceledException)

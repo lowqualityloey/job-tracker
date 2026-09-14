@@ -1,5 +1,12 @@
 # Project Architectural Profile (`PROMPTKIT.md`)
 
+## 0. PromptKit OS Profile
+- **Profile**: balanced
+- **Installed**: 2026-09-14
+- **Engine**: .promptkit
+- **Upgrade**: Run `.promptkit/init.sh --balanced` for full 22 workflows, or `--turbo --experimental` for parallel waves
+
+
 > **Instructions for AI**: Read this file during every session. Adhere strictly to the project domain
 > boundaries, commands, documentation targets, and non-negotiable architectural rules defined below.
 > Everything in §1–4 was auto-detected by `pk:onboard` on **2026-09-10** at revision `d78f663`.
@@ -186,3 +193,5 @@ Tailored to this codebase; generic template language removed.
       boring, readable code over abstraction the 5-record dataset does not need.
 - [ ] **Never claim a green build without running it**, and never report `pnpm`/`yarn`/`turbo` commands
       — this repository is npm-only.
+
+profile: balanced
