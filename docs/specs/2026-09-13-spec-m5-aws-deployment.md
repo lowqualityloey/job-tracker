@@ -1348,7 +1348,7 @@ instead of borrowing confidence from the surrounding rows.
 
 | Failure scenario | P / S | Detection | Mitigation / fallback | Recovery |
 | :--- | :--- | :--- | :--- | :--- |
-| **CloudFront→ALB credentials travel the last hop in cleartext**, because :80 replaced 443 (§14.1). An off-path attacker gains nothing; **an on-path attacker inside the VPC sees `__Host-JTSession`, `__Host-JTCsrf`, and the shared origin header** — the header the mitigation depends on | Low (requires a foothold in the VPC or a compromised neighbor task) / **High** (session theft, and the `Secure` flag is a browser-side promise that encrypts nothing — D-M5-3's own words) | (i) ALB access logs + the task SG's flow logs, alerting on any :80 source that is not the ALB SG; (ii) the `403`-default rule's own hit rate, which is the *only* signal that someone is trying to reach the ALB directly; (iii) CloudFront's `502` rate, which is how a mis-set origin policy announces itself (CIT-A1-6) | Layered, and each layer says what it does *not* do: **prefix-list ingress** (`com.amazonaws.global.cloudfront.origin-facing`, CIT-A1-5) = L3/L4 filtering, widen-able by one console edit; **shared origin header + `403` default** = authentication, but see the cleartext caveat in CIT-A1-5; **task SG allows `8080` from the ALB SG only** (§3.3, unchanged); **RDS private, no public IP, TLS:5432** (unchanged). The real mitigation is that this state is **temporary and one config change from ending** | Attach a certificate and flip the origin policy back: **H-B at ~$0.50/mo or H-C at ~$17/yr** buys a name ACM will issue for, then D-M5-3 revives verbatim (I-A1-3). The rollback is a listener + `OriginProtocolPolicy` change, **not** a re-architecture — which is the only reason accepting this row is defensible at all |
+| **CloudFront→ALB credentials travel the last hop in cleartext**, because :80 replaced 443 (§14.1). An off-path attacker gains nothing; **an on-path attacker inside the VPC sees `__Host-JTSession`, `__Host-JTCsrf`, and the shared origin header** — the header the mitigation depends on | Low (requires a foothold in the VPC or a compromised neighbor task) / **High** (session theft, and the `Secure` flag is a browser-side promise that encrypts nothing — D-M5-3's own words) | (i) ALB access logs + the task SG's flow logs, alerting on any :80 source that is not the ALB SG; (ii) the `403`-default rule's own hit rate, which is the *only* signal that someone is trying to reach the ALB directly; (iii) CloudFront's `502` rate, which is how a mis-set origin policy announces itself (CIT-A1-6) | Layered, and each layer says what it does *not* do: **prefix-list ingress** (`com.amazonaws.global.cloudfront.origin-facing`, CIT-A1-5) = L3/L4 filtering, widen-able by one console edit; **shared origin header + `403` default** = authentication, but see the cleartext caveat in CIT-A1-5; **task SG allows `8080` from the ALB SG only** (§3.3, unchanged); **RDS private, no public IP, TLS:5432** (unchanged). The real mitigation is that this state is **temporary and one config change from ending** *(the owner answered §14.6 item 1 "after" on 2026-09-15, so this clause is now load-bearing with nothing enforcing it — see **DEBT-28**)* | Attach a certificate and flip the origin policy back: **H-B at ~$0.50/mo or H-C at ~$17/yr** buys a name ACM will issue for, then D-M5-3 revives verbatim (I-A1-3). The rollback is a listener + `OriginProtocolPolicy` change, **not** a re-architecture — which is the only reason accepting this row is defensible at all |
 
 ### 14.5 Invariants added by this amendment (binding from T-03 onward)
 
@@ -1372,8 +1372,22 @@ ahead of the human's word, and **I-A1-5** still holds. Two things are explicitly
 
 1. **Whether to buy H-B's sixty cents before the first deploy rather than after it** — §14.2 argues that restores D-M5-3 and removes
    §14.4's row, and §14.4's row is the only genuine security regression in this milestone.
-2. **Whether the account's root-only identity is acceptable for the first write** (I-A1-4).
+   **Answered by the owner 2026-09-15 01:05 UTC: *after*.** The first deploy runs on **H-A** — $0, CloudFront's default domain, origin hop
+   over `HTTP:80` — and the certificate plus the `https-only` origin policy follow it rather than precede it. The answer settles an
+   ordering; it also changes what was accepted, because §14.4's row is now **live by plan** instead of live by accident. That row's
+   mitigation rests on the state being *"temporary and one config change from ending"* — and **no tracked artifact makes it temporary**.
+   The expiry trigger stays the owner's to name (recorded as **DEBT-28**), and it cannot honestly be a calendar date before O-4's three
+   console numbers say what this account can pay: the flip's own cost is the **$0.50/mo hosted zone**, whose payability is precisely what
+   `UNCERTAINTY-m5-aws-deployment-010-a` is about. Two things the deferral does **not** defer: `UNCERTAINTY-m5-aws-deployment-010-b`
+   still binds whoever lands H-B (request the certificate in the workload region, attach it, settle the two-page conflict with one `curl`
+   through the distribution), and **I-A1-1 / I-A1-3** still bind T-03's design — the flip must remain a listener +
+   `OriginProtocolPolicy` change that touches no CIDR.
+2. **Whether the account's root-only identity is acceptable for the first write** (I-A1-4). **Still open** — this is T-03 §12's **O-2**, and
+   the only one of §14.6's two that no answer has touched.
 
 The next executable step is **T-03's stack shape on paper** — priced from the `[verify-at-apply]` cells and this section's citations, not
 from the `m5-infra-plan.md` §7 table that DEBT-26 indicts — and it changes no platform until both gates above are answered.
+*(Superseded 2026-09-15 by measurement, not by intent: that paper step is delivered and merged —*
+[`2026-09-14-spec-m5-t03-network.md`](2026-09-14-spec-m5-t03-network.md) *in #93 at 18:33:25Z. *§14.6 item 1 is answered above; what gates
+T-03's execution now is item 2 (O-2) plus T-03 §12's O-3 and O-4, all of which still sit behind **I-A1-5**.)*
 

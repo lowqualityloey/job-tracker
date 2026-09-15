@@ -2,7 +2,9 @@
 
 - **Task ID**: `TASK-2026-09-13-m5-aws-deployment`
 - **Milestone**: M5 — AWS Deployment (Level 3, `pk:ship` + human approval)
-- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`; **DEBT-27 closed 15:14:36Z by #92's measured merge (`09b4e0d`)**, T-03's paper design written, its §11 filled by the pass that retracted §0's uncited claim, and **the paper half MERGED 18:33:25Z in #93 (`8a10b69`)** — design only, because **I-A1-5 still forbids executing it**, and the queue is now wholly the owner's: **O-1…O-4** before T-03's execution and everything downstream. And **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
+- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`; **DEBT-27 closed 15:14:36Z by #92's measured merge (`09b4e0d`)**, T-03's paper design written, its §11 filled by the pass that retracted §0's uncited claim, and **the paper half MERGED 18:33:25Z in #93 (`8a10b69`)** — design only, because **I-A1-5 still forbids executing it**, and the queue is now wholly the owner's: **O-1 answered — `after`, 2026-09-15 01:05 UTC — O-2…O-4 still open** before T-03's execution
+and everything downstream, together with the one residual O-1's answer created rather than closed: **the expiry trigger for the deferred
+cert flip, tracked as DEBT-28**. And **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
   merged (PR #85 → `3121b2d`, `2026-09-14T06:23:49Z`), and the owner's instruction resumed this task at **T-02**, whose
   step 0 executed at 06:31 UTC and **retracted one of this record's own premises**: the `aws` CLI is not absent on this
   machine, it is a Windows binary reachable from WSL (§"Blockers / Open"). The 2026-09-13 stop state ("no commits, no PR,
@@ -604,15 +606,17 @@ The pass also grep-verified that the parent §12 D's `~$0.01105/hr` and `~$32/mo
 **Status:** design only. No `cdk`, no dependency installed, **zero AWS calls — zero reads as well as zero writes**
 (the 18:30 pass read two *pricing web pages*; the control plane got nothing, then and now). It
 executes when **O-1…O-4** clear: H-B before-or-after, root-vs-scoped identity, flow logs, and the three console
-numbers. There is no agent-side task behind it that touches a platform: T-04 and T-05 depend on T-03 being provisioned,
-so the queue belongs to the owner until those four answers arrive.
+numbers — **re-read 2026-09-15: the first is answered (`after`), so three owner items remain and the gate has not moved.**
+There is no agent-side task behind it that touches a platform: T-04 and T-05 depend on T-03 being provisioned,
+so the queue belongs to the owner until those answers arrive.
 
 ## T-03 paper merged — #93 (`8a10b69`, 18:33:25Z) — and the race that merge lost to rule eleven
 
 **Merged as measured:** `gh pr view 93` → `MERGED 2026-09-14T18:33:25Z`, merge commit `8a10b69`;
 `merge-base --is-ancestor 7f107ee origin/main` → **YES** — all four ladder commits (engine v1.7.0 sync; design
 spec + §6's link; this record; the 18:35 projection) are on `main`. The task stays `in_progress` because T-03's
-*execution* and T-04…T-17 remain, gated on **I-A1-5** and **O-1…O-4**.
+*execution* and T-04…T-17 remain, gated on **I-A1-5** and **O-1…O-4** *(three of the four still open as of
+2026-09-15 — see the section below)*.
 
 **The race, recorded because AGENTS.md's rule eleven is a list of failures and this is its newest entry.** The head
 assertion ran at *create* — `OPEN`, head `7f107ee` equal to `git rev-parse HEAD`, both true at read time — and then
@@ -624,6 +628,36 @@ immediately before the push; the half that ran is what caught it.** The stranded
 18:45 entry rather than rescued, and the amended form at future boundaries: **one push per boundary; the PR number
 lives in the PR and enters the projection at the next boundary, never in the branch that carries it.**
 
-**Queue state:** the agent side of M5 is empty. Next actor: the owner — O-1…O-4, in one reply; `m5-deploy-log.md`
+**Queue state:** the agent side of M5 is empty. Next actor: the owner — **O-2, O-3, O-4** (O-1 is answered below), in one reply;
+`m5-deploy-log.md`
 starts filling only after that, with the first reads serial (I-A1-4). This section is the session's checkpoint
 content; the Session-Endurance rule added by v1.7.0 names this boundary as the moment to prefer a fresh session.
+
+## O-1 answered — `after` (2026-09-15 01:05 UTC) — and the gap an answer opens
+
+**What the owner said:** to parent §14.6 item 1 / this spec-design's §12 O-1, *"H-B before first deploy, or after"* → **after**. The
+first deploy therefore ships on **H-A**: CloudFront's default domain, ALB on `HTTP:80`, no certificate, **D-M5-3's encrypted origin hop
+still reversed**. The cert and the `https-only` origin policy come later.
+
+**What it changes in T-03's design: nothing that was contested.** Measured against the design as merged, the flip is three edits and no
+re-shape — a `443/tcp` ingress on `sg-alb` from the *same* CloudFront prefix list (§4 currently lists only `80/tcp` from it), an ALB
+443 listener with the ACM certificate, and the origin policy. No CIDR, no route table, no endpoint row moves. That is **I-A1-1** and
+**I-A1-3** being paid off exactly as designed: §14.4's Recovery column could promise "one config change, not a re-architecture" only
+because T-03's address plan and SG matrix were drawn so that restoring 443 would be additive.
+
+**One test has to move with it:** **T-N5** asserts `sg-alb` ingress is `tcp:80` from the prefix-list reference type. Post-flip the ALB
+serves 80 *and* 443 during the transition, so T-N5's expected set changes — recorded here because a deferred change that nobody
+enumerates is how a test becomes a wall later. **`UNCERTAINTY-…-010-b` is likewise not deferred away**, only relocated: it binds whoever
+actually lands the certificate, and its validation action is unchanged (request in the workload region, attach, one `curl` through the
+distribution).
+
+**What the answer created, and what this pass refuses to smooth over:** §14.4's row defends itself by saying the cleartext state is
+*"temporary and one config change from ending"*. After this answer, temporariness is no longer a property of the plan — it is an
+untracked intention. Nothing in `docs/`, no task row, and no invariant names when the flip happens, and the flip's own cost (a
+**$0.50/mo hosted zone**, plus the third-party subdomain H-B rests on) sits behind the very payment question O-4 exists to answer. So
+the deferral has **no honest date to carry yet**, and a window with no expiry is the shape this repository has twice called a security
+regression rather than a discount. Opened as **DEBT-28**, owner's to close.
+
+**Not inferred:** O-1's answer was recorded alone. **O-2** (root vs scoped identity), **O-3** (flow logs — whose weight this answer
+raises, since the risk its logs detect is now scheduled rather than hypothetical) and **O-4** (the three console numbers, behind which
+**I-A1-5** still forbids every M5 write) were **not** answered here and are not assumed.

@@ -271,12 +271,17 @@ design genuinely needs are DEBT-26's three console reads (O-4), and none of them
 
 ## 12. Open items handed to the owner
 
+**Status read 2026-09-15 01:05 UTC: O-1 answered (`after`); O-2, O-3 and O-4 open. T-03's execution stays gated by I-A1-5 until all four
+clear — the answered row removes one owner decision, not the gate.**
+
 | # | Item | Why it is not the agent's to close |
 | :-- | :--- | :--- |
-| **O-1** | **H-B before first deploy, or after** (§14.6) | ~$0.50/mo restores `D-M5-3`'s encrypted origin hop; H-A is $0 and accepts cleartext inside the VPC. A security posture bought with someone else's money |
+| **O-1** | **H-B before first deploy, or after** (§14.6) | **ANSWERED 2026-09-15 01:05 UTC — `after`.** ~$0.50/mo restores `D-M5-3`'s encrypted origin hop; H-A is $0 and accepts cleartext inside the VPC. A security posture bought with someone else's money. **The residual is a different owner act:** choosing "after" makes parent §14.4's row live by plan, and its stated mitigation is that the state is *temporary* — so the window needs a named expiry trigger. Until one exists this is **DEBT-28**, and O-4 is what tells the owner whether a date or a payment event is the honest form of it |
 | **O-2** | **Root vs scoped IAM identity** (§14.6, I-A1-4) | §10's bootstrap is the first action that would be taken as root, in an account with zero IAM users |
-| **O-3** | **VPC flow logs: now or T-08** | §14.4 lists them as the detector for the accepted cleartext risk; the cost is real and small; the decision is risk appetite, not engineering |
-| **O-4** | **The three console numbers** (I-A1-5) | Not readable from this machine by any command that exists. Until they arrive, T-03 stays a document — which is exactly what it is today |
+| **O-3** | **VPC flow logs: now or T-08** | §14.4 lists them as the detector for the accepted cleartext risk; the cost is real and small; the decision is risk appetite, not engineering. **O-1's answer raises this row's weight:** the risk it detects is no longer hypothetical but scheduled, and the other two detectors in
+parent §14.4 (the `403`-rule hit rate, CloudFront's `502` rate) announce attempts and misconfiguration, not interception — flow logs are
+the only one that can reconstruct what crossed the hop afterwards, and they cannot be back-filled |
+| **O-4** | **The three console numbers** (I-A1-5) | Not readable from this machine by any command that exists. Until they arrive, T-03 stays a document — which is exactly what it is today. **O-1's answer also makes them load-bearing for the security posture**, not only for the bill: the flip that ends §14.4's row costs a $0.50/mo zone, and whether this account can pay it is one of the three numbers |
 
 ## 13. Non-goals
 
@@ -288,4 +293,5 @@ except the NAT, which was argued out rather than skipped.
 ---
 
 *Written 2026-09-14 as the paper half of T-03; §11 re-filled at 18:30 UTC by the pass that caught §0's uncited
-claim. It changes no platform, installs nothing, and executes only when §12's O-1…O-4 are answered.*
+claim. It changes no platform, installs nothing, and executes only when §12's O-1…O-4 are answered — re-read 2026-09-15:
+**O-1 is answered (`after`), three remain, and the gate is unchanged.***
