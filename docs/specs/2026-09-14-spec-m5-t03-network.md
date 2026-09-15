@@ -2,7 +2,9 @@
 
 **Status: paper only.** No AWS call of any kind, no `cdk` binary, no new dependency, no resource.
 **Task:** `TASK-2026-09-13-m5-aws-deployment` §6 **T-03** · **Parent spec:** [`2026-09-13-spec-m5-aws-deployment.md`](./2026-09-13-spec-m5-aws-deployment.md) §3.1, §3.3, §12 C/D, **§14** · **Ceremony: Level 2** inside a Level 3 milestone.
-**Executes only when** `I-A1-5` clears (the owner's three console numbers) and §14.6's two decisions are answered. A design document provisions nothing.
+**Executes only when** `I-A1-5` clears (the owner's three console numbers). §14.6's two decisions are **answered** (O-1 `after` 01:05 UTC,
+O-2 scoped-first 01:29 UTC), as is **O-3** — answered **now**, which is why this document grew §6's flow-log row, §8's T-N9, §9's item 8
+and a §11.2 cost line rather than only gaining a check mark. A design document provisions nothing.
 
 ---
 
@@ -115,13 +117,13 @@ deliberate trade-off rather than a shortcut: the debug path for a task that neve
 short, and a restrictive endpoint policy is a second, silent failure mode stacked underneath it —
 §14.4's own shape. The tightening task lands with T-16, with the log-driver caveat named.
 
-## 6. ECR repository and CloudWatch log group
+## 6. ECR repository, CloudWatch log group, and the flow logs
 
 | Item | Value | Justification |
 | :--- | :--- | :--- |
 | ECR repo | `job-tracker-api`, **immutable tags**, scan-on-push **off** for v1 | D-M5-5 deploys **by digest**, so mutability has no consumer; scan-on-push is off because T-12 does the build, not the push path, and a scanner that cannot fail a deploy is a report nobody reads — recorded, not silently deferred |
 | Log group | `/ecs/job-tracker/api`, `retentionInDays = 30` | §6's T-03 row makes *some* retention the exit criterion. 30 days is chosen because the only forensics this app needs is "why did yesterday's deploy fail", and every extra day is billed storage measured against the ~$75/mo ceiling DEBT-26 put in play |
-| Flow logs | **not in T-03** | §14.4 names flow logs as a *detector* for the cleartext-hop risk, so this is a real gap; adding them means an S3 bucket or a second log group and its own ingestion cost, and it is a separate change with its own reason — recorded as **O-3** in §12 rather than folded in |
+| Flow logs | **IN — O-3 answered "now, inside T-03" 2026-09-15 01:29 UTC.** VPC-level, `ALL` traffic, 10-minute aggregation, destination **S3** | The row this replaces said "not in T-03" and named §14.4 as the reason it was a real gap. Two events made it a scheduled one: the hostname decision made the cleartext hop real, and O-1's `after` answer made it **planned**, so the detector now arrives with the thing it detects rather than after it. **Why S3 and not a second log group:** the VPC already routes to S3 through the gateway endpoint in §5, so the log path stays inside the private topology this design is built on and needs no new egress rule — and it keeps CloudWatch *ingestion* off the bill entirely, which is a structural argument, not a price: §11 keeps every figure at `[verify-at-apply]` and this row keeps its own. **One lifecycle rule expires the objects on the same 30-day window as the log group above**, so the retention story stays one sentence. **One `[verify-at-apply]` fact, claimed as unclaimed:** whether an S3 destination needs an IAM publishing role at all — the CloudWatch form does, and this design refuses to carry that difference from memory after what §11.1 did to a recalled price. The read that settles it is §9 item 8, before `create-flow-logs`, not after. Resource count if a role is needed: **one, scoped to that destination** |
 
 ## 7. CDK shape, and the dependencies it brings
 
@@ -133,7 +135,7 @@ infra/                       # new top-level: the repo has no infra/ today (§1.
 ├── bin/app.ts               # one App, three stacks, in dependency order
 ├── lib/
 │   ├── network.ts           # VPC, subnets, route tables, SGs, endpoints  ← T-03
-│   ├── observability.ts     # log group + retention                     ← T-03
+│   ├── observability.ts     # log group + retention + flow-log bucket/lifecycle  ← T-03
 │   └── data.ts              # RDS subnet group, instance, sg-rds rules  ← T-04
 ├── cdk.json                 # context: vpcCidr, azs, apexValue, region
 ├── test/network.test.ts     # §8's assertions
@@ -165,7 +167,7 @@ costs.
 The repo's testing doctrine is behaviour-first; the honest analogue at this seam is **the template a
 synth produces**, because that document *is* the observable behaviour of infrastructure-as-code.
 `aws-cdk-lib/assertions`' `Template.fromStack` + `hasResourceProperties` / `resourceCountIs` are the
-seam. Eight named cases, and each one is written to fail on a plausible mistake rather than on a
+seam. Nine named cases, and each one is written to fail on a plausible mistake rather than on a
 fictional one:
 
 | # | Assertion | The mistake it catches |
@@ -174,10 +176,11 @@ fictional one:
 | **T-N2** | VPC CIDR is exactly `10.0.0.0/20`, six `/24` subnets, two per tier | default-VPC reuse, or a `/16` nobody can reason about |
 | **T-N3** | `sg-task` has **exactly one** ingress rule: `tcp:8080` sourced from `sg-alb` | the second rule that always appears while debugging T-08 |
 | **T-N4** | `sg-rds` ingress is `tcp:5432` from `sg-task` only, and **no** rule sources from the VPC CIDR | the widening §12 D's whole argument was written against |
-| **T-N5** | `sg-alb` ingress is `tcp:80` from the CloudFront **prefix list** reference type, not a CIDR | a `0.0.0.0/0` paste, or an ip-ranges.json refresh job nobody maintains |
+| **T-N5** | `sg-alb` ingress is `tcp:80` from the CloudFront **prefix list** reference type, not a CIDR | a `0.0.0.0/0` paste, or an ip-ranges.json refresh job nobody maintains. **Post-flip the expected set gains `tcp:443` from the same reference type** — this assertion moves *with* parent T-09's second half (DEBT-28's trigger), and naming it here is what stops a deferred change arriving as a red test |
 | **T-N6** | **rule-quota arithmetic:** total weight across `sg-alb` rules ≤ 60, asserted with the 55 counted | the deploy-time `AuthorizeSecurityGroupIngress` failure described in §4 |
 | **T-N7** | with `apexValue = null`, the distribution has **no** `Aliases` property at all, and every other `apexValue` consumer resolves to absent | an empty-string alias, which fails at *apply* time, in the region with the least patience |
 | **T-N8** | log group exists **with** `RetentionDays` set (absent = infinite retention, i.e. a silently growing bill) | the "provision then configure later" path that never comes back |
+| **T-N9** | one `AWS::EC2::FlowLog` on the VPC with `TrafficType: ALL`, an **S3** destination, and that bucket carrying a **lifecycle expiration** — plus a bucket policy whose principal is `vpc-flow-logs.amazonaws.com` | flow logs "enabled" at the subnet that forgot the VPC-level one (§14.4's detection needs every ENI, not the ones someone remembered), and a bucket with no lifecycle, which converts a 30-day forensics window into an indefinitely growing bill with no `RetentionDays` field anywhere to notice it in |
 
 **What these cannot prove, stated rather than implied:** a synth test never dials an endpoint, so
 §5's row 6 — whether the ECS agent can register a task with no other egress — is **outside** this
@@ -211,19 +214,34 @@ aws ecr describe-repositories --region ap-southeast-1 \
 # 7. the only test that settles §5 row 6: a task in private-task-1a reaches RUNNING
 aws ecs run-task --cluster $C --task-definition $TD --network-configuration \
   "awsvpcConfiguration={subnets=[ subnet-private-task-1a ],securityGroups=[$SG_TASK],assignPublicIp=DISABLED}"
+# 8. the flow-log claim (§6, O-3's answer): VPC-level, ALL, S3 destination, ACTIVE
+aws ec2 describe-flow-logs --region ap-southeast-1 --filters "Name=resource-id,Values=$VPC" \
+  --query 'FlowLogs[].[FlowLogId, ResourceType, TrafficType, LogDestinationType, FlowLogStatus]'
+#    and the lifecycle that keeps it a 30-day window rather than a growing bill:
+aws s3api get-bucket-lifecycle-configuration --region ap-southeast-1 --bucket $FLOW_LOG_BUCKET
 ```
+
+**Item 8 also settles §6's `[verify-at-apply]` claim about the publishing role — by refusing to guess it.** The create is attempted
+*without* a role parameter; either it succeeds, which means the bucket policy is sufficient for an S3 destination, or it returns the error
+naming what it wants, which is then added — one role, scoped to that destination. Creating the role first because a CloudWatch-destination
+tutorial mentioned one is exactly the recalled-fact move §11.1 retracted a price for.
 
 Serial, one after another, by hand or by a script that does not parallelise. A fanned-out ladder on a
 shared `login_session` cache self-revokes mid-deploy — that is I-A1-4, measured the hard way.
 
 ## 10. Ordering, and how any of it gets undone
 
-1. **`cdk bootstrap` first** — and it creates an S3 bucket plus IAM roles, which collides with
-   **§14.6's second decision** (the account has **zero IAM users**; everything here would be
-   bootstrapped and deployed as **root**). This is the first step that *cannot* be taken without the
-   owner, and it is listed first because it is the one people run on autopilot.
-2. `network` stack → 3. `observability` stack → *(T-04 owns `data`)*.
-4. **Destroy order is the reverse, and the guard rails are the point:** `cdn remove --force` is
+1. **Step 0, added by O-2's answer (2026-09-15 01:29 UTC): mint the scoped identity, then leave root alone.** The owner chose *scoped
+   first*, so the account's only root write is the one that creates the IAM user/role, its policy and its credentials. Everything numbered
+   below runs as that identity. Two reasons, one of them not hygiene: I-A1-4's measured failure was a shared `login_session` cache
+   self-revoking under parallel `aws.exe`, and a long apply ladder is where that bites.
+2. **`cdk bootstrap` next** — and it creates an S3 bucket plus IAM roles, which collides with
+   **§14.6's second decision** *(answered — see step 0 above)*: the account has **zero IAM users**, so without step 0 everything here would
+   be bootstrapped and deployed as **root**. This is the first step that *cannot* be taken without the owner, and it is listed here because
+   it is the one people run on autopilot.
+3. `network` stack → 4. `observability` stack (the log group **and** the flow-log bucket: a flow log needs the VPC to exist first, which is
+   why it rides `observability` and not `network`) → *(T-04 owns `data`)*.
+5. **Destroy order is the reverse, and the guard rails are the point:** `cdn remove --force` is
    required before the S3 bucket can empty, a VPC will not delete while an ENI holds an address, and
    **RDS has a `deletionProtection` flag that must be set on creation** because a mistyped `cdk destroy`
    of the `data` stack is the one action in M5 with no undo. Nothing in T-03's own surface destroys
@@ -259,29 +277,31 @@ T-03's billable footprint is small enough to enumerate exhaustively — which is
 | Interface endpoints | rows 1–5 of §5 (+ row 6 if confirmed) | client-rendered, §11 | the creation console's price note **before** `create-vpc-endpoint`; the service codes and unit figures land in `m5-deploy-log.md` with the timestamp of that read |
 | Gateway endpoint (S3) | route-based, no ENI | client-rendered, §11 | same console read; expected zero, which is precisely the kind of "expected" the log exists to falsify |
 | CloudWatch Logs | 1 group, 30-day retention | client-rendered, §11 | ingestion + storage per region on `aws.amazon.com/cloudwatch/pricing/`, read in a browser (the page that does render for a human), and a week-1 `aws ce` slice |
+| VPC flow logs | 1 flow log on the VPC (`ALL`), 1 bucket + lifecycle — and **0** CloudWatch ingestion, which is the whole reason the destination is S3 (§6) | none recalled: the per-GB logging figure belongs to the same client-rendered family as the two rows above | the creation console's own price note **before** `create-flow-logs`, then the week-1 `aws ce` slice grouped by VPC. **Volume is the term that cannot be estimated from a pricing page** — it is a function of how much traffic the private tiers actually carry — so this row's honest form is "measure after T-13", and it is the first number DEBT-26's cost-gating has been asking for |
 | ECR | 1 repo, digest-deployed images | client-rendered, §11 | same family: console pricing section read in a browser, then the week-1 `aws ce` slice |
 | The avoided NAT | **0** | parent §12 D's `~$0.01105/hr` and `~$32/mo` both trace to the indicted `m5-infra-plan.md` §7 table (grep-verified this pass) — directionally right, provenance-wise unusable | the two real figures join the other rows in `m5-deploy-log.md`, and the comparison gets its first honest reading there |
 
 **Why no number forms this design.** The endpoint-vs-NAT choice was made on §12 D's *privacy* ground (keep the subnets
 private) and re-affirmed as a test that *forbids* the route (T-N1); if endpoint hours cost more than NATs, the
 correction is H-B's topology or a grumbled line item, **not** an `0.0.0.0/0` route on `rt-task`. The 30-day retention
-(§6) is a forensics window, not a price. O-3's flow logs are risk appetite. So the cost table closes T-03 — it does
-not shape it — and that separation is the real result of a failed pricing pass: the only owner-side numbers this
+(§6) is a forensics window, not a price. **O-3 arrived as risk appetite and was decided as risk appetite:** its flow logs added a row
+above, not a shape — the log destination choice is argued from topology (§6), and the one genuinely unpredictable term in this table is now
+*their volume*, which no design choice of mine moves. So the cost table closes T-03 — it does not shape it — and that separation is the real
+result of a failed pricing pass: the only owner-side numbers this
 design genuinely needs are DEBT-26's three console reads (O-4), and none of them can change a CIDR.
 
 ## 12. Open items handed to the owner
 
-**Status read 2026-09-15 01:05 UTC: O-1 answered (`after`); O-2, O-3 and O-4 open. T-03's execution stays gated by I-A1-5 until all four
-clear — the answered row removes one owner decision, not the gate.**
+**Status read 2026-09-15 01:29 UTC: O-1, O-2 and O-3 are answered; O-4 is the only owner item left, and `I-A1-5` still holds T-03 at the
+document stage until it lands.** Two of these answers grew the design rather than ticking a box — O-3 added §6's flow logs, §8's T-N9, §9's
+item 8 and a row in §11.2; O-2 added §10's step 0 — which is the difference between an open item and a decision.
 
-| # | Item | Why it is not the agent's to close |
+| # | Item | Resolution, or why it is still the owner's |
 | :-- | :--- | :--- |
-| **O-1** | **H-B before first deploy, or after** (§14.6) | **ANSWERED 2026-09-15 01:05 UTC — `after`.** ~$0.50/mo restores `D-M5-3`'s encrypted origin hop; H-A is $0 and accepts cleartext inside the VPC. A security posture bought with someone else's money. **The residual is a different owner act:** choosing "after" makes parent §14.4's row live by plan, and its stated mitigation is that the state is *temporary* — so the window needs a named expiry trigger. Until one exists this is **DEBT-28**, and O-4 is what tells the owner whether a date or a payment event is the honest form of it |
-| **O-2** | **Root vs scoped IAM identity** (§14.6, I-A1-4) | §10's bootstrap is the first action that would be taken as root, in an account with zero IAM users |
-| **O-3** | **VPC flow logs: now or T-08** | §14.4 lists them as the detector for the accepted cleartext risk; the cost is real and small; the decision is risk appetite, not engineering. **O-1's answer raises this row's weight:** the risk it detects is no longer hypothetical but scheduled, and the other two detectors in
-parent §14.4 (the `403`-rule hit rate, CloudFront's `502` rate) announce attempts and misconfiguration, not interception — flow logs are
-the only one that can reconstruct what crossed the hop afterwards, and they cannot be back-filled |
-| **O-4** | **The three console numbers** (I-A1-5) | Not readable from this machine by any command that exists. Until they arrive, T-03 stays a document — which is exactly what it is today. **O-1's answer also makes them load-bearing for the security posture**, not only for the bill: the flip that ends §14.4's row costs a $0.50/mo zone, and whether this account can pay it is one of the three numbers |
+| **O-1** | **H-B before first deploy, or after** (§14.6) | **ANSWERED 2026-09-15 01:05 UTC — `after`.** ~$0.50/mo restores `D-M5-3`'s encrypted origin hop; H-A is $0 and accepts cleartext inside the VPC. A security posture bought with someone else's money. **The residual it created — a window with no expiry — is named, not assumed:** the trigger is the event *"first deploy standing"* (T-13's exit), carried in parent **T-09's** row as that task's second half, and tracked as **DEBT-28** |
+| **O-2** | **Root vs scoped IAM identity** (§14.6, I-A1-4) | **ANSWERED 2026-09-15 01:29 UTC — scoped identity first.** §10 now mints it as step 0, so root performs exactly one write (creating the identity) and never deploys anything. The choice is also reliability: I-A1-4's measured failure was a shared `login_session` cache self-revoking under parallel `aws.exe`, and a long apply ladder is where a root SSO session is most likely to need a hand-renewal mid-deploy |
+| **O-3** | **VPC flow logs: now or T-08** | **ANSWERED 2026-09-15 01:29 UTC — now, inside T-03.** The design grew to honour it: §6's row, §8's **T-N9**, §9's item 8, §11.2's cost row. Chosen *because* O-1 made the detected risk scheduled rather than hypothetical, and because logs cannot be back-filled. **One `[verify-at-apply]` fact survives the answer** (whether the S3 destination needs a publishing role — §6), settled by the create call rather than by recollection |
+| **O-4** | **The three console numbers** (I-A1-5) | **OPEN — and now the only gate.** Not readable from this machine by any command that exists. Until they arrive T-03 stays a document, which is exactly what it is today. **Its weight changed twice this session:** it prices the topology (DEBT-26), it decides whether a date could ever have honoured O-1's deferral, and **the flow logs O-3 just added make it the only line in §11.2 whose volume term is unknowable in advance** |
 
 ## 13. Non-goals
 
@@ -293,5 +313,6 @@ except the NAT, which was argued out rather than skipped.
 ---
 
 *Written 2026-09-14 as the paper half of T-03; §11 re-filled at 18:30 UTC by the pass that caught §0's uncited
-claim. It changes no platform, installs nothing, and executes only when §12's O-1…O-4 are answered — re-read 2026-09-15:
-**O-1 is answered (`after`), three remain, and the gate is unchanged.***
+claim. It changes no platform, installs nothing, and executes only when §12's O-1…O-4 are answered — re-read twice on
+2026-09-15: **O-1 `after`, O-2 scoped-first, O-3 flow logs now; O-4 alone remains, and* **I-A1-5** *keeps this a document until it
+arrives. Two of those answers moved text in §6/§8/§9/§10/§11 — which is what an answer is for.***

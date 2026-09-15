@@ -860,7 +860,7 @@ produced, the task is not done, however healthy the console looked.
 | T-06 | **Implement R-4.2 heartbeat** in `ApplicationCatalog.cs:71-113`, with the four assertions in §4.2 | — | L1 | A 5-minute idle stream emits ≥ 12 comment frames and **zero** `event:` lines; a right-owner write still produces exactly one `event: change`; an unrelated-owner write produces nothing; disconnect stops the writes | Without it the SSE feature is likely to break in production while remaining invisible locally — the exact asymmetry §4.1 measured. Independent of AWS: start here. |
 | T-07 | **Implement R-4.4** health-endpoint bound + a test that a `CanConnectAsync` which never returns yields unhealthy within the bound | — | L1 | `/api/health` returns 503 inside the configured window against a datasource that hangs forever | §4.4: the breaker trusts this endpoint, and trust with no bound is how a stalled deploy reads as a slow one. |
 | T-08 | ECS cluster, task definition (container :8080, `stopGracePeriod`, separate task/execution roles), service with circuit breaker **and** `deploymentAlarms` | T-05 | L2 | `describe-services` output showing `deploymentConfiguration.deploymentAlarms.enabled = true` with the target-group ARN listed; first deploy reaches `RUNNING` | D-M5-7's mechanism lives here. Built without alarms, the breaker is inert and §8's rollback story is fiction. |
-| T-09 | ~~ALB + HTTPS:443 listener~~ **Under H-A (§14): ALB + HTTP:80 listener** + `/api/*` rule + **the shared origin-header check whose default action is a fixed `403`** + `tg-api` (check `/api/health`, matcher `200`) + `tg-notfound` + SG chain. **Restore the 443 listener when H-B or H-C lands — that is the whole of the reversal, and it is why this row was restated instead of rewritten** | T-08 | L2 | ~~`curl -kv https://<alb>/api/health`~~ **(amended)** `curl -s -o /dev/null -w '%{http_code}' http://<alb>/api/health` **with no header → 403**; with the shared header → 200; `curl` from the public internet to the ALB's :80 → **no answer** (prefix-list ingress only); a non-`/api` path → 503 | §3.3–3.4. The check path is the one row in the milestone that can invert the meaning of every signal downstream. |
+| T-09 | ~~ALB + HTTPS:443 listener~~ **Under H-A (§14): ALB + HTTP:80 listener** + `/api/*` rule + **the shared origin-header check whose default action is a fixed `403`** + `tg-api` (check `/api/health`, matcher `200`) + `tg-notfound` + SG chain. **Restore the 443 listener when H-B or H-C lands — that is the whole of the reversal, and it is why this row was restated instead of rewritten.** **This row is the flip's home: the trigger named 2026-09-15 (O-1 answered `after`, DEBT-28) is an event, not a date — the H-B work starts when the first deploy is standing, i.e. at T-13's exit, and §14.4's cleartext row is overdue from that moment until this row closes its second half.** Additive shape per T-03 §4: `sg-alb` gains `443/tcp` from the *same* prefix list, one listener, one policy change | T-08 | L2 | ~~`curl -kv https://<alb>/api/health`~~ **(amended)** `curl -s -o /dev/null -w '%{http_code}' http://<alb>/api/health` **with no header → 403**; with the shared header → 200; `curl` from the public internet to the ALB's :80 → **no answer** (prefix-list ingress only); a non-`/api` path → 503. **(flip-time half):** the ACM certificate reads `ISSUED` for the H-B name; the distribution's `CustomOriginConfig.OriginProtocolPolicy` reads `https-only`; **and one `curl` through the CloudFront distribution returns 200 over that hop — which is the empirical settlement of `UNCERTAINTY-m5-aws-deployment-010-b`, not a paragraph about it.** A direct `https://<elb-dns-name>` probe is expected to fail hostname verification *by design* (the cert is for the H-B name, never for `*.elb.amazonaws.com`), so nobody should read that failure as a broken flip | §3.3–3.4. The check path is the one row in the milestone that can invert the meaning of every signal downstream. |
 
 | # | Task | Depends | Cer. | Prove it by | Why it cannot be skipped |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -1382,12 +1382,20 @@ ahead of the human's word, and **I-A1-5** still holds. Two things are explicitly
    still binds whoever lands H-B (request the certificate in the workload region, attach it, settle the two-page conflict with one `curl`
    through the distribution), and **I-A1-1 / I-A1-3** still bind T-03's design — the flip must remain a listener +
    `OriginProtocolPolicy` change that touches no CIDR.
-2. **Whether the account's root-only identity is acceptable for the first write** (I-A1-4). **Still open** — this is T-03 §12's **O-2**, and
-   the only one of §14.6's two that no answer has touched.
+2. **Whether the account's root-only identity is acceptable for the first write** (I-A1-4). **Answered by the owner 2026-09-15
+   01:29 UTC: a scoped identity first.** Consequence, stated precisely because it is easy to over-read: the account's first M5 write is
+   still *made* as root — minting an identity is a write, and there is nothing else to make it with — but root's job ends there. T-03 §10
+   gains a step **0**, and every step after it runs scoped. This is also the reliability answer as much as the hygiene one: I-A1-4's
+   measured failure was a *shared* `login_session` cache self-revoking under parallel `aws.exe`, and a long apply ladder is exactly where
+   a root SSO session is most likely to be refreshed by hand mid-deploy. **The named cost is one more task, not one fewer decision**: the
+   identity, its policy and its credentials are created before `cdk bootstrap`, and the bootstrap that follows is proof the scope was
+   real rather than aspirational.
 
 The next executable step is **T-03's stack shape on paper** — priced from the `[verify-at-apply]` cells and this section's citations, not
 from the `m5-infra-plan.md` §7 table that DEBT-26 indicts — and it changes no platform until both gates above are answered.
 *(Superseded 2026-09-15 by measurement, not by intent: that paper step is delivered and merged —*
-[`2026-09-14-spec-m5-t03-network.md`](2026-09-14-spec-m5-t03-network.md) *in #93 at 18:33:25Z. *§14.6 item 1 is answered above; what gates
-T-03's execution now is item 2 (O-2) plus T-03 §12's O-3 and O-4, all of which still sit behind **I-A1-5**.)*
+[`2026-09-14-spec-m5-t03-network.md`](2026-09-14-spec-m5-t03-network.md) *in #93 at 18:33:25Z. Both items of §14.6 are now answered —
+*after* (01:05 UTC) and *scoped identity first* (01:29 UTC) — and T-03's §12 records the third (**O-3**, flow logs) answered **now, inside
+T-03**. What gates this design's execution is therefore one item and one rule: **O-4**, the three console numbers, behind*
+**I-A1-5**.)*
 

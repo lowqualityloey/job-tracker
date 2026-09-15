@@ -2,9 +2,9 @@
 
 - **Task ID**: `TASK-2026-09-13-m5-aws-deployment`
 - **Milestone**: M5 — AWS Deployment (Level 3, `pk:ship` + human approval)
-- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`; **DEBT-27 closed 15:14:36Z by #92's measured merge (`09b4e0d`)**, T-03's paper design written, its §11 filled by the pass that retracted §0's uncited claim, and **the paper half MERGED 18:33:25Z in #93 (`8a10b69`)** — design only, because **I-A1-5 still forbids executing it**, and the queue is now wholly the owner's: **O-1 answered — `after`, 2026-09-15 01:05 UTC — O-2…O-4 still open** before T-03's execution
-and everything downstream, together with the one residual O-1's answer created rather than closed: **the expiry trigger for the deferred
-cert flip, tracked as DEBT-28**. And **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
+- **State**: **`in_progress`** — resumed at 14:35 UTC after `checkpoint-003`'s `handoff_ready`; **DEBT-27 closed 15:14:36Z by #92's measured merge (`09b4e0d`)**, T-03's paper design written, its §11 filled by the pass that retracted §0's uncited claim, and **the paper half MERGED 18:33:25Z in #93 (`8a10b69`)** — design only, because **I-A1-5 still forbids executing it**, and the queue is now wholly the owner's: **O-1 answered `after` (01:05 UTC), O-2 scoped-first and O-3 flow-logs-now (01:29 UTC) — only O-4 remains**
+before T-03's execution and everything downstream, and **DEBT-28's trigger is named: the event "first deploy standing"
+(T-13's exit)**, carried in parent **T-09's** row as that task's second half rather than as a reminder in a debt table. And **the field itself needed reconciling first, which is the finding worth reading before the history below.** `pk:checkpoint`'s receiver-validation duty is what caught it: checkpoint-003 declared its stop state **in `docs/STATE.md` and in its own record, but never wrote it into the Local Task Source**, which still read `in_progress`. The Task Record is the authority, so the *declaration* was the incomplete artifact — a session resuming on this file's strength alone would have started editing without validating anything. The asymmetry is the same shape as DEBT-27, three hours older: a projection and its source describing two different states. History stands: T-01's exit is met and merged (spec §12 seven of seven, PR #84), checkpoint-002 is
   merged (PR #85 → `3121b2d`, `2026-09-14T06:23:49Z`), and the owner's instruction resumed this task at **T-02**, whose
   step 0 executed at 06:31 UTC and **retracted one of this record's own premises**: the `aws` CLI is not absent on this
   machine, it is a Windows binary reachable from WSL (§"Blockers / Open"). The 2026-09-13 stop state ("no commits, no PR,
@@ -606,7 +606,8 @@ The pass also grep-verified that the parent §12 D's `~$0.01105/hr` and `~$32/mo
 **Status:** design only. No `cdk`, no dependency installed, **zero AWS calls — zero reads as well as zero writes**
 (the 18:30 pass read two *pricing web pages*; the control plane got nothing, then and now). It
 executes when **O-1…O-4** clear: H-B before-or-after, root-vs-scoped identity, flow logs, and the three console
-numbers — **re-read 2026-09-15: the first is answered (`after`), so three owner items remain and the gate has not moved.**
+numbers — **re-read 2026-09-15: the first three are answered (`after`, scoped-identity-first, flow-logs-now), so the queue is
+one item wide and the gate has still not moved: O-4 is unreadable from this machine, and* **I-A1-5** *holds everything at paper.***
 There is no agent-side task behind it that touches a platform: T-04 and T-05 depend on T-03 being provisioned,
 so the queue belongs to the owner until those answers arrive.
 
@@ -660,4 +661,41 @@ regression rather than a discount. Opened as **DEBT-28**, owner's to close.
 
 **Not inferred:** O-1's answer was recorded alone. **O-2** (root vs scoped identity), **O-3** (flow logs — whose weight this answer
 raises, since the risk its logs detect is now scheduled rather than hypothetical) and **O-4** (the three console numbers, behind which
-**I-A1-5** still forbids every M5 write) were **not** answered here and are not assumed.
+**I-A1-5** still forbids every M5 write) were **not** answered here and are not assumed. *(They were put to the owner as three choices
+24 minutes later, and two were answered in this same session — see the next section. O-4 stays where it was.)*
+
+## O-2 and O-3 answered, DEBT-28's trigger named (2026-09-15 01:29 UTC)
+
+The owner took all three recommendations offered at the end of the previous section. Recorded as answered, and **the two that bind T-03
+changed T-03's text rather than its status line** — which is the only way an answer differs from a tick.
+
+**O-2 — a scoped identity comes first.** Root's job is now exactly one write: creating the user/role, its policy and its credentials.
+Everything numbered after it runs scoped, and **§10 of the design gained a step 0** to say so in the order it happens. The recommendation
+this took was reliability-flavoured as much as hygiene-flavoured: I-A1-4's measured failure was a *shared* `login_session` cache
+self-revoking under parallel `aws.exe`, and an apply ladder is the longest-lived session this milestone will ever need. Named cost, said
+out loud: **one more step before anything exists, and the bootstrap that follows is the proof the scope was real** rather than a policy
+written after the fact.
+
+**O-3 — flow logs, now, inside T-03.** The design grew four artifacts to honour it: **§6's** row (VPC-level, `ALL`, 10-minute aggregation,
+**S3** destination, 30-day lifecycle to match the log group), **§8's T-N9** (a synth assertion that the flow log and the lifecycle exist —
+because a bucket with no expiry is a bill with no `RetentionDays` field to notice), **§9's item 8** (the serial read that proves it), and
+**§11.2's** cost row. Two judgement calls worth a reviewer's eye:
+- **S3 rather than CloudWatch Logs**, argued structurally rather than financially: the VPC already has a private path to S3 through the §5
+  gateway endpoint, so the log path adds no egress rule anywhere, and it keeps CloudWatch *ingestion* off the bill as a matter of topology
+  rather than of estimate. The per-GB figure stays `[verify-at-apply]`, because §11.1 already retracted one recalled price in this document
+  and is not about to host a second.
+- **One `[verify-at-apply]` fact survived the answer:** whether an S3 destination needs a publishing IAM role at all. The CloudWatch form
+  does; assuming the S3 form does too would be recalling a platform difference from a tutorial. **§9 item 8 settles it by attempting the
+  create without a role** and reading what comes back, instead of pre-empting the answer with a role nobody has cited.
+
+**DEBT-28 — the trigger is an event, and its home is parent T-09.** The owner chose *"first deploy standing"*: when T-13's exit is met,
+restoring the certificate is due, and §14.4's cleartext row is **overdue from that moment until T-09's second half closes**. That wording
+is deliberate — a trigger that lives only in a debt row is a reminder, so the event was written into **T-09's task row and its Prove-it-by
+column** (cert `ISSUED`, `OriginProtocolPolicy = https-only`, and one `curl` **through the distribution**, which is the empirical
+settlement `UNCERTAINTY-…-010-b` has been asking for since §14 was written). T-09 was already restated to carry "restore the 443 listener
+when H-B lands", so the flip inherits a numbered home instead of inventing a task. **T-N5** was named in the same breath as the test that
+must move with it, and the direct-`https`-to-the-ALB probe was written down as *expected to fail hostname verification by design*, so nobody
+reads a correct flip as a broken one.
+
+**What is still not true:** **O-4** — the three console numbers — is unanswered, so **I-A1-5 still forbids every M5 write**, including all
+of the above. T-03 remains paper. The queue is now exactly one item wide, and it is the one item no command on this machine can read.
