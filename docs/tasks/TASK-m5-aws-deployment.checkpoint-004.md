@@ -111,9 +111,13 @@ left exactly as found — see §6.
 - **DEBT-21** — `.m5-parts/` (**28 files, 212 KB**, re-measured `find | wc -l` + `du -sh` at this boundary) is untracked, not gitignored,
   and its delete-after trigger passed on 09-14. It is one `rm -r` and a one-line `chore` commit; deliberately not folded into a docs PR,
   and deliberately not deleted inside a checkpoint.
+  *(Closed 2026-09-15 04:11 UTC by the pass the owner asked to "do the recommendations": archived to a `/tmp` tarball first, then
+  deleted, with `git status --porcelain` → empty. The bullet's stated blocker — that the spec's §12 cites two of the directory's files
+  as provenance — was tested first and is **false of the merged spec** (`grep` over `docs/specs/` → no matches), so nothing dangles.
+  §5's DEBT-21 row carries the finding, and §8's 04:11 row the evidence.)*
 - **DEBT-22** — `docs/aws-deployment.md` still carries five stale rows and is still the cited decision record. **T-15** owns it.
 - **DEBT-23** — the local full API suite cannot bootstrap Testcontainers, so *every* PR pays the CI-only-verification tax for the API.
-- **Remote branch litter (owner's to delete):** **13** non-`main` refs (`git ls-remote --heads origin | grep -v '/main$' | wc -l`), including
+- **Remote branch litter (owner's to delete):** ~~**13**~~ → **3** non-`main` refs as of 04:11 UTC — ten were proved absorbed and deleted; three tips each hold one commit with no patch-equivalent on `main`, so they were kept (`dbbb6ac`, `ed8a305`, `17c366b`; patches in `/tmp`, subjects now recorded in §8 of `docs/STATE.md`). (`git ls-remote --heads origin | grep -v '/main$' | wc -l`), including
   the `docs/m5-t03-network-design` orphan and three M3/M4-era heads. `docs/m5-o1-answer` and `docs/state-m5-answers-merged` were deleted
   with their merges, which is the first time this session's cleanup list got shorter without being re-typed from the previous bullet — worth
   noticing, because §3A's in-flight bullet has now been invalidated by a merge **three times in one day**.
