@@ -86,9 +86,10 @@ Do not claim success without reporting what was verified.
 
 ### Commit discipline
 
-Eleven rules, each earned by a failure that actually happened on this repository. **The count is the part that goes stale
+Twelve rules, each earned by a failure that actually happened on this repository. **The count is the part that goes stale
 on its own** — a rule was added today, and for one commit the header still said nine while the list carried ten — so
-re-derive it instead of remembering it: `awk '/^### Commit discipline/,/^CI \(/' AGENTS.md | grep -c '^- \*\*'` → **11**.
+re-derive it instead of remembering it: `awk '/^### Commit discipline/,/^CI \(/' AGENTS.md | grep -c '^- \*\*'` → **12**
+(re-derived *after* rule twelve was inserted, which is the only order in which this number can be written honestly).
 
 - **Gate commits on verification.** Never chain `verify && commit` on one shell line without
   `set -e` — a failing `tsc` does not stop the commit that follows it. A commit was once made
@@ -153,6 +154,14 @@ re-derive it instead of remembering it: `awk '/^### Commit discipline/,/^CI \(/'
   `headRefOid` again *after* the push, and never write a PR number into a document before the PR exists — measure, then
   write, in that order. Recorded as DEBT-24, promoted on 2026-09-14 after #88 merged while its own body was still asking
   whether to promote this rule, which is the recursion this list keeps attracting.
+- **Write perishable claims as predicates, and do not spend a pull request refreshing a value.** Rule eleven governs a claim a *command* is
+  about to depend on; this one governs a claim *stored for a reader*. `docs/STATE.md` §3A's "In flight" bullet and §1's branch field describe
+  state that a successful event invalidates, so on 2026-09-14/15 that block was regenerated three times in eight hours — each rewrite true
+  when written, each false at merge — and #97 merged **68 seconds** after the sentence describing it had been measured `OPEN`. Nothing was
+  misread; the shape was the defect. Owner's convention, chosen 2026-09-15 02:46 UTC: a perishable fact is written with **the command that
+  re-derives it** (`gh pr list --state open`, `git rev-parse --abbrev-ref HEAD`) and a value that is explicitly *dated*, and **a merge does not
+  open a sync PR** — stale values are corrected inside the next content PR. The test for a new sentence in the live block is "what event makes
+  this false, and is it worth a review cycle?" If the answer is a merge, write the command instead.
 
 CI (`.github/workflows/ci.yml`) now enforces the **code** half of this list — a commit made over typecheck
 errors can no longer reach `main` unflagged, and neither can a focused test or an orphaned CSS declaration.
