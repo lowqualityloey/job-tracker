@@ -121,6 +121,7 @@ left exactly as found — see §6.
   moment its own PR merges. Three regenerations in eight hours is not cadence, it is a shape problem. Either the bullet names a *predicate*
   instead of a PR, or a sync commit is treated as part of every merge. The next session should pick one and write it into `AGENTS.md` —
   **not** in this pass, which is documentation-only and already carries a checkpoint's own diff.
+  *(Resolved 2026-09-15 02:46 UTC, one question put back to the owner: they chose **predicate-only** — no sync PR per merge, stale values ride the next content PR. Written as* **AGENTS.md rule twelve** *and applied in the same commit, so §1's branch field and* *§3A's in-flight bullet now carry the commands that re-derive them. The merge-carried-sync alternative stays on the table; this one is cheaper and it was the owner's call.)*
 
 ## 7. Scope change record — **none pending**
 
@@ -159,7 +160,8 @@ maintain it beside it.*
 
 ## 1. Context & Environment
 - Start from `main` and MEASURE it: `git rev-parse --abbrev-ref HEAD`, `git rev-parse HEAD origin/main`, `git status --porcelain`.
-  Read `AGENTS.md` first (eleven commit-discipline rules, each one a scar), then `docs/STATE.md` §3A (the live projection) and
+  Read `AGENTS.md` first (**twelve** commit-discipline rules as of 2026-09-15 — re-derive the count with the `awk` one-liner in its own
+  header rather than trusting either of us), then `docs/STATE.md` §3A (the live projection) and
   `docs/tasks/TASK-m5-aws-deployment.checkpoint-004.md` (the live pointer; 003 is superseded).
 - **Active task**: `TASK-2026-09-13-m5-aws-deployment`, M5, Level 3, state `handoff_ready`.
 - **Where M5 actually stands**: T-01 ✅ · T-06 ✅ · T-07 ✅ · T-02 ✅ reconciled (#91/#92) · **T-03 designed and merged (#93), not executed**.

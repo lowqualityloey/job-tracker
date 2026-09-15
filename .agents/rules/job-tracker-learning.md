@@ -90,6 +90,12 @@ Mirrored from `AGENTS.md` (canonical) — every rule below came from a failure o
   `gh pr view → OPEN` read and the push that relied on it — 35 minutes apart, same cause. A PR-open claim lasts seconds,
   not a turn: read `state` + `headRefOid` right before the push/merge, assert `headRefOid` again right after, and never
   write a PR number into a doc before the PR exists (DEBT-24, promoted 2026-09-14).
+- **Write perishable claims as predicates; never spend a pull request refreshing a value.** Rule above governs a claim an *action* depends
+  on; this governs a claim *stored for a reader*. `STATE.md` §3A's "In flight" bullet and §1's branch field go false when their own PR
+  merges — three regenerations in eight hours on 2026-09-14/15, and one merge landed 68 seconds after the sentence about it was measured
+  `OPEN`. Owner's convention (2026-09-15): write the command that re-derives the fact (`gh pr list --state open`,
+  `git rev-parse --abbrev-ref HEAD`) with a dated value beside it, and fix stale values inside the next content PR. (Mirrored from
+  `AGENTS.md`, canonical — rule twelve.)
 
 CI (`.github/workflows/ci.yml`) enforces the code half of this list via `npm run verify` on every PR —
 typecheck, eslint, stylelint, tests, build, plus a guard that the build emitted no `vite.config.js`
